@@ -1,0 +1,6 @@
+stages:
+  - publish
+
+include:
+  - project: devops/pipes
+    file: /templates/semantic-release.gitlab-ci.yml
