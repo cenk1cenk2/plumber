@@ -3,6 +3,7 @@ package plumber
 import (
 	"github.com/sirupsen/logrus"
 	"github.com/workanator/go-floc/v3"
+	"github.com/workanator/go-floc/v3/run"
 	. "github.com/workanator/go-floc/v3/run"
 
 	"errors"
@@ -13,7 +14,8 @@ import (
 )
 
 type TaskList[Ctx struct{}] struct {
-	Tasks   []Task[Ctx]
+	Tasks []Task[Ctx]
+
 	App     *App
 	Context Ctx
 	Log     *logrus.Logger
@@ -66,6 +68,14 @@ func (t *TaskList[Ctx]) Run() error {
 		return err
 	}
 
-	floc.NewContext()
+	ctx := floc.NewContext()
+	ctrl := floc.NewControl(ctx)
+
+	flow := run.Sequence()
+
+	if _, _, err := floc.RunWith(ctx, ctrl, flow); err != nil {
+		return err
+	}
+
 	return nil
 }

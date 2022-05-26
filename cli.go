@@ -14,45 +14,51 @@ import (
 type App struct {
 	Cli         *cli.App
 	Log         *logrus.Logger
-	Environment struct {
-		Debug bool
-		CI    bool
-	}
+	Environment AppEnvironment
+}
+
+type AppEnvironment struct {
+	Debug bool
+	CI    bool
 }
 
 // Cli.New Creates a new plumber for pipes.
-func (c *App) New(app *cli.App) *App {
-	c.Cli = app
+func (a *App) New(c *cli.App) *App {
+	a.Cli = c
 
-	c.Cli.Before = c.before(c.Cli.Before)
+	a.Cli.Before = a.before()
 
-	c.Cli.Flags = append(CliDefaultFlags, c.Cli.Flags...)
+	a.Cli.Flags = append(CliDefaultFlags, a.Cli.Flags...)
 
-	return c
+	a.Environment = AppEnvironment{}
+
+	return a
 }
 
 // Cli.Run Starts the application.
-func (c *App) Run() {
-	c.greet()
+func (a *App) Run() *App {
+	a.greet()
 
-	if err := c.Cli.Run(os.Args); err != nil {
-		if c.Log == nil {
-			c.Log = logger.InitiateLogger(logrus.DebugLevel)
+	if err := a.Cli.Run(os.Args); err != nil {
+		if a.Log == nil {
+			a.Log = logger.InitiateLogger(logrus.DebugLevel)
 		}
 
-		c.Log.Fatalln(err)
+		a.Log.Fatalln(err)
 	}
+
+	return a
 }
 
 // Cli.greet Greet the user with the application name and version.
-func (c *App) greet() {
-	name := fmt.Sprintf("%s - %s", c.Cli.Name, c.Cli.Version)
+func (a *App) greet() {
+	name := fmt.Sprintf("%s - %s", a.Cli.Name, a.Cli.Version)
 	fmt.Println(name)
 	fmt.Println(strings.Repeat("-", len(name)))
 }
 
 // Cli.loadEnvironment Loads the given environment file to the application.
-func (c *App) loadEnvironment() error {
+func (a *App) loadEnvironment() error {
 	if env := os.Getenv("ENV_FILE"); env != "" {
 		if err := godotenv.Load(env); err != nil {
 			return err
@@ -63,9 +69,9 @@ func (c *App) loadEnvironment() error {
 }
 
 // Cli.before Before function for the CLI that gets executed before the action.
-func (c *App) before(b cli.BeforeFunc) cli.BeforeFunc {
+func (a *App) before() cli.BeforeFunc {
 	return func(ctx *cli.Context) error {
-		err := c.loadEnvironment()
+		err := a.loadEnvironment()
 
 		if err != nil {
 			return err
@@ -82,17 +88,17 @@ func (c *App) before(b cli.BeforeFunc) cli.BeforeFunc {
 		if ctx.Bool("debug") {
 			level = logrus.DebugLevel
 
-			c.Environment.Debug = true
+			a.Environment.Debug = true
 		}
 
 		if ctx.Bool("ci") {
-			c.Environment.CI = true
+			a.Environment.CI = true
 		}
 
-		c.Log = logger.InitiateLogger(level)
+		a.Log = logger.InitiateLogger(level)
 
-		if b != nil {
-			if err := b(ctx); err != nil {
+		if a.Cli.Before != nil {
+			if err := a.Cli.Before(ctx); err != nil {
 				return err
 			}
 		}

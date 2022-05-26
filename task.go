@@ -2,14 +2,18 @@ package plumber
 
 import (
 	"github.com/sirupsen/logrus"
+	"github.com/workanator/go-floc/v3"
 )
 
 type Task[Ctx struct{}] struct {
-	Name     string
-	Options  TaskOptions[Ctx]
-	taskList TaskList[Ctx]
-	Log      *logrus.Entry
-	Context  *Ctx
+	Name    string
+	Options TaskOptions[Ctx]
+
+	App     *App
+	Log     *logrus.Entry
+	Context *Ctx
+
+	tl       *TaskList[Ctx]
 	commands []Command
 	fn       task[Ctx]
 }
@@ -40,8 +44,10 @@ func (t *Task[Ctx]) New(tl *TaskList[Ctx], name string, options TaskOptions[Ctx]
 		}
 	}
 
-	t.Log = t.taskList.Log.WithField("context", t.Name)
-	t.Context = &t.taskList.Context
+	t.tl = tl
+	t.Log = tl.Log.WithField("context", t.Name)
+	t.Context = &tl.Context
+	t.App = tl.App
 
 	return t
 }
@@ -58,6 +64,9 @@ func (t *Task[Ctx]) AddCommands(commands ...Command) *Task[Ctx] {
 	return t
 }
 
-func (t *Task[Ctx]) Run() error {
-	return nil
+func (t *Task[Ctx]) Run() floc.Job {
+	return func(ctx floc.Context, ctrl floc.Control) error {
+
+		return nil
+	}
 }
