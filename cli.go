@@ -3,7 +3,9 @@ package plumber
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -15,11 +17,21 @@ type App struct {
 	Cli         *cli.App
 	Log         *logrus.Logger
 	Environment AppEnvironment
+	Control     AppControl
 }
 
 type AppEnvironment struct {
 	Debug bool
 	CI    bool
+}
+
+type AppControl struct {
+	// to communicate the errors while not blocking
+	Err chan error
+	// Fatal errors
+	Fatal chan error
+	// terminate channel
+	Interrupt chan os.Signal
 }
 
 // Cli.New Creates a new plumber for pipes.
@@ -32,12 +44,23 @@ func (a *App) New(c *cli.App) *App {
 
 	a.Environment = AppEnvironment{}
 
+	// create error channels
+	a.Control.Err = make(chan error)
+	a.Control.Fatal = make(chan error, 1)
+	a.Control.Interrupt = make(chan os.Signal)
+
 	return a
 }
 
 // Cli.Run Starts the application.
 func (a *App) Run() *App {
 	a.greet()
+
+	go func() {
+		go a.registerErrorHandler()
+		go a.registerFatalErrorHandler()
+		go a.registerInterruptHandler()
+	}()
 
 	if err := a.Cli.Run(os.Args); err != nil {
 		if a.Log == nil {
@@ -105,4 +128,44 @@ func (a *App) before() cli.BeforeFunc {
 
 		return nil
 	}
+}
+
+// App.registerInterruptHandler Registers the os.Signal listener for the application.
+func (a *App) registerInterruptHandler() {
+	signal.Notify(a.Control.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+	interrupt := <-a.Control.Interrupt
+	a.Log.Errorf(
+		"Terminating the application with operating system signal: %s",
+		interrupt,
+	)
+
+	a.Terminate(1)
+}
+
+// App.registerErrorHandler Registers the error handlers for the runtime errors, this will not terminate application.
+func (a *App) registerErrorHandler() {
+	for {
+		err := <-a.Control.Err
+		if err == nil {
+			return
+		}
+	}
+}
+
+// App.registerFatalErrorHandler Registers the error handler for fatal errors, this will terminate the application.
+func (a *App) registerFatalErrorHandler() {
+	err := <-a.Control.Fatal
+	a.Log.Errorln(err)
+
+	a.Terminate(127)
+}
+
+// App.Terminate Terminates the application.
+func (a *App) Terminate(code int) {
+	close(a.Control.Err)
+	close(a.Control.Fatal)
+	close(a.Control.Interrupt)
+
+	os.Exit(code)
 }

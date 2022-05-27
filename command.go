@@ -18,7 +18,7 @@ type Command struct {
 	stderrLevel logrus.Level
 	stdout      output
 	stderr      output
-	task        *Task[struct{}]
+	task        *Task[struct{}, struct{}]
 	log         *logrus.Entry
 }
 
@@ -37,7 +37,7 @@ const (
 )
 
 // Command.New Creates a new command to be executed.
-func (c *Command) New(task *Task[struct{}], command *exec.Cmd) *Command {
+func (c *Command) New(task *Task[struct{}, struct{}], command *exec.Cmd) *Command {
 	c.cmd = command
 	c.task = task
 	c.log = task.Log

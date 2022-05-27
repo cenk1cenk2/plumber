@@ -1,10 +1,10 @@
 package plumber
 
 import (
+	"sync"
+
 	"github.com/sirupsen/logrus"
 	"github.com/workanator/go-floc/v3"
-	"github.com/workanator/go-floc/v3/run"
-	. "github.com/workanator/go-floc/v3/run"
 
 	"errors"
 	"fmt"
@@ -13,33 +13,47 @@ import (
 	validator "github.com/go-playground/validator/v10"
 )
 
-type TaskList[Ctx struct{}] struct {
-	Tasks []Task[Ctx]
+type TaskList[Pipe struct{}, Ctx struct{}] struct {
+	Tasks floc.Job
 
-	App     *App
-	Context Ctx
-	Log     *logrus.Logger
+	App *App
+
+	Context     Ctx
+	Pipe        Pipe
+	Lock        *sync.RWMutex
+	Log         *logrus.Logger
+	Control     *AppControl
+	Floc        floc.Control
+	flocContext floc.Context
 }
 
-func (t *TaskList[Ctx]) New(a *App) *TaskList[Ctx] {
+func (t *TaskList[Pipe, Ctx]) New(a *App) *TaskList[Pipe, Ctx] {
 	t.App = a
 	t.Log = a.Log
+	t.Control = &a.Control
+	t.Lock = &sync.RWMutex{}
 
 	t.Context = Ctx{}
-	t.Tasks = []Task[Ctx]{}
+
+	t.flocContext = floc.NewContext()
+	t.Floc = floc.NewControl(t.flocContext)
 
 	return t
 }
 
-func (t *TaskList[Ctx]) AddTasks(tasks ...Task[Ctx]) *TaskList[Ctx] {
-	t.Tasks = append(t.Tasks, tasks...)
+func (t *TaskList[Pipe, Ctx]) Set(tasks floc.Job) *TaskList[Pipe, Ctx] {
+	t.Tasks = tasks
 
 	return t
 }
 
-func (t *TaskList[Ctx]) Validate() error {
+func (t *TaskList[Pipe, Ctx]) Get() floc.Job {
+	return t.Tasks
+}
+
+func (t *TaskList[Pipe, Ctx]) Validate(struct{}) error {
 	if err := defaults.Set(&t.Context); err != nil {
-		return fmt.Errorf("Can not set defaults for context: %s", err)
+		return fmt.Errorf("Can not set defaults: %s", err)
 	}
 
 	validate := validator.New()
@@ -49,7 +63,7 @@ func (t *TaskList[Ctx]) Validate() error {
 	if err != nil {
 		for _, err := range err.(validator.ValidationErrors) {
 			error := fmt.Sprintf(
-				"\"%s\" field failed validation: %s",
+				`"%s" field failed validation: %s`,
 				err.Namespace(),
 				err.Tag(),
 			)
@@ -57,23 +71,22 @@ func (t *TaskList[Ctx]) Validate() error {
 			t.Log.Errorln(error)
 		}
 
-		return errors.New("Context validation failed.")
+		return errors.New("Validation failed.")
 	}
 
 	return nil
 }
 
-func (t *TaskList[Ctx]) Run() error {
-	if err := t.Validate(); err != nil {
+func (t *TaskList[Pipe, Ctx]) Run() error {
+	if err := t.Validate(t.Pipe); err != nil {
 		return err
 	}
 
-	ctx := floc.NewContext()
-	ctrl := floc.NewControl(ctx)
+	if err := t.Validate(t.Context); err != nil {
+		return err
+	}
 
-	flow := run.Sequence()
-
-	if _, _, err := floc.RunWith(ctx, ctrl, flow); err != nil {
+	if _, _, err := floc.RunWith(t.flocContext, t.Floc, t.Tasks); err != nil {
 		return err
 	}
 
