@@ -1,3 +1,10 @@
+## [1.5.2](https://gitlab.kilic.dev/libraries/plumber/compare/v1.5.1...v1.5.2) (2022-05-28)
+
+
+### Bug Fixes
+
+* update wrong singla ([30aa51c](https://gitlab.kilic.dev/libraries/plumber/commit/30aa51c85f0909ec9c5688663c3b980bc14fb1a0))
+
 ## [1.5.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.5.0...v1.5.1) (2022-05-28)
 
 
