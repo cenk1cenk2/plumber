@@ -1,3 +1,10 @@
+## [1.4.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.4.0...v1.4.1) (2022-05-28)
+
+
+### Bug Fixes
+
+* generics error ([d4b424b](https://gitlab.kilic.dev/libraries/plumber/commit/d4b424be8ef4ee989edc9eca5e06f844712ce2e2))
+
 # [1.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.3.0...v1.4.0) (2022-05-28)
 
 
