@@ -148,7 +148,7 @@ func (a *App) defaultAction() cli.ActionFunc {
 
 // App.registerInterruptHandler Registers the os.Signal listener for the application.
 func (a *App) registerInterruptHandler() {
-	signal.Notify(a.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(a.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGKILL)
 
 	interrupt := <-a.Channel.Interrupt
 	a.Log.Errorf(
@@ -173,10 +173,14 @@ func (a *App) registerErrorHandler() {
 
 // App.registerFatalErrorHandler Registers the error handler for fatal errors, this will terminate the application.
 func (a *App) registerFatalErrorHandler() {
-	err := <-a.Channel.Fatal
-	a.Log.Errorln(err)
+	for {
+		err := <-a.Channel.Fatal
+		if err == nil {
+			return
+		}
 
-	a.Terminate(127)
+		a.Terminate(127)
+	}
 }
 
 // App.Terminate Terminates the application.
