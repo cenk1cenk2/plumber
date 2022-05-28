@@ -1,3 +1,10 @@
+# [2.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.3.2...v2.4.0) (2022-05-28)
+
+
+### Features
+
+* add fail safe conditionsn to run njoibs ([c8fb766](https://gitlab.kilic.dev/libraries/plumber/commit/c8fb766f2f51a021376de597cc72836f1312c41d))
+
 ## [2.3.2](https://gitlab.kilic.dev/libraries/plumber/compare/v2.3.1...v2.3.2) (2022-05-28)
 
 
