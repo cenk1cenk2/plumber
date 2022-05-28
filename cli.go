@@ -40,6 +40,10 @@ func (a *App) New(c *cli.App) *App {
 
 	a.Cli.Before = a.before()
 
+	if a.Cli.Action == nil {
+		a.Cli.Action = a.defaultAction()
+	}
+
 	a.Cli.Flags = append(CliDefaultFlags, a.Cli.Flags...)
 
 	a.Environment = AppEnvironment{}
@@ -125,6 +129,18 @@ func (a *App) before() cli.BeforeFunc {
 				return err
 			}
 		}
+
+		return nil
+	}
+}
+
+func (a *App) defaultAction() cli.ActionFunc {
+	return func(ctx *cli.Context) error {
+		if err := cli.ShowAppHelp(ctx); err != nil {
+			return err
+		}
+
+		a.Log.Fatalln("Application needs a subcommand to run.")
 
 		return nil
 	}

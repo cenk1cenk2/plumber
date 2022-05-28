@@ -7,7 +7,7 @@ import (
 	"github.com/workanator/go-floc/v3"
 )
 
-type Task[Pipe struct{}, Ctx struct{}] struct {
+type Task[Pipe TaskListStore, Ctx TaskListStore] struct {
 	Name    string
 	Options TaskOptions[Pipe, Ctx]
 
@@ -25,13 +25,13 @@ type Task[Pipe struct{}, Ctx struct{}] struct {
 	fn       task[Pipe, Ctx]
 }
 
-type TaskOptions[Pipe struct{}, Ctx struct{}] struct {
+type TaskOptions[Pipe TaskListStore, Ctx TaskListStore] struct {
 	Skip    func(t *Task[Pipe, Ctx]) bool
 	Disable func(t *Task[Pipe, Ctx]) bool
 }
 
 type (
-	task[Pipe struct{}, Ctx struct{}] func(*Task[Pipe, Ctx], floc.Control) error
+	task[Pipe TaskListStore, Ctx TaskListStore] func(*Task[Pipe, Ctx], floc.Control) error
 )
 
 func (t *Task[Pipe, Ctx]) New(taskList *TaskList[Pipe, Ctx], name string, options TaskOptions[Pipe, Ctx]) *Task[Pipe, Ctx] {
@@ -58,8 +58,8 @@ func (t *Task[Pipe, Ctx]) New(taskList *TaskList[Pipe, Ctx], name string, option
 	t.Lock = taskList.Lock
 	t.Control = taskList.Control
 
-	t.Context = &taskList.Context
-	t.Pipe = &taskList.Pipe
+	t.Context = taskList.Context
+	t.Pipe = taskList.Pipe
 	t.Floc = taskList.Floc
 
 	return t

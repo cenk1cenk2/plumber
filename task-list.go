@@ -13,13 +13,17 @@ import (
 	validator "github.com/go-playground/validator/v10"
 )
 
-type TaskList[Pipe struct{}, Ctx struct{}] struct {
+type TaskListStore interface {
+	any
+}
+
+type TaskList[Pipe TaskListStore, Ctx TaskListStore] struct {
 	Tasks floc.Job
 
 	App *App
 
-	Context     Ctx
-	Pipe        Pipe
+	Pipe        *Pipe
+	Context     *Ctx
 	Lock        *sync.RWMutex
 	Log         *logrus.Logger
 	Control     *AppControl
@@ -27,13 +31,14 @@ type TaskList[Pipe struct{}, Ctx struct{}] struct {
 	flocContext floc.Context
 }
 
-func (t *TaskList[Pipe, Ctx]) New(a *App) *TaskList[Pipe, Ctx] {
+func (t *TaskList[Pipe, Ctx]) New(a *App, pipe *Pipe, context *Ctx) *TaskList[Pipe, Ctx] {
 	t.App = a
 	t.Log = a.Log
 	t.Control = &a.Control
 	t.Lock = &sync.RWMutex{}
 
-	t.Context = Ctx{}
+	t.Pipe = pipe
+	t.Context = context
 
 	t.flocContext = floc.NewContext()
 	t.Floc = floc.NewControl(t.flocContext)
@@ -51,14 +56,14 @@ func (t *TaskList[Pipe, Ctx]) Get() floc.Job {
 	return t.Tasks
 }
 
-func (t *TaskList[Pipe, Ctx]) Validate(struct{}) error {
-	if err := defaults.Set(&t.Context); err != nil {
+func (t *TaskList[Pipe, Ctx]) Validate(data TaskListStore) error {
+	if err := defaults.Set(&data); err != nil {
 		return fmt.Errorf("Can not set defaults: %s", err)
 	}
 
 	validate := validator.New()
 
-	err := validate.Struct(&t.Context)
+	err := validate.Struct(&data)
 
 	if err != nil {
 		for _, err := range err.(validator.ValidationErrors) {
