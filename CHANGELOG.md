@@ -1,3 +1,10 @@
+# [1.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.2.1...v1.3.0) (2022-05-28)
+
+
+### Features
+
+* add ability to run subtasks ([b1b1e72](https://gitlab.kilic.dev/libraries/plumber/commit/b1b1e720bf79fef366289cc37e2f72a3fab13938))
+
 ## [1.2.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.2.0...v1.2.1) (2022-05-28)
 
 
