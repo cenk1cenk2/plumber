@@ -1,3 +1,10 @@
+## [1.1.2](https://gitlab.kilic.dev/libraries/plumber/compare/v1.1.1...v1.1.2) (2022-05-28)
+
+
+### Bug Fixes
+
+* error handler ([668f92a](https://gitlab.kilic.dev/libraries/plumber/commit/668f92aae709597bcc46cbbaa3de113630cf6624))
+
 ## [1.1.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.1.0...v1.1.1) (2022-05-28)
 
 
