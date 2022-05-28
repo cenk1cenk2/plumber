@@ -33,7 +33,7 @@ type (
 
 const (
 	command_started  string = "RUN"
-	command_failed   string = "FAILED"
+	command_failed   string = "FAIL"
 	command_finished string = "END"
 	command_exited   string = "EXIT"
 )

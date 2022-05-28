@@ -40,6 +40,11 @@ type (
 	taskPredicateFn[Pipe TaskListData, Ctx TaskListData] func(*Task[Pipe, Ctx]) bool
 )
 
+const (
+	task_disabled = "OFF"
+	task_skipped  = "SKIP"
+)
+
 func (t *Task[Pipe, Ctx]) New(tl *TaskList[Pipe, Ctx], name string) *Task[Pipe, Ctx] {
 	t.Name = name
 	t.options = TaskOptions[Pipe, Ctx]{
@@ -187,12 +192,12 @@ func (t *Task[Pipe, Ctx]) RunCommandJobAsJobParallel() error {
 
 func (t *Task[Pipe, Ctx]) Run() error {
 	if result := t.options.Disable(t); result {
-		t.Log.WithField("context", "DISABLE").
+		t.Log.WithField("context", task_disabled).
 			Debugf("%s", t.Name)
 
 		return nil
 	} else if result := t.options.Skip(t); result {
-		t.Log.WithField("context", "SKIP").
+		t.Log.WithField("context", task_skipped).
 			Warnf("%s", t.Name)
 
 		return nil
