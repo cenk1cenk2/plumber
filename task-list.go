@@ -122,6 +122,10 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 		return err
 	}
 
+	if t.Tasks == nil {
+		return fmt.Errorf("Task list is empty.")
+	}
+
 	if _, _, err := floc.RunWith(t.flocContext, t.Control, t.Tasks); err != nil {
 		return err
 	}
@@ -134,6 +138,10 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 }
 
 func (t *TaskList[Pipe, Ctx]) RunSubtasks(job floc.Job) error {
+	if job == nil {
+		return fmt.Errorf("Subtask list is empty.")
+	}
+
 	if _, _, err := floc.RunWith(t.flocContext, t.Control, job); err != nil {
 		return err
 	}

@@ -22,7 +22,8 @@ type Task[Pipe TaskListData, Ctx TaskListData] struct {
 
 	TaskList *TaskList[Pipe, Ctx]
 
-	commands  []Command
+	subtasks  floc.Job
+	commands  []Command[Pipe, Ctx]
 	fn        taskFn[Pipe, Ctx]
 	runBefore taskFn[Pipe, Ctx]
 	runAfter  taskFn[Pipe, Ctx]
@@ -48,7 +49,7 @@ func (t *Task[Pipe, Ctx]) New(tl *TaskList[Pipe, Ctx], name string) *Task[Pipe, 
 			return false
 		},
 	}
-	t.commands = []Command{}
+	t.commands = []Command[Pipe, Ctx]{}
 
 	t.runBefore = func(tl *Task[Pipe, Ctx], c floc.Control) error {
 		return nil
@@ -77,6 +78,20 @@ func (t *Task[Pipe, Ctx]) Set(fn taskFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
 	return t
 }
 
+func (t *Task[Pipe, Ctx]) SetSubtasks(fn func(floc.Job) floc.Job) *Task[Pipe, Ctx] {
+	t.subtasks = fn(t.subtasks)
+
+	return t
+}
+
+func (t *Task[Pipe, Ctx]) GetSubtasks() floc.Job {
+	return t.subtasks
+}
+
+func (t *Task[Pipe, Ctx]) RunSubtasks() error {
+	return t.TaskList.RunSubtasks(t.subtasks)
+}
+
 func (t *Task[Pipe, Ctx]) ShouldDisable(fn taskPredicateFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
 	t.options.Disable = fn
 
@@ -101,13 +116,13 @@ func (t *Task[Pipe, Ctx]) ShouldRunAfter(fn taskFn[Pipe, Ctx]) *Task[Pipe, Ctx] 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) AddCommands(commands ...Command) *Task[Pipe, Ctx] {
+func (t *Task[Pipe, Ctx]) AddCommands(commands ...Command[Pipe, Ctx]) *Task[Pipe, Ctx] {
 	t.commands = append(t.commands, commands...)
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) GetCommands() []Command {
+func (t *Task[Pipe, Ctx]) GetCommands() []Command[Pipe, Ctx] {
 	return t.commands
 }
 
