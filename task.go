@@ -89,7 +89,7 @@ func (t *Task[Pipe, Ctx]) GetSubtasks() floc.Job {
 }
 
 func (t *Task[Pipe, Ctx]) RunSubtasks() error {
-	return t.TaskList.RunSubtasks(t.subtasks)
+	return t.TaskList.RunJobs(t.subtasks)
 }
 
 func (t *Task[Pipe, Ctx]) ShouldDisable(fn taskPredicateFn[Pipe, Ctx]) *Task[Pipe, Ctx] {

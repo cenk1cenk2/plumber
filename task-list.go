@@ -137,7 +137,7 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 	return nil
 }
 
-func (t *TaskList[Pipe, Ctx]) RunSubtasks(job floc.Job) error {
+func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
 	if job == nil {
 		return fmt.Errorf("Subtask list is empty.")
 	}
