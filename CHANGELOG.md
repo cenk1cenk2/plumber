@@ -1,3 +1,10 @@
+## [1.6.10](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.9...v1.6.10) (2022-05-28)
+
+
+### Bug Fixes
+
+* add back error logging ([288b0cb](https://gitlab.kilic.dev/libraries/plumber/commit/288b0cb7cdb657a5f0b02db5c0e3d1bb87952717))
+
 ## [1.6.9](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.8...v1.6.9) (2022-05-28)
 
 
