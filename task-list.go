@@ -133,6 +133,14 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 	return nil
 }
 
+func (t *TaskList[Pipe, Ctx]) RunSubtasks(job floc.Job) error {
+	if _, _, err := floc.RunWith(t.flocContext, t.Control, job); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (t *TaskList[Pipe, Ctx]) Job(c *cli.Context) floc.Job {
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		t.flocContext = ctx
