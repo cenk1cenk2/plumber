@@ -13,13 +13,13 @@ import (
 	"gitlab.kilic.dev/libraries/go-utils/utils"
 )
 
-type Command struct {
+type Command[Pipe TaskListData, Ctx TaskListData] struct {
 	cmd         *exec.Cmd
 	stdoutLevel logrus.Level
 	stderrLevel logrus.Level
 	stdout      output
 	stderr      output
-	task        *Task[TaskListData, TaskListData]
+	task        *Task[Pipe, Ctx]
 	log         *logrus.Entry
 }
 
@@ -39,7 +39,7 @@ const (
 )
 
 // Command.New Creates a new command to be executed.
-func (c *Command) New(task *Task[TaskListData, TaskListData], command string, args ...string) *Command {
+func (c *Command[Pipe, Ctx]) New(task *Task[Pipe, Ctx], command string, args ...string) *Command[Pipe, Ctx] {
 	c.cmd = exec.Command(command, args...)
 	c.task = task
 	c.log = task.Log
@@ -49,7 +49,7 @@ func (c *Command) New(task *Task[TaskListData, TaskListData], command string, ar
 	return c
 }
 
-func (c *Command) Set(fn cmdFn) *Command {
+func (c *Command[Pipe, Ctx]) Set(fn cmdFn) *Command[Pipe, Ctx] {
 	cmd, err := fn(c.cmd)
 
 	if err != nil {
@@ -62,7 +62,7 @@ func (c *Command) Set(fn cmdFn) *Command {
 }
 
 // Command.SetLogLevel Sets the log level specific to this command.
-func (c *Command) SetLogLevel(stdout logrus.Level, stderr logrus.Level) *Command {
+func (c *Command[Pipe, Ctx]) SetLogLevel(stdout logrus.Level, stderr logrus.Level) *Command[Pipe, Ctx] {
 	if stdout == 0 {
 		c.stdoutLevel = logrus.InfoLevel
 	}
@@ -75,7 +75,7 @@ func (c *Command) SetLogLevel(stdout logrus.Level, stderr logrus.Level) *Command
 }
 
 // Command.Run Run the defined command.
-func (c *Command) Run() error {
+func (c *Command[Pipe, Ctx]) Run() error {
 	cmd := strings.Join(c.cmd.Args, " ")
 
 	c.log.WithField("context", command_started).
@@ -95,14 +95,14 @@ func (c *Command) Run() error {
 	return nil
 }
 
-func (c *Command) Job() floc.Job {
+func (c *Command[Pipe, Ctx]) Job() floc.Job {
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		return c.Run()
 	}
 }
 
 // Command.pipe Executes the command and pipes the output through the logger.
-func (c *Command) pipe() error {
+func (c *Command[Pipe, Ctx]) pipe() error {
 	cmd := strings.Join(c.cmd.Args, " ")
 
 	if err := c.createReaders(); err != nil {
@@ -134,7 +134,7 @@ func (c *Command) pipe() error {
 }
 
 // Command.createReaders Creates closers and readers for stdout and stderr.
-func (c *Command) createReaders() error {
+func (c *Command[Pipe, Ctx]) createReaders() error {
 	closer, err := c.cmd.StdoutPipe()
 
 	if err != nil {
@@ -159,7 +159,7 @@ func (c *Command) createReaders() error {
 }
 
 // Command.handleStream Handles incoming data stream from a command.
-func (c *Command) handleStream(output output, level logrus.Level) {
+func (c *Command[Pipe, Ctx]) handleStream(output output, level logrus.Level) {
 	defer output.closer.Close()
 
 	log := c.log.WithFields(logrus.Fields{})
