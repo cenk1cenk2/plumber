@@ -61,26 +61,26 @@ func (t *TaskList[Pipe, Ctx]) New(a *App, pipe *Pipe, context *Ctx) *TaskList[Pi
 	return t
 }
 
+func (t *TaskList[Pipe, Ctx]) GetTasks() floc.Job {
+	return t.Tasks
+}
+
 func (t *TaskList[Pipe, Ctx]) SetTasks(tasks floc.Job) *TaskList[Pipe, Ctx] {
 	t.Tasks = tasks
 
 	return t
 }
 
-func (t *TaskList[Pipe, Ctx]) SetRunBefore(fn taskListFn[Pipe, Ctx]) *TaskList[Pipe, Ctx] {
+func (t *TaskList[Pipe, Ctx]) ShouldRunBefore(fn taskListFn[Pipe, Ctx]) *TaskList[Pipe, Ctx] {
 	t.runBefore = fn
 
 	return t
 }
 
-func (t *TaskList[Pipe, Ctx]) SetRunAfter(fn taskListFn[Pipe, Ctx]) *TaskList[Pipe, Ctx] {
+func (t *TaskList[Pipe, Ctx]) ShouldRunAfter(fn taskListFn[Pipe, Ctx]) *TaskList[Pipe, Ctx] {
 	t.runAfter = fn
 
 	return t
-}
-
-func (t *TaskList[Pipe, Ctx]) Get() floc.Job {
-	return t.Tasks
 }
 
 func (t *TaskList[Pipe, Ctx]) Validate(data TaskListData) error {
