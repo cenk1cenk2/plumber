@@ -1,3 +1,10 @@
+## [1.6.8](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.7...v1.6.8) (2022-05-28)
+
+
+### Bug Fixes
+
+* update floc handling ([f328e40](https://gitlab.kilic.dev/libraries/plumber/commit/f328e40b1837e3ca5fc3b33c1f070fab0d72b9c2))
+
 ## [1.6.7](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.6...v1.6.7) (2022-05-28)
 
 
