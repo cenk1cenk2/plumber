@@ -20,7 +20,7 @@ type Task[Pipe TaskListData, Ctx TaskListData] struct {
 	Context *Ctx
 	Control floc.Control
 
-	taskList *TaskList[Pipe, Ctx]
+	TaskList *TaskList[Pipe, Ctx]
 
 	commands []Command
 	fn       taskFn[Pipe, Ctx]
@@ -48,7 +48,7 @@ func (t *Task[Pipe, Ctx]) New(taskList *TaskList[Pipe, Ctx], name string) *Task[
 	}
 	t.commands = []Command{}
 
-	t.taskList = taskList
+	t.TaskList = taskList
 
 	t.App = taskList.App
 	t.Log = taskList.Log.WithField("context", t.Name)
