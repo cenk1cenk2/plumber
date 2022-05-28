@@ -1,3 +1,10 @@
+## [1.6.3](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.2...v1.6.3) (2022-05-28)
+
+
+### Bug Fixes
+
+* go the direct initiation route ([61f3190](https://gitlab.kilic.dev/libraries/plumber/commit/61f319022dc778b7db813143da216b10866c5853))
+
 ## [1.6.2](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.1...v1.6.2) (2022-05-28)
 
 
