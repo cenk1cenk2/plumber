@@ -1,3 +1,10 @@
+# [1.6.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.5.2...v1.6.0) (2022-05-28)
+
+
+### Features
+
+* update flag injection to be more automated ([00d0509](https://gitlab.kilic.dev/libraries/plumber/commit/00d0509db3302260ea5960a31a21cd406f93356d))
+
 ## [1.5.2](https://gitlab.kilic.dev/libraries/plumber/compare/v1.5.1...v1.5.2) (2022-05-28)
 
 
