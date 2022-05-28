@@ -1,3 +1,10 @@
+# [2.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.1.1...v2.2.0) (2022-05-28)
+
+
+### Features
+
+* add markdown doc generation ([1b90508](https://gitlab.kilic.dev/libraries/plumber/commit/1b90508005ccdd2564d4e2552294fd2042369bbc))
+
 ## [2.1.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.1.0...v2.1.1) (2022-05-28)
 
 
