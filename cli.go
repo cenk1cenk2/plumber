@@ -148,7 +148,7 @@ func (a *App) defaultAction() cli.ActionFunc {
 
 // App.registerInterruptHandler Registers the os.Signal listener for the application.
 func (a *App) registerInterruptHandler() {
-	signal.Notify(a.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGKILL)
+	signal.Notify(a.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
 	interrupt := <-a.Channel.Interrupt
 	a.Log.Errorf(
