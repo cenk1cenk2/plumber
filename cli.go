@@ -198,6 +198,7 @@ func (a *App) registerFatalErrorHandler() {
 			return
 		}
 
+		a.Log.Errorln(err)
 		a.Terminate(127)
 	}
 }
