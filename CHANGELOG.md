@@ -1,3 +1,10 @@
+## [1.6.9](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.8...v1.6.9) (2022-05-28)
+
+
+### Bug Fixes
+
+* deubg version ([760b9f3](https://gitlab.kilic.dev/libraries/plumber/commit/760b9f34c5697d352a3c22e5de9e7fd37e398131))
+
 ## [1.6.8](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.7...v1.6.8) (2022-05-28)
 
 
