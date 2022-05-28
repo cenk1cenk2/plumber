@@ -1,3 +1,10 @@
+## [2.3.2](https://gitlab.kilic.dev/libraries/plumber/compare/v2.3.1...v2.3.2) (2022-05-28)
+
+
+### Bug Fixes
+
+* errors with subtasks ([436029a](https://gitlab.kilic.dev/libraries/plumber/commit/436029af4a279e28d88c36d909bc178aa761fd79))
+
 ## [2.3.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.3.0...v2.3.1) (2022-05-28)
 
 
