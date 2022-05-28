@@ -81,13 +81,13 @@ func (t *TaskList[Pipe, Ctx]) ShouldRunAfter(fn taskListFn[Pipe, Ctx]) *TaskList
 }
 
 func (t *TaskList[Pipe, Ctx]) Validate(data TaskListData) error {
-	if err := defaults.Set(&data); err != nil {
+	if err := defaults.Set(data); err != nil {
 		return fmt.Errorf("Can not set defaults: %s", err)
 	}
 
 	validate := validator.New()
 
-	err := validate.Struct(&data)
+	err := validate.Struct(data)
 
 	if err != nil {
 		for _, err := range err.(validator.ValidationErrors) {
@@ -107,13 +107,13 @@ func (t *TaskList[Pipe, Ctx]) Validate(data TaskListData) error {
 }
 
 func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
-	if err := t.Validate(t.Pipe); err != nil {
-		return err
-	}
-
-	if err := t.Validate(t.Context); err != nil {
-		return err
-	}
+	// if err := t.Validate(&t.Pipe); err != nil {
+	// 	return err
+	// }
+	//
+	// if err := t.Validate(&t.Context); err != nil {
+	// 	return err
+	// }
 
 	if err := t.runBefore(t, c); err != nil {
 		return err
@@ -134,6 +134,8 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 			return err
 		}
 		return nil
+	case result.IsCanceled():
+		return fmt.Errorf(data.(string))
 	case result.IsFailed():
 		return fmt.Errorf(data.(string))
 	default:
@@ -142,10 +144,6 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 }
 
 func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
-	if job == nil {
-		return fmt.Errorf("Subtask list is empty.")
-	}
-
 	result, data, err := floc.RunWith(t.flocContext, t.Control, job)
 
 	if err != nil {
@@ -155,6 +153,8 @@ func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
 	switch {
 	case result.IsCompleted() || result.IsFinished():
 		return nil
+	case result.IsCanceled():
+		return fmt.Errorf(data.(string))
 	case result.IsFailed():
 		return fmt.Errorf(data.(string))
 	default:
