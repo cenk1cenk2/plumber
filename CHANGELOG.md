@@ -1,3 +1,10 @@
+# [2.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.0.1...v2.1.0) (2022-05-28)
+
+
+### Features
+
+* update ([7780681](https://gitlab.kilic.dev/libraries/plumber/commit/77806814fb4f431d3c902061fd102265c7ec8d75))
+
 ## [2.0.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.0.0...v2.0.1) (2022-05-28)
 
 
