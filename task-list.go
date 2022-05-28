@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 	"github.com/workanator/go-floc/v3"
 
 	"errors"
@@ -13,41 +14,67 @@ import (
 	validator "github.com/go-playground/validator/v10"
 )
 
-type TaskListStore interface {
+type TaskListData interface {
 	any
 }
 
-type TaskList[Pipe TaskListStore, Ctx TaskListStore] struct {
+type TaskList[Pipe TaskListData, Ctx TaskListData] struct {
 	Tasks floc.Job
 
 	App *App
 
-	Pipe        *Pipe
-	Context     *Ctx
-	Lock        *sync.RWMutex
-	Log         *logrus.Logger
-	Control     *AppControl
-	Floc        floc.Control
+	Pipe     *Pipe
+	Context  *Ctx
+	Lock     *sync.RWMutex
+	Log      *logrus.Logger
+	Channnel *AppChannel
+	Control  floc.Control
+
 	flocContext floc.Context
+	runBefore   taskListFn[Pipe, Ctx]
+	runAfter    taskListFn[Pipe, Ctx]
 }
+
+type (
+	taskListFn[Pipe TaskListData, Ctx TaskListData] func(*TaskList[Pipe, Ctx], *cli.Context) error
+)
 
 func (t *TaskList[Pipe, Ctx]) New(a *App, pipe *Pipe, context *Ctx) *TaskList[Pipe, Ctx] {
 	t.App = a
 	t.Log = a.Log
-	t.Control = &a.Control
+	t.Channnel = &a.Channel
 	t.Lock = &sync.RWMutex{}
 
 	t.Pipe = pipe
 	t.Context = context
 
+	t.runBefore = func(tl *TaskList[Pipe, Ctx], ctx *cli.Context) error {
+		return nil
+	}
+	t.runAfter = func(tl *TaskList[Pipe, Ctx], ctx *cli.Context) error {
+		return nil
+	}
+
 	t.flocContext = floc.NewContext()
-	t.Floc = floc.NewControl(t.flocContext)
+	t.Control = floc.NewControl(t.flocContext)
 
 	return t
 }
 
-func (t *TaskList[Pipe, Ctx]) Set(tasks floc.Job) *TaskList[Pipe, Ctx] {
+func (t *TaskList[Pipe, Ctx]) SetTasks(tasks floc.Job) *TaskList[Pipe, Ctx] {
 	t.Tasks = tasks
+
+	return t
+}
+
+func (t *TaskList[Pipe, Ctx]) SetRunBefore(fn taskListFn[Pipe, Ctx]) *TaskList[Pipe, Ctx] {
+	t.runBefore = fn
+
+	return t
+}
+
+func (t *TaskList[Pipe, Ctx]) SetRunAfter(fn taskListFn[Pipe, Ctx]) *TaskList[Pipe, Ctx] {
+	t.runAfter = fn
 
 	return t
 }
@@ -56,7 +83,7 @@ func (t *TaskList[Pipe, Ctx]) Get() floc.Job {
 	return t.Tasks
 }
 
-func (t *TaskList[Pipe, Ctx]) Validate(data TaskListStore) error {
+func (t *TaskList[Pipe, Ctx]) Validate(data TaskListData) error {
 	if err := defaults.Set(&data); err != nil {
 		return fmt.Errorf("Can not set defaults: %s", err)
 	}
@@ -82,7 +109,7 @@ func (t *TaskList[Pipe, Ctx]) Validate(data TaskListStore) error {
 	return nil
 }
 
-func (t *TaskList[Pipe, Ctx]) Run() error {
+func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 	if err := t.Validate(t.Pipe); err != nil {
 		return err
 	}
@@ -91,7 +118,15 @@ func (t *TaskList[Pipe, Ctx]) Run() error {
 		return err
 	}
 
-	if _, _, err := floc.RunWith(t.flocContext, t.Floc, t.Tasks); err != nil {
+	if err := t.runBefore(t, c); err != nil {
+		return err
+	}
+
+	if _, _, err := floc.RunWith(t.flocContext, t.Control, t.Tasks); err != nil {
+		return err
+	}
+
+	if err := t.runAfter(t, c); err != nil {
 		return err
 	}
 

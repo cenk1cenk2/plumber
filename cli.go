@@ -17,7 +17,7 @@ type App struct {
 	Cli         *cli.App
 	Log         *logrus.Logger
 	Environment AppEnvironment
-	Control     AppControl
+	Channel     AppChannel
 }
 
 type AppEnvironment struct {
@@ -25,7 +25,7 @@ type AppEnvironment struct {
 	CI    bool
 }
 
-type AppControl struct {
+type AppChannel struct {
 	// to communicate the errors while not blocking
 	Err chan error
 	// Fatal errors
@@ -49,9 +49,9 @@ func (a *App) New(c *cli.App) *App {
 	a.Environment = AppEnvironment{}
 
 	// create error channels
-	a.Control.Err = make(chan error)
-	a.Control.Fatal = make(chan error, 1)
-	a.Control.Interrupt = make(chan os.Signal)
+	a.Channel.Err = make(chan error)
+	a.Channel.Fatal = make(chan error, 1)
+	a.Channel.Interrupt = make(chan os.Signal)
 
 	return a
 }
@@ -148,9 +148,9 @@ func (a *App) defaultAction() cli.ActionFunc {
 
 // App.registerInterruptHandler Registers the os.Signal listener for the application.
 func (a *App) registerInterruptHandler() {
-	signal.Notify(a.Control.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(a.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
-	interrupt := <-a.Control.Interrupt
+	interrupt := <-a.Channel.Interrupt
 	a.Log.Errorf(
 		"Terminating the application with operating system signal: %s",
 		interrupt,
@@ -162,7 +162,7 @@ func (a *App) registerInterruptHandler() {
 // App.registerErrorHandler Registers the error handlers for the runtime errors, this will not terminate application.
 func (a *App) registerErrorHandler() {
 	for {
-		err := <-a.Control.Err
+		err := <-a.Channel.Err
 		if err == nil {
 			return
 		}
@@ -171,7 +171,7 @@ func (a *App) registerErrorHandler() {
 
 // App.registerFatalErrorHandler Registers the error handler for fatal errors, this will terminate the application.
 func (a *App) registerFatalErrorHandler() {
-	err := <-a.Control.Fatal
+	err := <-a.Channel.Fatal
 	a.Log.Errorln(err)
 
 	a.Terminate(127)
@@ -179,9 +179,9 @@ func (a *App) registerFatalErrorHandler() {
 
 // App.Terminate Terminates the application.
 func (a *App) Terminate(code int) {
-	close(a.Control.Err)
-	close(a.Control.Fatal)
-	close(a.Control.Interrupt)
+	close(a.Channel.Err)
+	close(a.Channel.Fatal)
+	close(a.Channel.Interrupt)
 
 	os.Exit(code)
 }

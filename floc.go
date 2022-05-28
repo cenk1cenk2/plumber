@@ -10,12 +10,12 @@ import (
 )
 
 type (
-	predicate[Pipe TaskListStore, Ctx TaskListStore] func(*TaskList[Pipe, Ctx]) bool
-	handler[Pipe TaskListStore, Ctx TaskListStore]   func(*TaskList[Pipe, Ctx])
+	taskListPredicateFn[Pipe TaskListData, Ctx TaskListData] func(*TaskList[Pipe, Ctx]) bool
+	guardHandlerFn[Pipe TaskListData, Ctx TaskListData]      func(*TaskList[Pipe, Ctx])
 )
 
 // TaskList.Predicate Creates a new floc predicate out of the given conditions.
-func (t *TaskList[Pipe, Ctx]) Predicate(fn predicate[Pipe, Ctx]) floc.Predicate {
+func (t *TaskList[Pipe, Ctx]) Predicate(fn taskListPredicateFn[Pipe, Ctx]) floc.Predicate {
 	return func(ctx floc.Context) bool {
 		return fn(t)
 	}
@@ -301,7 +301,7 @@ func (t *TaskList[Pipe, Ctx]) GuardTimeout(job floc.Job, timeout time.Duration) 
 // In addition it takes TimeoutTrigger func (t *TaskList[Pipe, Ctx])  which called if time is out.
 // The job is run in it's own goroutine while the current goroutine waits
 // until the job finished or time went out or the flow is finished.
-func (t *TaskList[Pipe, Ctx]) GuardOnTimeout(job floc.Job, fn handler[Pipe, Ctx], timeout time.Duration) floc.Job {
+func (t *TaskList[Pipe, Ctx]) GuardOnTimeout(job floc.Job, fn guardHandlerFn[Pipe, Ctx], timeout time.Duration) floc.Job {
 	return guard.OnTimeout(
 		guard.ConstTimeout(timeout),
 		nil,
@@ -331,7 +331,7 @@ func (t *TaskList[Pipe, Ctx]) GuardIgnorePanic(job floc.Job) floc.Job {
 // takes PanicTrigger func which is called in case of panic. Guarding the job
 // from falling into panic is effective only if the job runs in the current
 // goroutine.
-func (t *TaskList[Pipe, Ctx]) GuardOnPanic(job floc.Job, fn handler[Pipe, Ctx]) floc.Job {
+func (t *TaskList[Pipe, Ctx]) GuardOnPanic(job floc.Job, fn guardHandlerFn[Pipe, Ctx]) floc.Job {
 	return guard.OnPanic(
 		job,
 		func(ctx floc.Context, ctrl floc.Control, id interface{}) {
