@@ -1,3 +1,10 @@
+# [1.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.1.2...v1.2.0) (2022-05-28)
+
+
+### Features
+
+* feature freeze ([a1938b4](https://gitlab.kilic.dev/libraries/plumber/commit/a1938b4fb2512944a69b2986c6b656a1a2f8a4ad))
+
 ## [1.1.2](https://gitlab.kilic.dev/libraries/plumber/compare/v1.1.1...v1.1.2) (2022-05-28)
 
 
