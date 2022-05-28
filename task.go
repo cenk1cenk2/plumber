@@ -167,6 +167,10 @@ func (t *Task[Pipe, Ctx]) GetCommandJobAsJobSequence() floc.Job {
 	return t.TaskList.JobSequence(jobs...)
 }
 
+func (t *Task[Pipe, Ctx]) RunCommandJobAsJobSequence() error {
+	return t.TaskList.RunJobs(t.GetCommandJobAsJobSequence())
+}
+
 func (t *Task[Pipe, Ctx]) GetCommandJobAsJobParallel() floc.Job {
 	jobs := t.GetCommandJobs()
 
@@ -175,6 +179,10 @@ func (t *Task[Pipe, Ctx]) GetCommandJobAsJobParallel() floc.Job {
 	}
 
 	return t.TaskList.JobParallel(jobs...)
+}
+
+func (t *Task[Pipe, Ctx]) RunCommandJobAsJobParallel() error {
+	return t.TaskList.RunJobs(t.GetCommandJobAsJobParallel())
 }
 
 func (t *Task[Pipe, Ctx]) Run() error {

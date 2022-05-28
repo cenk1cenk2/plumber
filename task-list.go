@@ -145,8 +145,6 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 
 func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
 	if job == nil {
-		t.Log.Debugln("Job list is empty.")
-
 		return nil
 	}
 
