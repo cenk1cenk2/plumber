@@ -22,7 +22,8 @@ type Task[Pipe TaskListData, Ctx TaskListData] struct {
 
 	TaskList *TaskList[Pipe, Ctx]
 
-	subtasks  floc.Job
+	subtask   floc.Job
+	emptyJob  floc.Job
 	commands  []Command[Pipe, Ctx]
 	fn        taskFn[Pipe, Ctx]
 	runBefore taskFn[Pipe, Ctx]
@@ -65,6 +66,15 @@ func (t *Task[Pipe, Ctx]) New(tl *TaskList[Pipe, Ctx], name string) *Task[Pipe, 
 	t.Lock = tl.Lock
 	t.Channel = tl.Channel
 
+	t.emptyJob = tl.JobIf(tl.Predicate(func(tl *TaskList[Pipe, Ctx]) bool {
+		return false
+	}),
+		func(ctx floc.Context, ctrl floc.Control) error {
+			return nil
+		},
+	)
+	t.subtask = t.emptyJob
+
 	t.Context = &tl.Context
 	t.Pipe = &tl.Pipe
 	t.Control = tl.Control
@@ -78,18 +88,30 @@ func (t *Task[Pipe, Ctx]) Set(fn taskFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) SetSubtasks(fn func(floc.Job) floc.Job) *Task[Pipe, Ctx] {
-	t.subtasks = fn(t.subtasks)
+func (t *Task[Pipe, Ctx]) SetSubtask(job floc.Job) *Task[Pipe, Ctx] {
+	t.subtask = job
+
+	return t
+}
+
+func (t *Task[Pipe, Ctx]) ExtendSubtask(fn func(floc.Job) floc.Job) *Task[Pipe, Ctx] {
+	t.subtask = fn(t.subtask)
 
 	return t
 }
 
 func (t *Task[Pipe, Ctx]) GetSubtasks() floc.Job {
-	return t.subtasks
+	return t.subtask
 }
 
 func (t *Task[Pipe, Ctx]) RunSubtasks() error {
-	return t.TaskList.RunJobs(t.subtasks)
+	err := t.TaskList.RunJobs(t.subtask)
+
+	if err != nil {
+		t.SetSubtask(t.emptyJob)
+	}
+
+	return err
 }
 
 func (t *Task[Pipe, Ctx]) ShouldDisable(fn taskPredicateFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
