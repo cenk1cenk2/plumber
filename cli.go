@@ -44,7 +44,9 @@ func (a *App) New(c *cli.App) *App {
 		a.Cli.Action = a.defaultAction()
 	}
 
-	a.Cli.Flags = append(CliDefaultFlags, a.Cli.Flags...)
+	if len(c.Flags) > 0 {
+		a.Cli.Flags = a.AppendFlags(c.Flags...)
+	}
 
 	a.Environment = AppEnvironment{}
 
@@ -75,6 +77,15 @@ func (a *App) Run() *App {
 	}
 
 	return a
+}
+
+func (a *App) AppendFlags(flags ...cli.Flag) []cli.Flag {
+	f := []cli.Flag{}
+
+	f = append(f, CliDefaultFlags...)
+	f = append(f, flags...)
+
+	return f
 }
 
 // Cli.greet Greet the user with the application name and version.
