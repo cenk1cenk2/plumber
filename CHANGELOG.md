@@ -1,3 +1,10 @@
+## [1.6.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.0...v1.6.1) (2022-05-28)
+
+
+### Bug Fixes
+
+* extend flag utils ([a8c678c](https://gitlab.kilic.dev/libraries/plumber/commit/a8c678c83949a7ca2cbb950bfd1735627d43767b))
+
 # [1.6.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.5.2...v1.6.0) (2022-05-28)
 
 
