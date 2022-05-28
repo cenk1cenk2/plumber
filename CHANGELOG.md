@@ -1,3 +1,10 @@
+## [1.6.4](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.3...v1.6.4) (2022-05-28)
+
+
+### Bug Fixes
+
+* error with typing ([a1a7795](https://gitlab.kilic.dev/libraries/plumber/commit/a1a77952cf700bc0bef202d59227705cd31d0e84))
+
 ## [1.6.3](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.2...v1.6.3) (2022-05-28)
 
 
