@@ -123,15 +123,22 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 		return fmt.Errorf("Task list is empty.")
 	}
 
-	if _, _, err := floc.RunWith(t.flocContext, t.Control, t.Tasks); err != nil {
+	result, data, err := floc.RunWith(t.flocContext, t.Control, t.Tasks)
+	if err != nil {
 		return err
 	}
 
-	if err := t.runAfter(t, c); err != nil {
-		return err
+	switch {
+	case result.IsCompleted() || result.IsFinished():
+		if err := t.runAfter(t, c); err != nil {
+			return err
+		}
+		return nil
+	case result.IsFailed():
+		return fmt.Errorf(data.(string))
+	default:
+		return fmt.Errorf("The flow has finished with improper state.")
 	}
-
-	return nil
 }
 
 func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
@@ -139,11 +146,20 @@ func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
 		return fmt.Errorf("Subtask list is empty.")
 	}
 
-	if _, _, err := floc.RunWith(t.flocContext, t.Control, job); err != nil {
+	result, data, err := floc.RunWith(t.flocContext, t.Control, job)
+
+	if err != nil {
 		return err
 	}
 
-	return nil
+	switch {
+	case result.IsCompleted() || result.IsFinished():
+		return nil
+	case result.IsFailed():
+		return fmt.Errorf(data.(string))
+	default:
+		return fmt.Errorf("The flow has finished with improper state.")
+	}
 }
 
 func (t *TaskList[Pipe, Ctx]) Job(c *cli.Context) floc.Job {
