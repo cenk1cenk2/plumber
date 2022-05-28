@@ -40,6 +40,8 @@ func (a *App) New(
 ) *App {
 	a.Cli = fn(a)
 
+	a.Cli.Before = a.setup(a.Cli.Before)
+
 	if a.Cli.Action == nil {
 		a.Cli.Action = a.defaultAction()
 	}
@@ -65,7 +67,6 @@ func (a *App) New(
 // Cli.Run Starts the application.
 func (a *App) Run() *App {
 	a.greet()
-	a.setup()
 
 	go func() {
 		go a.registerErrorHandler()
@@ -118,7 +119,7 @@ func (a *App) loadEnvironment() error {
 }
 
 // Cli.setup Before function for the CLI that gets executed setup the action.
-func (a *App) setup() cli.BeforeFunc {
+func (a *App) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	return func(ctx *cli.Context) error {
 		err := a.loadEnvironment()
 
@@ -144,6 +145,12 @@ func (a *App) setup() cli.BeforeFunc {
 
 		a.Log = logger.InitiateLogger(level)
 
+		if before != nil {
+			if err := before(ctx); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	}
 }
@@ -154,9 +161,7 @@ func (a *App) defaultAction() cli.ActionFunc {
 			return err
 		}
 
-		a.Log.Fatalln("Application needs a subcommand to run.")
-
-		return nil
+		return fmt.Errorf("Application needs a subcommand to run.")
 	}
 }
 
