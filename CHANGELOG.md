@@ -1,3 +1,10 @@
+# [1.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.4.1...v1.5.0) (2022-05-28)
+
+
+### Features
+
+* change the way of handling subtasks ([16bfe93](https://gitlab.kilic.dev/libraries/plumber/commit/16bfe931260a5c91b1b4864a6ca635e26b6e7c6a))
+
 ## [1.4.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.4.0...v1.4.1) (2022-05-28)
 
 
