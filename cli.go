@@ -45,7 +45,13 @@ func (a *App) New(c *cli.App) *App {
 	}
 
 	if len(c.Flags) > 0 {
-		a.Cli.Flags = a.AppendFlags(c.Flags...)
+		a.Cli.Flags = a.appendDefaultFlags(c.Flags)
+	}
+
+	if len(c.Commands) > 0 {
+		for i, v := range c.Commands {
+			c.Commands[i].Flags = a.appendDefaultFlags(v.Flags)
+		}
 	}
 
 	a.Environment = AppEnvironment{}
@@ -79,11 +85,12 @@ func (a *App) Run() *App {
 	return a
 }
 
-func (a *App) AppendFlags(flags ...cli.Flag) []cli.Flag {
+func (a *App) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 	f := []cli.Flag{}
 
-	f = append(f, CliDefaultFlags...)
-	f = append(f, flags...)
+	for _, v := range flags {
+		f = append(f, v...)
+	}
 
 	return f
 }
@@ -93,6 +100,15 @@ func (a *App) greet() {
 	name := fmt.Sprintf("%s - %s", a.Cli.Name, a.Cli.Version)
 	fmt.Println(name)
 	fmt.Println(strings.Repeat("-", len(name)))
+}
+
+func (a *App) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
+	f := []cli.Flag{}
+
+	f = append(f, CliDefaultFlags...)
+	f = append(f, flags...)
+
+	return f
 }
 
 // Cli.loadEnvironment Loads the given environment file to the application.
