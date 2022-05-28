@@ -18,6 +18,8 @@ type App struct {
 	Log         *logrus.Logger
 	Environment AppEnvironment
 	Channel     AppChannel
+
+	onTerminateFn
 }
 
 type AppEnvironment struct {
@@ -35,6 +37,10 @@ type AppChannel struct {
 
 	Terminated chan int
 }
+
+type (
+	onTerminateFn func() error
+)
 
 // Cli.New Creates a new plumber for pipes.
 func (a *App) New(
@@ -94,6 +100,12 @@ func (a *App) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 	}
 
 	return f
+}
+
+func (a *App) SetOnTerminate(fn onTerminateFn) *App {
+	a.onTerminateFn = fn
+
+	return a
 }
 
 // Cli.greet Greet the user with the application name and version.
@@ -217,7 +229,11 @@ func (a *App) Terminate(code int) {
 	close(a.Channel.Fatal)
 	close(a.Channel.Interrupt)
 
-	a.Channel.Terminated <- code
+	if a.onTerminateFn != nil {
+		a.Channel.Err <- a.onTerminateFn()
+	}
 
 	os.Exit(code)
+
+	a.Channel.Terminated <- code
 }
