@@ -40,15 +40,11 @@ func (a *App) New(
 ) *App {
 	a.Cli = fn(a)
 
-	a.Cli.Before = a.before()
-
 	if a.Cli.Action == nil {
 		a.Cli.Action = a.defaultAction()
 	}
 
-	if len(a.Cli.Flags) > 0 {
-		a.Cli.Flags = a.appendDefaultFlags(a.Cli.Flags)
-	}
+	a.Cli.Flags = a.appendDefaultFlags(a.Cli.Flags)
 
 	if len(a.Cli.Commands) > 0 {
 		for i, v := range a.Cli.Commands {
@@ -69,6 +65,7 @@ func (a *App) New(
 // Cli.Run Starts the application.
 func (a *App) Run() *App {
 	a.greet()
+	a.setup()
 
 	go func() {
 		go a.registerErrorHandler()
@@ -77,11 +74,7 @@ func (a *App) Run() *App {
 	}()
 
 	if err := a.Cli.Run(os.Args); err != nil {
-		if a.Log == nil {
-			a.Log = logger.InitiateLogger(logrus.DebugLevel)
-		}
-
-		a.Log.Fatalln(err)
+		a.Channel.Fatal <- err
 	}
 
 	return a
@@ -124,8 +117,8 @@ func (a *App) loadEnvironment() error {
 	return nil
 }
 
-// Cli.before Before function for the CLI that gets executed before the action.
-func (a *App) before() cli.BeforeFunc {
+// Cli.setup Before function for the CLI that gets executed setup the action.
+func (a *App) setup() cli.BeforeFunc {
 	return func(ctx *cli.Context) error {
 		err := a.loadEnvironment()
 
@@ -136,8 +129,6 @@ func (a *App) before() cli.BeforeFunc {
 		level, err := logrus.ParseLevel(ctx.String("log_level"))
 
 		if err != nil {
-			fmt.Printf("Log level is not valid with %s, using default.\n", level)
-
 			level = logrus.InfoLevel
 		}
 
@@ -152,12 +143,6 @@ func (a *App) before() cli.BeforeFunc {
 		}
 
 		a.Log = logger.InitiateLogger(level)
-
-		if a.Cli.Before != nil {
-			if err := a.Cli.Before(ctx); err != nil {
-				return err
-			}
-		}
 
 		return nil
 	}
