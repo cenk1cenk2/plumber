@@ -1,3 +1,10 @@
+# [2.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.2.0...v2.3.0) (2022-05-28)
+
+
+### Features
+
+* add new helper functions for commands ([b33f6c2](https://gitlab.kilic.dev/libraries/plumber/commit/b33f6c25c891e9410482565b1f7be112ada2a43e))
+
 # [2.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.1.1...v2.2.0) (2022-05-28)
 
 
