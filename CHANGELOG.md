@@ -1,3 +1,10 @@
+## [1.6.5](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.4...v1.6.5) (2022-05-28)
+
+
+### Bug Fixes
+
+* change defautl function handling ([cfb9efa](https://gitlab.kilic.dev/libraries/plumber/commit/cfb9efac4b608363966ebef8750cda3ca24dd14a))
+
 ## [1.6.4](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.3...v1.6.4) (2022-05-28)
 
 
