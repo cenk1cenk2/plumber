@@ -65,8 +65,8 @@ func (t *Task[Pipe, Ctx]) New(tl *TaskList[Pipe, Ctx], name string) *Task[Pipe, 
 	t.Lock = tl.Lock
 	t.Channel = tl.Channel
 
-	t.Context = tl.Context
-	t.Pipe = tl.Pipe
+	t.Context = &tl.Context
+	t.Pipe = &tl.Pipe
 	t.Control = tl.Control
 
 	return t
