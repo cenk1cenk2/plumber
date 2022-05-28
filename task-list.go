@@ -132,3 +132,12 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 
 	return nil
 }
+
+func (t *TaskList[Pipe, Ctx]) Job(c *cli.Context) floc.Job {
+	return func(ctx floc.Context, ctrl floc.Control) error {
+		t.flocContext = ctx
+		t.Control = ctrl
+
+		return t.Run(c)
+	}
+}
