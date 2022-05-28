@@ -1,3 +1,10 @@
+# [2.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.4.0...v2.5.0) (2022-05-28)
+
+
+### Features
+
+* add direct bindings to run the jobs ([70906f4](https://gitlab.kilic.dev/libraries/plumber/commit/70906f4654f937d9b702a7f9e26796da41bb688a))
+
 # [2.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.3.2...v2.4.0) (2022-05-28)
 
 
