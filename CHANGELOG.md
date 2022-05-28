@@ -1,3 +1,10 @@
+## [1.0.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.0.0...v1.0.1) (2022-05-28)
+
+
+### Bug Fixes
+
+* problems with generics ([e96b56d](https://gitlab.kilic.dev/libraries/plumber/commit/e96b56d48f9284578b8ef0c2443d1073612257be))
+
 # 1.0.0 (2022-05-27)
 
 
