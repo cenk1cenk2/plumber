@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/sirupsen/logrus"
+	"github.com/workanator/go-floc/v3"
 	"gitlab.kilic.dev/libraries/go-utils/utils"
 )
 
@@ -27,6 +28,7 @@ type (
 		closer io.ReadCloser
 		reader *bufio.Reader
 	}
+	cmdFn func(*exec.Cmd) (*exec.Cmd, error)
 )
 
 const (
@@ -37,12 +39,24 @@ const (
 )
 
 // Command.New Creates a new command to be executed.
-func (c *Command) New(task *Task[TaskListData, TaskListData], command *exec.Cmd) *Command {
-	c.cmd = command
+func (c *Command) New(task *Task[TaskListData, TaskListData], command string, args ...string) *Command {
+	c.cmd = exec.Command(command, args...)
 	c.task = task
 	c.log = task.Log
 
 	c.SetLogLevel(0, 0)
+
+	return c
+}
+
+func (c *Command) Set(fn cmdFn) *Command {
+	cmd, err := fn(c.cmd)
+
+	if err != nil {
+		c.task.Channel.Fatal <- err
+	}
+
+	c.cmd = cmd
 
 	return c
 }
@@ -79,6 +93,12 @@ func (c *Command) Run() error {
 	c.log.WithField("context", command_finished).Infof("$ %s", cmd)
 
 	return nil
+}
+
+func (c *Command) Job() floc.Job {
+	return func(ctx floc.Context, ctrl floc.Control) error {
+		return c.Run()
+	}
 }
 
 // Command.pipe Executes the command and pipes the output through the logger.

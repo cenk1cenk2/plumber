@@ -22,8 +22,10 @@ type Task[Pipe TaskListData, Ctx TaskListData] struct {
 
 	TaskList *TaskList[Pipe, Ctx]
 
-	commands []Command
-	fn       taskFn[Pipe, Ctx]
+	commands  []Command
+	fn        taskFn[Pipe, Ctx]
+	runBefore taskFn[Pipe, Ctx]
+	runAfter  taskFn[Pipe, Ctx]
 }
 
 type TaskOptions[Pipe TaskListData, Ctx TaskListData] struct {
@@ -36,7 +38,7 @@ type (
 	taskPredicateFn[Pipe TaskListData, Ctx TaskListData] func(*Task[Pipe, Ctx]) bool
 )
 
-func (t *Task[Pipe, Ctx]) New(taskList *TaskList[Pipe, Ctx], name string) *Task[Pipe, Ctx] {
+func (t *Task[Pipe, Ctx]) New(tl *TaskList[Pipe, Ctx], name string) *Task[Pipe, Ctx] {
 	t.Name = name
 	t.options = TaskOptions[Pipe, Ctx]{
 		Skip: func(t *Task[Pipe, Ctx]) bool {
@@ -48,16 +50,23 @@ func (t *Task[Pipe, Ctx]) New(taskList *TaskList[Pipe, Ctx], name string) *Task[
 	}
 	t.commands = []Command{}
 
-	t.TaskList = taskList
+	t.runBefore = func(tl *Task[Pipe, Ctx], c floc.Control) error {
+		return nil
+	}
+	t.runAfter = func(tl *Task[Pipe, Ctx], c floc.Control) error {
+		return nil
+	}
 
-	t.App = taskList.App
-	t.Log = taskList.Log.WithField("context", t.Name)
-	t.Lock = taskList.Lock
-	t.Channel = taskList.Channnel
+	t.TaskList = tl
 
-	t.Context = taskList.Context
-	t.Pipe = taskList.Pipe
-	t.Control = taskList.Control
+	t.App = tl.App
+	t.Log = tl.Log.WithField("context", t.Name)
+	t.Lock = tl.Lock
+	t.Channel = tl.Channel
+
+	t.Context = tl.Context
+	t.Pipe = tl.Pipe
+	t.Control = tl.Control
 
 	return t
 }
@@ -80,10 +89,35 @@ func (t *Task[Pipe, Ctx]) ShouldSkip(fn taskPredicateFn[Pipe, Ctx]) *Task[Pipe, 
 	return t
 }
 
+func (t *Task[Pipe, Ctx]) ShouldRunBefore(fn taskFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
+	t.runBefore = fn
+
+	return t
+}
+
+func (t *Task[Pipe, Ctx]) ShouldRunAfter(fn taskFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
+	t.runAfter = fn
+
+	return t
+}
+
 func (t *Task[Pipe, Ctx]) AddCommands(commands ...Command) *Task[Pipe, Ctx] {
 	t.commands = append(t.commands, commands...)
 
 	return t
+}
+
+func (t *Task[Pipe, Ctx]) GetCommands() []Command {
+	return t.commands
+}
+
+func (t *Task[Pipe, Ctx]) GetCommandJobs() []floc.Job {
+	jobs := []floc.Job{}
+	for _, v := range t.commands {
+		jobs = append(jobs, v.Job())
+	}
+
+	return jobs
 }
 
 func (t *Task[Pipe, Ctx]) Run() error {
@@ -99,7 +133,19 @@ func (t *Task[Pipe, Ctx]) Run() error {
 		return nil
 	}
 
-	return t.fn(t, t.Control)
+	if err := t.runBefore(t, t.Control); err != nil {
+		return err
+	}
+
+	if err := t.fn(t, t.Control); err != nil {
+		return err
+	}
+
+	if err := t.runAfter(t, t.Control); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (t *Task[Pipe, Ctx]) Job() floc.Job {
