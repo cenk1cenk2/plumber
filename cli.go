@@ -2,8 +2,10 @@ package plumber
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -20,6 +22,7 @@ type App struct {
 	Channel     AppChannel
 
 	onTerminateFn
+	readme string
 }
 
 type AppEnvironment struct {
@@ -55,6 +58,17 @@ func (a *App) New(
 	}
 
 	a.Cli.Flags = a.appendDefaultFlags(a.Cli.Flags)
+
+	a.Cli.Commands = append(a.Cli.Commands, &cli.Command{
+		Name: "docs",
+		Action: func(c *cli.Context) error {
+			return a.generateMarkdownDocumentation()
+		},
+		Hidden:   true,
+		HideHelp: true,
+	})
+
+	a.readme = "README.md"
 
 	if len(a.Cli.Commands) > 0 {
 		for i, v := range a.Cli.Commands {
@@ -110,6 +124,13 @@ func (a *App) SetOnTerminate(fn onTerminateFn) *App {
 	return a
 }
 
+// Cli.SetReadme Sets readme file for documentation generation.
+func (a *App) SetReadme(file string) *App {
+	a.readme = file
+
+	return a
+}
+
 // Cli.greet Greet the user with the application name and version.
 func (a *App) greet() {
 	name := fmt.Sprintf("%s - %s", a.Cli.Name, a.Cli.Version)
@@ -140,9 +161,7 @@ func (a *App) loadEnvironment() error {
 // Cli.setup Before function for the CLI that gets executed setup the action.
 func (a *App) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	return func(ctx *cli.Context) error {
-		err := a.loadEnvironment()
-
-		if err != nil {
+		if err := a.loadEnvironment(); err != nil {
 			return err
 		}
 
@@ -238,4 +257,50 @@ func (a *App) Terminate(code int) {
 	os.Exit(code)
 
 	a.Channel.Terminated <- code
+}
+
+func (a *App) generateMarkdownDocumentation() error {
+	const start = "<!-- clidocs -->"
+	const end = "<!-- clidocsstop -->"
+	expr := fmt.Sprintf(`(?s)%s(.*)%s`, start, end)
+
+	a.Log.Debugf("Using expression: %s", expr)
+
+	data, err := a.Cli.ToMarkdown()
+
+	if err != nil {
+		return err
+	}
+
+	a.Log.Infof("Trying to read file: %s", a.readme)
+
+	content, err := ioutil.ReadFile(a.readme)
+
+	if err != nil {
+		return err
+	}
+
+	readme := string(content)
+
+	r := regexp.MustCompile(expr)
+
+	replace := strings.Join([]string{start, "", data, end}, "\n")
+
+	result := r.ReplaceAllString(readme, replace)
+
+	f, err := os.OpenFile(a.readme,
+		os.O_WRONLY, 0644)
+
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+	if _, err := f.WriteString(result); err != nil {
+		return err
+	}
+
+	a.Log.Infof("Wrote to file: %s", a.readme)
+
+	return nil
 }
