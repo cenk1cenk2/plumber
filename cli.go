@@ -35,8 +35,10 @@ type AppChannel struct {
 }
 
 // Cli.New Creates a new plumber for pipes.
-func (a *App) New(c *cli.App) *App {
-	a.Cli = c
+func (a *App) New(
+	fn func(a *App) *cli.App,
+) *App {
+	a.Cli = fn(a)
 
 	a.Cli.Before = a.before()
 
@@ -44,13 +46,13 @@ func (a *App) New(c *cli.App) *App {
 		a.Cli.Action = a.defaultAction()
 	}
 
-	if len(c.Flags) > 0 {
-		a.Cli.Flags = a.appendDefaultFlags(c.Flags)
+	if len(a.Cli.Flags) > 0 {
+		a.Cli.Flags = a.appendDefaultFlags(a.Cli.Flags)
 	}
 
-	if len(c.Commands) > 0 {
-		for i, v := range c.Commands {
-			c.Commands[i].Flags = a.appendDefaultFlags(v.Flags)
+	if len(a.Cli.Commands) > 0 {
+		for i, v := range a.Cli.Commands {
+			a.Cli.Commands[i].Flags = a.appendDefaultFlags(v.Flags)
 		}
 	}
 

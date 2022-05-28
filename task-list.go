@@ -23,8 +23,8 @@ type TaskList[Pipe TaskListData, Ctx TaskListData] struct {
 
 	App *App
 
-	Pipe    *Pipe
-	Context *Ctx
+	Pipe    Pipe
+	Context Ctx
 	Lock    *sync.RWMutex
 	Log     *logrus.Logger
 	Channel *AppChannel
@@ -39,14 +39,11 @@ type (
 	taskListFn[Pipe TaskListData, Ctx TaskListData] func(*TaskList[Pipe, Ctx], *cli.Context) error
 )
 
-func (t *TaskList[Pipe, Ctx]) New(a *App, pipe *Pipe, context *Ctx) *TaskList[Pipe, Ctx] {
+func (t *TaskList[Pipe, Ctx]) New(a *App) *TaskList[Pipe, Ctx] {
 	t.App = a
 	t.Log = a.Log
 	t.Channel = &a.Channel
 	t.Lock = &sync.RWMutex{}
-
-	t.Pipe = pipe
-	t.Context = context
 
 	t.runBefore = func(tl *TaskList[Pipe, Ctx], ctx *cli.Context) error {
 		return nil
