@@ -7,7 +7,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/workanator/go-floc/v3"
 
-	"errors"
 	"fmt"
 
 	"github.com/creasty/defaults"
@@ -92,16 +91,20 @@ func (t *TaskList[Pipe, Ctx]) Validate(data TaskListData) error {
 	if err != nil {
 		for _, err := range err.(validator.ValidationErrors) {
 			error := fmt.Sprintf(
-				`"%s" field failed validation: %s -> %s`,
+				`"%s" field failed validation: %s`,
 				err.Namespace(),
 				err.Tag(),
-				err.Param(),
 			)
+
+			param := err.Param()
+			if param != "" {
+				error = fmt.Sprintf("%s -> %s", error, param)
+			}
 
 			t.Log.Errorln(error)
 		}
 
-		return errors.New("Validation failed.")
+		return fmt.Errorf("Validation failed.")
 	}
 
 	return nil
