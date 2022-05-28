@@ -92,6 +92,7 @@ func (a *App) Run() {
 	}
 }
 
+// Cli.AppendFlags Appends flags together.
 func (a *App) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 	f := []cli.Flag{}
 
@@ -102,6 +103,7 @@ func (a *App) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 	return f
 }
 
+// Cli.SetOnTerminate Sets the action that would be executed on terminate.
 func (a *App) SetOnTerminate(fn onTerminateFn) *App {
 	a.onTerminateFn = fn
 
