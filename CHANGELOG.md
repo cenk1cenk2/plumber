@@ -1,3 +1,10 @@
+## [1.5.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.5.0...v1.5.1) (2022-05-28)
+
+
+### Bug Fixes
+
+* update communication channels ([2b59256](https://gitlab.kilic.dev/libraries/plumber/commit/2b592562a3b39c53313a8e8751d6f184bedfe37c))
+
 # [1.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.4.1...v1.5.0) (2022-05-28)
 
 
