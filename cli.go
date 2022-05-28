@@ -32,6 +32,8 @@ type AppChannel struct {
 	Fatal chan error
 	// terminate channel
 	Interrupt chan os.Signal
+
+	Terminated chan int
 }
 
 // Cli.New Creates a new plumber for pipes.
@@ -57,15 +59,18 @@ func (a *App) New(
 	a.Environment = AppEnvironment{}
 
 	// create error channels
-	a.Channel.Err = make(chan error)
-	a.Channel.Fatal = make(chan error, 1)
-	a.Channel.Interrupt = make(chan os.Signal)
+	a.Channel = AppChannel{
+		Err:        make(chan error),
+		Fatal:      make(chan error),
+		Interrupt:  make(chan os.Signal),
+		Terminated: make(chan int, 1),
+	}
 
 	return a
 }
 
 // Cli.Run Starts the application.
-func (a *App) Run() *App {
+func (a *App) Run() {
 	a.greet()
 
 	go func() {
@@ -76,9 +81,9 @@ func (a *App) Run() *App {
 
 	if err := a.Cli.Run(os.Args); err != nil {
 		a.Channel.Fatal <- err
-	}
 
-	return a
+		<-a.Channel.Terminated
+	}
 }
 
 func (a *App) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
@@ -145,6 +150,8 @@ func (a *App) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		a.Log = logger.InitiateLogger(level)
 
+		a.Log.ExitFunc = a.Terminate
+
 		if before != nil {
 			if err := before(ctx); err != nil {
 				return err
@@ -182,6 +189,7 @@ func (a *App) registerInterruptHandler() {
 func (a *App) registerErrorHandler() {
 	for {
 		err := <-a.Channel.Err
+
 		if err == nil {
 			return
 		}
@@ -194,12 +202,12 @@ func (a *App) registerErrorHandler() {
 func (a *App) registerFatalErrorHandler() {
 	for {
 		err := <-a.Channel.Fatal
+
 		if err == nil {
 			return
 		}
 
-		a.Log.Errorln(err)
-		a.Terminate(127)
+		a.Log.Fatalln(err)
 	}
 }
 
@@ -208,6 +216,8 @@ func (a *App) Terminate(code int) {
 	close(a.Channel.Err)
 	close(a.Channel.Fatal)
 	close(a.Channel.Interrupt)
+
+	a.Channel.Terminated <- code
 
 	os.Exit(code)
 }

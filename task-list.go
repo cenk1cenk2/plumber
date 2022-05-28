@@ -92,9 +92,10 @@ func (t *TaskList[Pipe, Ctx]) Validate(data TaskListData) error {
 	if err != nil {
 		for _, err := range err.(validator.ValidationErrors) {
 			error := fmt.Sprintf(
-				`"%s" field failed validation: %s`,
+				`"%s" field failed validation: %s -> %s`,
 				err.Namespace(),
 				err.Tag(),
+				err.Param(),
 			)
 
 			t.Log.Errorln(error)
@@ -107,13 +108,13 @@ func (t *TaskList[Pipe, Ctx]) Validate(data TaskListData) error {
 }
 
 func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
-	// if err := t.Validate(&t.Pipe); err != nil {
-	// 	return err
-	// }
-	//
-	// if err := t.Validate(&t.Context); err != nil {
-	// 	return err
-	// }
+	if err := t.Validate(&t.Pipe); err != nil {
+		return err
+	}
+
+	if err := t.Validate(&t.Context); err != nil {
+		return err
+	}
 
 	if err := t.runBefore(t, c); err != nil {
 		return err
@@ -129,18 +130,17 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 	}
 
 	switch {
-	case result.IsCompleted() || result.IsFinished():
-		if err := t.runAfter(t, c); err != nil {
-			return err
-		}
-		return nil
 	case result.IsCanceled():
 		return fmt.Errorf(data.(string))
 	case result.IsFailed():
 		return fmt.Errorf(data.(string))
-	default:
-		return fmt.Errorf("The flow has finished with improper state.")
 	}
+
+	if err := t.runAfter(t, c); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
@@ -151,15 +151,13 @@ func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
 	}
 
 	switch {
-	case result.IsCompleted() || result.IsFinished():
-		return nil
 	case result.IsCanceled():
 		return fmt.Errorf(data.(string))
 	case result.IsFailed():
 		return fmt.Errorf(data.(string))
-	default:
-		return fmt.Errorf("The flow has finished with improper state.")
 	}
+
+	return nil
 }
 
 func (t *TaskList[Pipe, Ctx]) Job(c *cli.Context) floc.Job {
