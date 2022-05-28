@@ -1,3 +1,15 @@
+# [2.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.7.2...v2.0.0) (2022-05-28)
+
+
+### Performance Improvements
+
+* change interface for commands ([f5dba14](https://gitlab.kilic.dev/libraries/plumber/commit/f5dba14cb0f4420e1ea9f4bb3bb9e9adc9bdc267))
+
+
+### BREAKING CHANGES
+
+* changes command api
+
 ## [1.7.2](https://gitlab.kilic.dev/libraries/plumber/compare/v1.7.1...v1.7.2) (2022-05-28)
 
 
