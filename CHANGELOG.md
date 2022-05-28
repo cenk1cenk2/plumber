@@ -1,3 +1,10 @@
+## [1.2.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.2.0...v1.2.1) (2022-05-28)
+
+
+### Bug Fixes
+
+* expose task list ([742c667](https://gitlab.kilic.dev/libraries/plumber/commit/742c667ea8d66baadec40780bdba655040c084f4))
+
 # [1.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.1.2...v1.2.0) (2022-05-28)
 
 
