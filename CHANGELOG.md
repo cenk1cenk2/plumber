@@ -1,3 +1,10 @@
+# [1.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.3.0...v1.4.0) (2022-05-28)
+
+
+### Features
+
+* add job handles to other places and subtasks ([b8216d7](https://gitlab.kilic.dev/libraries/plumber/commit/b8216d754a5b6fba5224fb6a55ec3c12b2d7f6c4))
+
 # [1.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.2.1...v1.3.0) (2022-05-28)
 
 
