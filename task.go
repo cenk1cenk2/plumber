@@ -139,6 +139,14 @@ func (t *Task[Pipe, Ctx]) GetCommandJobs() []floc.Job {
 	return jobs
 }
 
+func (t *Task[Pipe, Ctx]) GetCommandJobAsJobSequence() floc.Job {
+	return t.TaskList.JobSequence(t.GetCommandJobs()...)
+}
+
+func (t *Task[Pipe, Ctx]) GetCommandJobAsJobParallel() floc.Job {
+	return t.TaskList.JobParallel(t.GetCommandJobs()...)
+}
+
 func (t *Task[Pipe, Ctx]) Run() error {
 	if result := t.options.Disable(t); result {
 		t.Log.WithField("context", "DISABLE").
