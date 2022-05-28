@@ -74,6 +74,12 @@ func (c *Command[Pipe, Ctx]) SetLogLevel(stdout logrus.Level, stderr logrus.Leve
 	return c
 }
 
+func (c *Command[Pipe, Ctx]) AppendArgs(args ...string) *Command[Pipe, Ctx] {
+	c.cmd.Args = append(c.cmd.Args, args...)
+
+	return c
+}
+
 // Command.Run Run the defined command.
 func (c *Command[Pipe, Ctx]) Run() error {
 	cmd := strings.Join(c.cmd.Args, " ")
