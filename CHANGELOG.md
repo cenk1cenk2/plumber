@@ -1,3 +1,10 @@
+## [1.7.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.7.0...v1.7.1) (2022-05-28)
+
+
+### Bug Fixes
+
+* error handling ([5d0ce20](https://gitlab.kilic.dev/libraries/plumber/commit/5d0ce2011eebad52fd755026881c4fcbe886590f))
+
 # [1.7.0](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.10...v1.7.0) (2022-05-28)
 
 
