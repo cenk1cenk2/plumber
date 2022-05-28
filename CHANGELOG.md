@@ -1,3 +1,10 @@
+## [1.6.7](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.6...v1.6.7) (2022-05-28)
+
+
+### Bug Fixes
+
+* fix log level ([8a7bc1f](https://gitlab.kilic.dev/libraries/plumber/commit/8a7bc1fbe497dd8309930d1126e22be0f2e06cf1))
+
 ## [1.6.6](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.5...v1.6.6) (2022-05-28)
 
 
