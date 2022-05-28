@@ -1,3 +1,10 @@
+## [1.6.2](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.1...v1.6.2) (2022-05-28)
+
+
+### Bug Fixes
+
+* change naming scheme ([ae21210](https://gitlab.kilic.dev/libraries/plumber/commit/ae2121044d4d7724037a0b425bb6d35bbfa6acd2))
+
 ## [1.6.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.6.0...v1.6.1) (2022-05-28)
 
 
