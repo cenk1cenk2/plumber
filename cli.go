@@ -166,6 +166,8 @@ func (a *App) registerErrorHandler() {
 		if err == nil {
 			return
 		}
+
+		a.Log.Errorln(err)
 	}
 }
 
