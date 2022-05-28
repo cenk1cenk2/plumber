@@ -127,7 +127,7 @@ func (a *App) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			return err
 		}
 
-		level, err := logrus.ParseLevel(ctx.String("log_level"))
+		level, err := logrus.ParseLevel(ctx.String("log-level"))
 
 		if err != nil {
 			level = logrus.InfoLevel

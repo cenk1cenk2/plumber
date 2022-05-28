@@ -19,7 +19,7 @@ var CliDefaultFlags = []cli.Flag{
 	},
 
 	&cli.StringFlag{
-		Name:    "log_level",
+		Name:    "log-level",
 		Usage:   "Define the log level for the application.",
 		EnvVars: []string{"LOG_LEVEL"},
 		Value:   logrus.InfoLevel.String(),
