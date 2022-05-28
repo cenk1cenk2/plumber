@@ -1,3 +1,10 @@
+## [1.7.2](https://gitlab.kilic.dev/libraries/plumber/compare/v1.7.1...v1.7.2) (2022-05-28)
+
+
+### Bug Fixes
+
+* add append args func ([1f0f698](https://gitlab.kilic.dev/libraries/plumber/commit/1f0f698571d9ab1f8dd89499a862bcc2255e2dff))
+
 ## [1.7.1](https://gitlab.kilic.dev/libraries/plumber/compare/v1.7.0...v1.7.1) (2022-05-28)
 
 
