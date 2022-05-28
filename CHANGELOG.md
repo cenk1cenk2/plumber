@@ -1,3 +1,10 @@
+## [2.5.2](https://gitlab.kilic.dev/libraries/plumber/compare/v2.5.1...v2.5.2) (2022-05-28)
+
+
+### Bug Fixes
+
+* update validation error ([e682f84](https://gitlab.kilic.dev/libraries/plumber/commit/e682f84e3766252ca627b2968d7f501640e604c4))
+
 ## [2.5.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.5.0...v2.5.1) (2022-05-28)
 
 
