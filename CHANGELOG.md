@@ -1,3 +1,10 @@
+## [2.1.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.1.0...v2.1.1) (2022-05-28)
+
+
+### Bug Fixes
+
+* reset subtasks after running ([522303c](https://gitlab.kilic.dev/libraries/plumber/commit/522303ce8e64303f63adf185e8dc71cf07f4619d))
+
 # [2.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.0.1...v2.1.0) (2022-05-28)
 
 
