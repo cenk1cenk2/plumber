@@ -1,3 +1,10 @@
+## [2.7.2](https://gitlab.kilic.dev/libraries/plumber/compare/v2.7.1...v2.7.2) (2022-05-29)
+
+
+### Bug Fixes
+
+* change handling floc control ([4ff3ce6](https://gitlab.kilic.dev/libraries/plumber/commit/4ff3ce63d494ff96f696fd6679a84daaa009b93e))
+
 ## [2.7.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.7.0...v2.7.1) (2022-05-29)
 
 
