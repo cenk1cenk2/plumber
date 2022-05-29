@@ -1,3 +1,10 @@
+# [2.7.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.6.0...v2.7.0) (2022-05-29)
+
+
+### Features
+
+* feature freeze again, improve api ([0303fda](https://gitlab.kilic.dev/libraries/plumber/commit/0303fdaf6e8552037ec25423711f971e46b79fdf))
+
 # [2.6.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.5.2...v2.6.0) (2022-05-29)
 
 
