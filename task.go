@@ -19,7 +19,7 @@ type Task[Pipe TaskListData] struct {
 	Pipe    *Pipe
 	Control floc.Control
 
-	TaskList *TaskList[Pipe]
+	taskList *TaskList[Pipe]
 
 	subtask   floc.Job
 	emptyJob  floc.Job
@@ -63,7 +63,7 @@ func (t *Task[Pipe]) New(tl *TaskList[Pipe], name string) *Task[Pipe] {
 		return nil
 	}
 
-	t.TaskList = tl
+	t.taskList = tl
 
 	t.App = tl.App
 	t.Log = tl.Log.WithField("context", t.Name)
@@ -98,7 +98,7 @@ func (t *Task[Pipe]) CreateSubtask(name string) *Task[Pipe] {
 		name = t.Name
 	}
 
-	return st.New(t.TaskList, name)
+	return st.New(t.taskList, name)
 }
 
 func (t *Task[Pipe]) ToParent(
@@ -127,7 +127,7 @@ func (t *Task[Pipe]) GetSubtasks() floc.Job {
 }
 
 func (t *Task[Pipe]) RunSubtasks() error {
-	err := t.TaskList.RunJobs(t.subtask)
+	err := t.taskList.RunJobs(t.subtask)
 
 	if err != nil {
 		t.SetSubtask(t.emptyJob)
@@ -194,11 +194,11 @@ func (t *Task[Pipe]) GetCommandJobAsJobSequence() floc.Job {
 		return nil
 	}
 
-	return t.TaskList.JobSequence(jobs...)
+	return t.taskList.JobSequence(jobs...)
 }
 
 func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
-	return t.TaskList.RunJobs(t.GetCommandJobAsJobSequence())
+	return t.taskList.RunJobs(t.GetCommandJobAsJobSequence())
 }
 
 func (t *Task[Pipe]) GetCommandJobAsJobParallel() floc.Job {
@@ -208,11 +208,11 @@ func (t *Task[Pipe]) GetCommandJobAsJobParallel() floc.Job {
 		return nil
 	}
 
-	return t.TaskList.JobParallel(jobs...)
+	return t.taskList.JobParallel(jobs...)
 }
 
 func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {
-	return t.TaskList.RunJobs(t.GetCommandJobAsJobParallel())
+	return t.taskList.RunJobs(t.GetCommandJobAsJobParallel())
 }
 
 func (t *Task[Pipe]) Run() error {
