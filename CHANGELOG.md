@@ -1,3 +1,10 @@
+# [2.6.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.5.2...v2.6.0) (2022-05-29)
+
+
+### Features
+
+* update plumber to show command names ([dde3103](https://gitlab.kilic.dev/libraries/plumber/commit/dde3103440d0aa7e0ef2bc8c701e274ed3d5c69d))
+
 ## [2.5.2](https://gitlab.kilic.dev/libraries/plumber/compare/v2.5.1...v2.5.2) (2022-05-28)
 
 
