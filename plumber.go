@@ -261,7 +261,11 @@ func (p *Plumber) registerFatalErrorHandler() {
 			return
 		}
 
-		p.Log.Fatalln(err)
+		if p.Log != nil {
+			p.Log.Fatalln(err)
+		} else {
+			panic(err)
+		}
 	}
 }
 
