@@ -1,3 +1,10 @@
+## [2.7.3](https://gitlab.kilic.dev/libraries/plumber/compare/v2.7.2...v2.7.3) (2022-05-29)
+
+
+### Bug Fixes
+
+* refactor a bit ([47161a9](https://gitlab.kilic.dev/libraries/plumber/commit/47161a9b00859667d0b972359dfba6e026bcdaf0))
+
 ## [2.7.2](https://gitlab.kilic.dev/libraries/plumber/compare/v2.7.1...v2.7.2) (2022-05-29)
 
 
