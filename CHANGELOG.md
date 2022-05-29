@@ -1,3 +1,10 @@
+# [2.8.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.7.3...v2.8.0) (2022-05-29)
+
+
+### Features
+
+* change handling order ([b560281](https://gitlab.kilic.dev/libraries/plumber/commit/b5602812b26e3f1f1cb5a277f80411ba4d3f0be7))
+
 ## [2.7.3](https://gitlab.kilic.dev/libraries/plumber/compare/v2.7.2...v2.7.3) (2022-05-29)
 
 
