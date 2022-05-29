@@ -1,3 +1,10 @@
+# [2.9.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.8.0...v2.9.0) (2022-05-29)
+
+
+### Features
+
+* remove control from api ([973bcdf](https://gitlab.kilic.dev/libraries/plumber/commit/973bcdf24e100fb34a0ea34140f4d65fd33319f3))
+
 # [2.8.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.7.3...v2.8.0) (2022-05-29)
 
 
