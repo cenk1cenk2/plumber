@@ -35,7 +35,7 @@ type TaskOptions[Pipe TaskListData] struct {
 }
 
 type (
-	taskFn[Pipe TaskListData]          func(*Task[Pipe], floc.Control) error
+	taskFn[Pipe TaskListData]          func(*Task[Pipe]) error
 	taskPredicateFn[Pipe TaskListData] func(*Task[Pipe]) bool
 )
 
@@ -56,10 +56,10 @@ func (t *Task[Pipe]) New(tl *TaskList[Pipe], name string) *Task[Pipe] {
 	}
 	t.commands = &[]Command[Pipe]{}
 
-	t.runBefore = func(tl *Task[Pipe], c floc.Control) error {
+	t.runBefore = func(tl *Task[Pipe]) error {
 		return nil
 	}
-	t.runAfter = func(tl *Task[Pipe], c floc.Control) error {
+	t.runAfter = func(tl *Task[Pipe]) error {
 		return nil
 	}
 
@@ -228,15 +228,15 @@ func (t *Task[Pipe]) Run() error {
 		return nil
 	}
 
-	if err := t.runBefore(t, t.Control); err != nil {
+	if err := t.runBefore(t); err != nil {
 		return err
 	}
 
-	if err := t.fn(t, t.Control); err != nil {
+	if err := t.fn(t); err != nil {
 		return err
 	}
 
-	if err := t.runAfter(t, t.Control); err != nil {
+	if err := t.runAfter(t); err != nil {
 		return err
 	}
 
