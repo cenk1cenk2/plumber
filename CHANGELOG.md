@@ -1,3 +1,10 @@
+# [2.10.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.9.0...v2.10.0) (2022-05-29)
+
+
+### Features
+
+* more refactor for job api ([acce828](https://gitlab.kilic.dev/libraries/plumber/commit/acce82875b018d431a3fe79fa5a53b02420d34bc))
+
 # [2.9.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.8.0...v2.9.0) (2022-05-29)
 
 
