@@ -130,11 +130,11 @@ func (t *TaskList[Pipe]) Run(c *cli.Context) error {
 
 	result, data, err := floc.RunWith(t.flocContext, t.Control, t.Tasks)
 
-	if err := t.handleFloc(result, data); err != nil {
+	if err != nil {
 		return err
 	}
 
-	if err != nil {
+	if err := t.handleFloc(result, data); err != nil {
 		return err
 	}
 
@@ -152,11 +152,11 @@ func (t *TaskList[Pipe]) RunJobs(job floc.Job) error {
 
 	result, data, err := floc.RunWith(t.flocContext, t.Control, job)
 
-	if err := t.handleFloc(result, data); err != nil {
+	if err != nil {
 		return err
 	}
 
-	if err != nil {
+	if err := t.handleFloc(result, data); err != nil {
 		return err
 	}
 
@@ -167,8 +167,6 @@ func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error 
 	switch {
 	case result.IsCanceled():
 		return fmt.Errorf("Tasks are cancelled: %s", data.(string))
-	case result.IsFailed():
-		return fmt.Errorf("Tasks are stopped: %s", data.(string))
 	}
 
 	return nil
