@@ -18,7 +18,7 @@ type TaskListData interface {
 }
 
 type TaskList[Pipe TaskListData] struct {
-	Tasks floc.Job
+	Tasks Job
 
 	Plumber *Plumber
 
@@ -56,11 +56,11 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	return t
 }
 
-func (t *TaskList[Pipe]) GetTasks() floc.Job {
+func (t *TaskList[Pipe]) GetTasks() Job {
 	return t.Tasks
 }
 
-func (t *TaskList[Pipe]) SetTasks(tasks floc.Job) *TaskList[Pipe] {
+func (t *TaskList[Pipe]) SetTasks(tasks Job) *TaskList[Pipe] {
 	t.Tasks = tasks
 
 	return t
@@ -128,7 +128,7 @@ func (t *TaskList[Pipe]) Run(c *cli.Context) error {
 		return fmt.Errorf("Task list is empty.")
 	}
 
-	result, data, err := floc.RunWith(t.flocContext, t.Control, t.Tasks)
+	result, data, err := floc.RunWith(t.flocContext, t.Control, floc.Job(t.Tasks))
 
 	if err != nil {
 		return err
@@ -145,12 +145,12 @@ func (t *TaskList[Pipe]) Run(c *cli.Context) error {
 	return nil
 }
 
-func (t *TaskList[Pipe]) RunJobs(job floc.Job) error {
+func (t *TaskList[Pipe]) RunJobs(job Job) error {
 	if job == nil {
 		return nil
 	}
 
-	result, data, err := floc.RunWith(t.flocContext, t.Control, job)
+	result, data, err := floc.RunWith(t.flocContext, t.Control, floc.Job(job))
 
 	if err != nil {
 		return err
@@ -172,7 +172,7 @@ func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error 
 	return nil
 }
 
-func (t *TaskList[Pipe]) Job(c *cli.Context) floc.Job {
+func (t *TaskList[Pipe]) Job(c *cli.Context) Job {
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		t.flocContext = ctx
 		t.Control = ctrl

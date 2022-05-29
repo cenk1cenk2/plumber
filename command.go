@@ -131,7 +131,7 @@ func (c *Command[Pipe]) Run() error {
 	return nil
 }
 
-func (c *Command[Pipe]) Job() floc.Job {
+func (c *Command[Pipe]) Job() Job {
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		return c.Run()
 	}

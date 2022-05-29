@@ -21,8 +21,8 @@ type Task[Pipe TaskListData] struct {
 
 	taskList *TaskList[Pipe]
 
-	subtask   floc.Job
-	emptyJob  floc.Job
+	subtask   Job
+	emptyJob  Job
 	commands  *[]Command[Pipe]
 	fn        taskFn[Pipe]
 	runBefore taskFn[Pipe]
@@ -110,19 +110,19 @@ func (t *Task[Pipe]) ToParent(
 	return t
 }
 
-func (t *Task[Pipe]) SetSubtask(job floc.Job) *Task[Pipe] {
+func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
 	t.subtask = job
 
 	return t
 }
 
-func (t *Task[Pipe]) ExtendSubtask(fn func(floc.Job) floc.Job) *Task[Pipe] {
+func (t *Task[Pipe]) ExtendSubtask(fn func(Job) Job) *Task[Pipe] {
 	t.subtask = fn(t.subtask)
 
 	return t
 }
 
-func (t *Task[Pipe]) GetSubtasks() floc.Job {
+func (t *Task[Pipe]) GetSubtasks() Job {
 	return t.subtask
 }
 
@@ -178,8 +178,8 @@ func (t *Task[Pipe]) GetCommands() *[]Command[Pipe] {
 	return t.commands
 }
 
-func (t *Task[Pipe]) GetCommandJobs() []floc.Job {
-	jobs := []floc.Job{}
+func (t *Task[Pipe]) GetCommandJobs() []Job {
+	jobs := []Job{}
 	for _, v := range *t.commands {
 		jobs = append(jobs, v.Job())
 	}
@@ -187,7 +187,7 @@ func (t *Task[Pipe]) GetCommandJobs() []floc.Job {
 	return jobs
 }
 
-func (t *Task[Pipe]) GetCommandJobAsJobSequence() floc.Job {
+func (t *Task[Pipe]) GetCommandJobAsJobSequence() Job {
 	jobs := t.GetCommandJobs()
 
 	if len(jobs) == 0 {
@@ -201,7 +201,7 @@ func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
 	return t.taskList.RunJobs(t.GetCommandJobAsJobSequence())
 }
 
-func (t *Task[Pipe]) GetCommandJobAsJobParallel() floc.Job {
+func (t *Task[Pipe]) GetCommandJobAsJobParallel() Job {
 	jobs := t.GetCommandJobs()
 
 	if len(jobs) == 0 {
@@ -243,7 +243,7 @@ func (t *Task[Pipe]) Run() error {
 	return nil
 }
 
-func (t *Task[Pipe]) Job() floc.Job {
+func (t *Task[Pipe]) Job() Job {
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		return t.Run()
 	}
