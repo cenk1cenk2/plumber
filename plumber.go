@@ -51,6 +51,10 @@ func (p *Plumber) New(
 ) *Plumber {
 	p.Cli = fn(p)
 
+	// have to this here too, to catch cli errors, but it is singleton so not much harm
+	p.Log = logger.InitiateLogger(logrus.InfoLevel)
+	p.setupLogger(logrus.InfoLevel)
+
 	p.Cli.Before = p.setup(p.Cli.Before)
 
 	if p.Cli.Action == nil {
@@ -180,24 +184,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			p.Environment.CI = true
 		}
 
-		p.Log = logger.InitiateLogger(level)
-
-		p.Log.SetFormatter(
-			&logger.Formatter{
-				FieldsOrder:      []string{"context", "status"},
-				TimestampFormat:  "",
-				HideKeys:         true,
-				NoColors:         false,
-				NoFieldsColors:   false,
-				NoFieldsSpace:    false,
-				ShowFullLevel:    false,
-				NoUppercaseLevel: false,
-				TrimMessages:     true,
-				CallerFirst:      false,
-			},
-		)
-
-		p.Log.ExitFunc = p.Terminate
+		p.setupLogger(level)
 
 		if before != nil {
 			if err := before(ctx); err != nil {
@@ -207,6 +194,27 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		return nil
 	}
+}
+
+func (p *Plumber) setupLogger(level logrus.Level) {
+	p.Log.Level = level
+
+	p.Log.SetFormatter(
+		&logger.Formatter{
+			FieldsOrder:      []string{"context", "status"},
+			TimestampFormat:  "",
+			HideKeys:         true,
+			NoColors:         false,
+			NoFieldsColors:   false,
+			NoFieldsSpace:    false,
+			ShowFullLevel:    false,
+			NoUppercaseLevel: false,
+			TrimMessages:     true,
+			CallerFirst:      false,
+		},
+	)
+
+	p.Log.ExitFunc = p.Terminate
 }
 
 func (p *Plumber) defaultAction() cli.ActionFunc {
