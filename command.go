@@ -159,7 +159,7 @@ func (c *Command[Pipe]) pipe() error {
 
 	if err := c.Command.Start(); err != nil {
 		c.log.WithField("status", command_failed).
-			Errorf("Can not start the command: $ %s", cmd)
+			Errorf("$ %s", cmd)
 
 		return err
 	}
