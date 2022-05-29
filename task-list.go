@@ -20,7 +20,7 @@ type TaskListData interface {
 type TaskList[Pipe TaskListData] struct {
 	Tasks floc.Job
 
-	App *App
+	Plumber *Plumber
 
 	Pipe    Pipe
 	Lock    *sync.RWMutex
@@ -37,10 +37,10 @@ type (
 	taskListFn[Pipe TaskListData] func(*TaskList[Pipe], *cli.Context) error
 )
 
-func (t *TaskList[Pipe]) New(a *App) *TaskList[Pipe] {
-	t.App = a
-	t.Log = a.Log
-	t.Channel = &a.Channel
+func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
+	t.Plumber = p
+	t.Log = p.Log
+	t.Channel = &p.Channel
 	t.Lock = &sync.RWMutex{}
 
 	t.runBefore = func(tl *TaskList[Pipe], ctx *cli.Context) error {
@@ -129,11 +129,12 @@ func (t *TaskList[Pipe]) Run(c *cli.Context) error {
 	}
 
 	result, data, err := floc.RunWith(t.flocContext, t.Control, t.Tasks)
-	if err != nil {
+
+	if err := t.handleFloc(result, data); err != nil {
 		return err
 	}
 
-	if err := t.handleFloc(result, data); err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -151,11 +152,11 @@ func (t *TaskList[Pipe]) RunJobs(job floc.Job) error {
 
 	result, data, err := floc.RunWith(t.flocContext, t.Control, job)
 
-	if err != nil {
+	if err := t.handleFloc(result, data); err != nil {
 		return err
 	}
 
-	if err := t.handleFloc(result, data); err != nil {
+	if err != nil {
 		return err
 	}
 

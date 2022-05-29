@@ -15,7 +15,7 @@ import (
 	"gitlab.kilic.dev/libraries/go-utils/logger"
 )
 
-type App struct {
+type Plumber struct {
 	Cli         *cli.App
 	Log         *logrus.Logger
 	Environment AppEnvironment
@@ -37,8 +37,8 @@ type AppChannel struct {
 	Fatal chan error
 	// terminate channel
 	Interrupt chan os.Signal
-
-	Terminated chan int
+	// exit channel
+	Exit chan int
 }
 
 type (
@@ -46,68 +46,67 @@ type (
 )
 
 // Cli.New Creates a new plumber for pipes.
-func (a *App) New(
-	fn func(a *App) *cli.App,
-) *App {
-	a.Cli = fn(a)
+func (p *Plumber) New(
+	fn func(a *Plumber) *cli.App,
+) *Plumber {
+	p.Cli = fn(p)
 
-	a.Cli.Before = a.setup(a.Cli.Before)
+	p.Cli.Before = p.setup(p.Cli.Before)
 
-	if a.Cli.Action == nil {
-		a.Cli.Action = a.defaultAction()
+	if p.Cli.Action == nil {
+		p.Cli.Action = p.defaultAction()
 	}
 
-	a.Cli.Flags = a.appendDefaultFlags(a.Cli.Flags)
+	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
 
-	a.Cli.Commands = append(a.Cli.Commands, &cli.Command{
+	p.Cli.Commands = append(p.Cli.Commands, &cli.Command{
 		Name: "docs",
 		Action: func(c *cli.Context) error {
-			return a.generateMarkdownDocumentation()
+			return p.generateMarkdownDocumentation()
 		},
 		Hidden:   true,
 		HideHelp: true,
 	})
 
-	a.readme = "README.md"
+	p.readme = "README.md"
 
-	if len(a.Cli.Commands) > 0 {
-		for i, v := range a.Cli.Commands {
-			a.Cli.Commands[i].Flags = a.appendDefaultFlags(v.Flags)
+	if len(p.Cli.Commands) > 0 {
+		for i, v := range p.Cli.Commands {
+			p.Cli.Commands[i].Flags = p.appendDefaultFlags(v.Flags)
 		}
 	}
 
-	a.Environment = AppEnvironment{}
+	p.Environment = AppEnvironment{}
 
 	// create error channels
-	a.Channel = AppChannel{
-		Err:        make(chan error),
-		Fatal:      make(chan error),
-		Interrupt:  make(chan os.Signal),
-		Terminated: make(chan int, 1),
+	p.Channel = AppChannel{
+		Err:       make(chan error),
+		Fatal:     make(chan error),
+		Interrupt: make(chan os.Signal),
+		Exit:      make(chan int, 1),
 	}
 
-	return a
+	return p
 }
 
 // Cli.Run Starts the application.
-func (a *App) Run() {
-	a.greet()
+func (p *Plumber) Run() {
+	p.greet()
 
-	go func() {
-		go a.registerErrorHandler()
-		go a.registerFatalErrorHandler()
-		go a.registerInterruptHandler()
-	}()
+	go p.registerHandlers()
 
-	if err := a.Cli.Run(os.Args); err != nil {
-		a.Channel.Fatal <- err
+	if err := p.Cli.Run(os.Args); err != nil {
+		p.Channel.Fatal <- err
 
-		<-a.Channel.Terminated
+		for {
+			// to be sure that os.exit is completed
+			<-p.Channel.Exit
+		}
 	}
 }
 
 // Cli.AppendFlags Appends flags together.
-func (a *App) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
+func (p *Plumber) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 	f := []cli.Flag{}
 
 	for _, v := range flags {
@@ -118,27 +117,27 @@ func (a *App) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 }
 
 // Cli.SetOnTerminate Sets the action that would be executed on terminate.
-func (a *App) SetOnTerminate(fn onTerminateFn) *App {
-	a.onTerminateFn = fn
+func (p *Plumber) SetOnTerminate(fn onTerminateFn) *Plumber {
+	p.onTerminateFn = fn
 
-	return a
+	return p
 }
 
 // Cli.SetReadme Sets readme file for documentation generation.
-func (a *App) SetReadme(file string) *App {
-	a.readme = file
+func (p *Plumber) SetReadme(file string) *Plumber {
+	p.readme = file
 
-	return a
+	return p
 }
 
 // Cli.greet Greet the user with the application name and version.
-func (a *App) greet() {
-	name := fmt.Sprintf("%s - %s", a.Cli.Name, a.Cli.Version)
+func (p *Plumber) greet() {
+	name := fmt.Sprintf("%s - %s", p.Cli.Name, p.Cli.Version)
 	fmt.Println(name)
 	fmt.Println(strings.Repeat("-", len(name)))
 }
 
-func (a *App) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
+func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
 	f := []cli.Flag{}
 
 	f = append(f, CliDefaultFlags...)
@@ -148,7 +147,7 @@ func (a *App) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
 }
 
 // Cli.loadEnvironment Loads the given environment file to the application.
-func (a *App) loadEnvironment() error {
+func (p *Plumber) loadEnvironment() error {
 	if env := os.Getenv("ENV_FILE"); env != "" {
 		if err := godotenv.Load(env); err != nil {
 			return err
@@ -159,9 +158,9 @@ func (a *App) loadEnvironment() error {
 }
 
 // Cli.setup Before function for the CLI that gets executed setup the action.
-func (a *App) setup(before cli.BeforeFunc) cli.BeforeFunc {
+func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	return func(ctx *cli.Context) error {
-		if err := a.loadEnvironment(); err != nil {
+		if err := p.loadEnvironment(); err != nil {
 			return err
 		}
 
@@ -174,16 +173,16 @@ func (a *App) setup(before cli.BeforeFunc) cli.BeforeFunc {
 		if ctx.Bool("debug") {
 			level = logrus.DebugLevel
 
-			a.Environment.Debug = true
+			p.Environment.Debug = true
 		}
 
 		if ctx.Bool("ci") {
-			a.Environment.CI = true
+			p.Environment.CI = true
 		}
 
-		a.Log = logger.InitiateLogger(level)
+		p.Log = logger.InitiateLogger(level)
 
-		a.Log.SetFormatter(
+		p.Log.SetFormatter(
 			&logger.Formatter{
 				FieldsOrder:      []string{"context", "status"},
 				TimestampFormat:  "",
@@ -198,7 +197,7 @@ func (a *App) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			},
 		)
 
-		a.Log.ExitFunc = a.Terminate
+		p.Log.ExitFunc = p.Terminate
 
 		if before != nil {
 			if err := before(ctx); err != nil {
@@ -210,7 +209,7 @@ func (a *App) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	}
 }
 
-func (a *App) defaultAction() cli.ActionFunc {
+func (p *Plumber) defaultAction() cli.ActionFunc {
 	return func(ctx *cli.Context) error {
 		if err := cli.ShowAppHelp(ctx); err != nil {
 			return err
@@ -221,75 +220,84 @@ func (a *App) defaultAction() cli.ActionFunc {
 }
 
 // App.registerInterruptHandler Registers the os.Signal listener for the application.
-func (a *App) registerInterruptHandler() {
-	signal.Notify(a.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+func (p *Plumber) registerInterruptHandler() {
+	signal.Notify(p.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
-	interrupt := <-a.Channel.Interrupt
-	a.Log.Errorf(
+	interrupt := <-p.Channel.Interrupt
+	p.Log.Errorf(
 		"Terminating the application with operating system signal: %s",
 		interrupt,
 	)
 
-	a.Terminate(1)
+	p.Terminate(1)
+}
+
+func (p *Plumber) registerHandlers() {
+	go p.registerErrorHandler()
+	go p.registerFatalErrorHandler()
+	go p.registerInterruptHandler()
+	go p.registerExitHandler()
 }
 
 // App.registerErrorHandler Registers the error handlers for the runtime errors, this will not terminate application.
-func (a *App) registerErrorHandler() {
+func (p *Plumber) registerErrorHandler() {
 	for {
-		err := <-a.Channel.Err
+		err := <-p.Channel.Err
 
 		if err == nil {
 			return
 		}
 
-		a.Log.Errorln(err)
+		p.Log.Errorln(err)
 	}
 }
 
 // App.registerFatalErrorHandler Registers the error handler for fatal errors, this will terminate the application.
-func (a *App) registerFatalErrorHandler() {
+func (p *Plumber) registerFatalErrorHandler() {
 	for {
-		err := <-a.Channel.Fatal
+		err := <-p.Channel.Fatal
 
 		if err == nil {
 			return
 		}
 
-		a.Log.Fatalln(err)
+		p.Log.Fatalln(err)
 	}
+}
+
+func (p *Plumber) registerExitHandler() {
+	os.Exit(<-p.Channel.Exit)
 }
 
 // App.Terminate Terminates the application.
-func (a *App) Terminate(code int) {
-	close(a.Channel.Err)
-	close(a.Channel.Fatal)
-	close(a.Channel.Interrupt)
+func (p *Plumber) Terminate(code int) {
+	close(p.Channel.Err)
+	close(p.Channel.Fatal)
+	close(p.Channel.Interrupt)
 
-	if a.onTerminateFn != nil {
-		a.Channel.Err <- a.onTerminateFn()
+	if p.onTerminateFn != nil {
+		p.Channel.Err <- p.onTerminateFn()
 	}
 
-	os.Exit(code)
-
-	a.Channel.Terminated <- code
+	p.Channel.Exit <- code
 }
 
-func (a *App) generateMarkdownDocumentation() error {
+func (p *Plumber) generateMarkdownDocumentation() error {
 	const start = "<!-- clidocs -->"
 	const end = "<!-- clidocsstop -->"
 	expr := fmt.Sprintf(`(?s)%s(.*)%s`, start, end)
 
-	a.Log.Debugf("Using expression: %s", expr)
+	p.Log.Debugf("Using expression: %s", expr)
 
-	data, err := a.Cli.ToMarkdown()
+	data, err := p.Cli.ToMarkdown()
 
 	if err != nil {
 		return err
 	}
 
-	a.Log.Infof("Trying to read file: %s", a.readme)
+	p.Log.Infof("Trying to read file: %s", p.readme)
 
-	content, err := ioutil.ReadFile(a.readme)
+	content, err := ioutil.ReadFile(p.readme)
 
 	if err != nil {
 		return err
@@ -303,7 +311,7 @@ func (a *App) generateMarkdownDocumentation() error {
 
 	result := r.ReplaceAllString(readme, replace)
 
-	f, err := os.OpenFile(a.readme,
+	f, err := os.OpenFile(p.readme,
 		os.O_WRONLY, 0644)
 
 	if err != nil {
@@ -315,7 +323,7 @@ func (a *App) generateMarkdownDocumentation() error {
 		return err
 	}
 
-	a.Log.Infof("Wrote to file: %s", a.readme)
+	p.Log.Infof("Wrote to file: %s", p.readme)
 
 	return nil
 }

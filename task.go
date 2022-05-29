@@ -11,7 +11,7 @@ type Task[Pipe TaskListData] struct {
 	Name    string
 	options TaskOptions[Pipe]
 
-	App     *App
+	Plumber *Plumber
 	Log     *logrus.Entry
 	Channel *AppChannel
 	Lock    *sync.RWMutex
@@ -65,7 +65,7 @@ func (t *Task[Pipe]) New(tl *TaskList[Pipe], name string) *Task[Pipe] {
 
 	t.taskList = tl
 
-	t.App = tl.App
+	t.Plumber = tl.Plumber
 	t.Log = tl.Log.WithField("context", t.Name)
 	t.Lock = tl.Lock
 	t.Channel = tl.Channel
