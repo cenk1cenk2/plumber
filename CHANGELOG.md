@@ -1,3 +1,10 @@
+# [2.11.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.10.4...v2.11.0) (2022-05-29)
+
+
+### Features
+
+* change logger handling ([9cdc247](https://gitlab.kilic.dev/libraries/plumber/commit/9cdc247f5204d5b4604862978b0c5ac7ade0a958))
+
 ## [2.10.4](https://gitlab.kilic.dev/libraries/plumber/compare/v2.10.3...v2.10.4) (2022-05-29)
 
 
