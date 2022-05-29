@@ -61,7 +61,7 @@ func (p *Plumber) New(
 
 	p.Cli.Commands = append(p.Cli.Commands, &cli.Command{
 		Name: "docs",
-		Action: func(c *cli.Context) error {
+		Action: func(ctx *cli.Context) error {
 			return p.generateMarkdownDocumentation()
 		},
 		Hidden:   true,

@@ -115,12 +115,12 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 	return nil
 }
 
-func (t *TaskList[Pipe]) Run(c *cli.Context) error {
+func (t *TaskList[Pipe]) Run(ctx *cli.Context) error {
 	if err := t.Validate(&t.Pipe); err != nil {
 		return err
 	}
 
-	if err := t.runBefore(t, c); err != nil {
+	if err := t.runBefore(t, ctx); err != nil {
 		return err
 	}
 
@@ -138,7 +138,7 @@ func (t *TaskList[Pipe]) Run(c *cli.Context) error {
 		return err
 	}
 
-	if err := t.runAfter(t, c); err != nil {
+	if err := t.runAfter(t, ctx); err != nil {
 		return err
 	}
 
@@ -172,11 +172,11 @@ func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error 
 	return nil
 }
 
-func (t *TaskList[Pipe]) Job(c *cli.Context) Job {
-	return func(ctx floc.Context, ctrl floc.Control) error {
-		t.flocContext = ctx
+func (t *TaskList[Pipe]) Job(ctx *cli.Context) Job {
+	return func(fctx floc.Context, ctrl floc.Control) error {
+		t.flocContext = fctx
 		t.Control = ctrl
 
-		return t.Run(c)
+		return t.Run(ctx)
 	}
 }
