@@ -7,9 +7,9 @@ import (
 	"github.com/workanator/go-floc/v3"
 )
 
-type Task[Pipe TaskListData, Ctx TaskListData] struct {
+type Task[Pipe TaskListData] struct {
 	Name    string
-	options TaskOptions[Pipe, Ctx]
+	options TaskOptions[Pipe]
 
 	App     *App
 	Log     *logrus.Entry
@@ -17,27 +17,26 @@ type Task[Pipe TaskListData, Ctx TaskListData] struct {
 	Lock    *sync.RWMutex
 
 	Pipe    *Pipe
-	Context *Ctx
 	Control floc.Control
 
-	TaskList *TaskList[Pipe, Ctx]
+	TaskList *TaskList[Pipe]
 
 	subtask   floc.Job
 	emptyJob  floc.Job
-	commands  []Command[Pipe, Ctx]
-	fn        taskFn[Pipe, Ctx]
-	runBefore taskFn[Pipe, Ctx]
-	runAfter  taskFn[Pipe, Ctx]
+	commands  *[]Command[Pipe]
+	fn        taskFn[Pipe]
+	runBefore taskFn[Pipe]
+	runAfter  taskFn[Pipe]
 }
 
-type TaskOptions[Pipe TaskListData, Ctx TaskListData] struct {
-	Skip    taskPredicateFn[Pipe, Ctx]
-	Disable taskPredicateFn[Pipe, Ctx]
+type TaskOptions[Pipe TaskListData] struct {
+	Skip    taskPredicateFn[Pipe]
+	Disable taskPredicateFn[Pipe]
 }
 
 type (
-	taskFn[Pipe TaskListData, Ctx TaskListData]          func(*Task[Pipe, Ctx], floc.Control) error
-	taskPredicateFn[Pipe TaskListData, Ctx TaskListData] func(*Task[Pipe, Ctx]) bool
+	taskFn[Pipe TaskListData]          func(*Task[Pipe], floc.Control) error
+	taskPredicateFn[Pipe TaskListData] func(*Task[Pipe]) bool
 )
 
 const (
@@ -45,22 +44,22 @@ const (
 	task_skipped  = "SKIP"
 )
 
-func (t *Task[Pipe, Ctx]) New(tl *TaskList[Pipe, Ctx], name string) *Task[Pipe, Ctx] {
+func (t *Task[Pipe]) New(tl *TaskList[Pipe], name string) *Task[Pipe] {
 	t.Name = name
-	t.options = TaskOptions[Pipe, Ctx]{
-		Skip: func(t *Task[Pipe, Ctx]) bool {
+	t.options = TaskOptions[Pipe]{
+		Skip: func(t *Task[Pipe]) bool {
 			return false
 		},
-		Disable: func(t *Task[Pipe, Ctx]) bool {
+		Disable: func(t *Task[Pipe]) bool {
 			return false
 		},
 	}
-	t.commands = []Command[Pipe, Ctx]{}
+	t.commands = &[]Command[Pipe]{}
 
-	t.runBefore = func(tl *Task[Pipe, Ctx], c floc.Control) error {
+	t.runBefore = func(tl *Task[Pipe], c floc.Control) error {
 		return nil
 	}
-	t.runAfter = func(tl *Task[Pipe, Ctx], c floc.Control) error {
+	t.runAfter = func(tl *Task[Pipe], c floc.Control) error {
 		return nil
 	}
 
@@ -71,7 +70,7 @@ func (t *Task[Pipe, Ctx]) New(tl *TaskList[Pipe, Ctx], name string) *Task[Pipe, 
 	t.Lock = tl.Lock
 	t.Channel = tl.Channel
 
-	t.emptyJob = tl.JobIf(tl.Predicate(func(tl *TaskList[Pipe, Ctx]) bool {
+	t.emptyJob = tl.JobIf(tl.Predicate(func(tl *TaskList[Pipe]) bool {
 		return false
 	}),
 		func(ctx floc.Context, ctrl floc.Control) error {
@@ -80,36 +79,54 @@ func (t *Task[Pipe, Ctx]) New(tl *TaskList[Pipe, Ctx], name string) *Task[Pipe, 
 	)
 	t.subtask = t.emptyJob
 
-	t.Context = &tl.Context
 	t.Pipe = &tl.Pipe
 	t.Control = tl.Control
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) Set(fn taskFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
+func (t *Task[Pipe]) Set(fn taskFn[Pipe]) *Task[Pipe] {
 	t.fn = fn
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) SetSubtask(job floc.Job) *Task[Pipe, Ctx] {
+func (t *Task[Pipe]) CreateSubtask(name string) *Task[Pipe] {
+	st := &Task[Pipe]{}
+
+	if name == "" {
+		name = t.Name
+	}
+
+	return st.New(t.TaskList, name)
+}
+
+func (t *Task[Pipe]) ToParent(
+	parent *Task[Pipe],
+	fn func(pt *Task[Pipe], st *Task[Pipe]),
+) *Task[Pipe] {
+	fn(parent, t)
+
+	return t
+}
+
+func (t *Task[Pipe]) SetSubtask(job floc.Job) *Task[Pipe] {
 	t.subtask = job
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) ExtendSubtask(fn func(floc.Job) floc.Job) *Task[Pipe, Ctx] {
+func (t *Task[Pipe]) ExtendSubtask(fn func(floc.Job) floc.Job) *Task[Pipe] {
 	t.subtask = fn(t.subtask)
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) GetSubtasks() floc.Job {
+func (t *Task[Pipe]) GetSubtasks() floc.Job {
 	return t.subtask
 }
 
-func (t *Task[Pipe, Ctx]) RunSubtasks() error {
+func (t *Task[Pipe]) RunSubtasks() error {
 	err := t.TaskList.RunJobs(t.subtask)
 
 	if err != nil {
@@ -119,50 +136,58 @@ func (t *Task[Pipe, Ctx]) RunSubtasks() error {
 	return err
 }
 
-func (t *Task[Pipe, Ctx]) ShouldDisable(fn taskPredicateFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
+func (t *Task[Pipe]) ShouldDisable(fn taskPredicateFn[Pipe]) *Task[Pipe] {
 	t.options.Disable = fn
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) ShouldSkip(fn taskPredicateFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
+func (t *Task[Pipe]) ShouldSkip(fn taskPredicateFn[Pipe]) *Task[Pipe] {
 	t.options.Skip = fn
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) ShouldRunBefore(fn taskFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
+func (t *Task[Pipe]) ShouldRunBefore(fn taskFn[Pipe]) *Task[Pipe] {
 	t.runBefore = fn
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) ShouldRunAfter(fn taskFn[Pipe, Ctx]) *Task[Pipe, Ctx] {
+func (t *Task[Pipe]) ShouldRunAfter(fn taskFn[Pipe]) *Task[Pipe] {
 	t.runAfter = fn
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) AddCommands(commands ...Command[Pipe, Ctx]) *Task[Pipe, Ctx] {
-	t.commands = append(t.commands, commands...)
+func (t *Task[Pipe]) CreateCommand(command string, args ...string) *Command[Pipe] {
+	cmd := Command[Pipe]{}
+
+	return cmd.New(t, command, args...)
+}
+
+func (t *Task[Pipe]) AddCommands(commands ...*Command[Pipe]) *Task[Pipe] {
+	for _, v := range commands {
+		*t.commands = append(*t.commands, *v)
+	}
 
 	return t
 }
 
-func (t *Task[Pipe, Ctx]) GetCommands() []Command[Pipe, Ctx] {
+func (t *Task[Pipe]) GetCommands() *[]Command[Pipe] {
 	return t.commands
 }
 
-func (t *Task[Pipe, Ctx]) GetCommandJobs() []floc.Job {
+func (t *Task[Pipe]) GetCommandJobs() []floc.Job {
 	jobs := []floc.Job{}
-	for _, v := range t.commands {
+	for _, v := range *t.commands {
 		jobs = append(jobs, v.Job())
 	}
 
 	return jobs
 }
 
-func (t *Task[Pipe, Ctx]) GetCommandJobAsJobSequence() floc.Job {
+func (t *Task[Pipe]) GetCommandJobAsJobSequence() floc.Job {
 	jobs := t.GetCommandJobs()
 
 	if len(jobs) == 0 {
@@ -172,11 +197,11 @@ func (t *Task[Pipe, Ctx]) GetCommandJobAsJobSequence() floc.Job {
 	return t.TaskList.JobSequence(jobs...)
 }
 
-func (t *Task[Pipe, Ctx]) RunCommandJobAsJobSequence() error {
+func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
 	return t.TaskList.RunJobs(t.GetCommandJobAsJobSequence())
 }
 
-func (t *Task[Pipe, Ctx]) GetCommandJobAsJobParallel() floc.Job {
+func (t *Task[Pipe]) GetCommandJobAsJobParallel() floc.Job {
 	jobs := t.GetCommandJobs()
 
 	if len(jobs) == 0 {
@@ -186,11 +211,11 @@ func (t *Task[Pipe, Ctx]) GetCommandJobAsJobParallel() floc.Job {
 	return t.TaskList.JobParallel(jobs...)
 }
 
-func (t *Task[Pipe, Ctx]) RunCommandJobAsJobParallel() error {
+func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {
 	return t.TaskList.RunJobs(t.GetCommandJobAsJobParallel())
 }
 
-func (t *Task[Pipe, Ctx]) Run() error {
+func (t *Task[Pipe]) Run() error {
 	if result := t.options.Disable(t); result {
 		t.Log.WithField("context", task_disabled).
 			Debugf("%s", t.Name)
@@ -218,7 +243,7 @@ func (t *Task[Pipe, Ctx]) Run() error {
 	return nil
 }
 
-func (t *Task[Pipe, Ctx]) Job() floc.Job {
+func (t *Task[Pipe]) Job() floc.Job {
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		return t.Run()
 	}

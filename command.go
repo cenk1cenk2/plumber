@@ -13,13 +13,13 @@ import (
 	"gitlab.kilic.dev/libraries/go-utils/utils"
 )
 
-type Command[Pipe TaskListData, Ctx TaskListData] struct {
+type Command[Pipe TaskListData] struct {
 	Command     *exec.Cmd
 	stdoutLevel logrus.Level
 	stderrLevel logrus.Level
 	stdout      output
 	stderr      output
-	task        *Task[Pipe, Ctx]
+	task        *Task[Pipe]
 	log         *logrus.Entry
 }
 
@@ -28,7 +28,7 @@ type (
 		closer io.ReadCloser
 		reader *bufio.Reader
 	}
-	cmdFn[Pipe TaskListData, Ctx TaskListData] func(*Command[Pipe, Ctx]) error
+	cmdFn[Pipe TaskListData] func(*Command[Pipe]) error
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 )
 
 // Command.New Creates a new command to be executed.
-func (c *Command[Pipe, Ctx]) New(task *Task[Pipe, Ctx], command string, args ...string) *Command[Pipe, Ctx] {
+func (c *Command[Pipe]) New(task *Task[Pipe], command string, args ...string) *Command[Pipe] {
 	c.Command = exec.Command(command, args...)
 	c.task = task
 	c.log = task.Log
@@ -50,7 +50,7 @@ func (c *Command[Pipe, Ctx]) New(task *Task[Pipe, Ctx], command string, args ...
 }
 
 // Command.Set Sets the command details.
-func (c *Command[Pipe, Ctx]) Set(fn cmdFn[Pipe, Ctx]) *Command[Pipe, Ctx] {
+func (c *Command[Pipe]) Set(fn cmdFn[Pipe]) *Command[Pipe] {
 	err := fn(c)
 
 	if err != nil {
@@ -61,7 +61,7 @@ func (c *Command[Pipe, Ctx]) Set(fn cmdFn[Pipe, Ctx]) *Command[Pipe, Ctx] {
 }
 
 // Command.SetLogLevel Sets the log level specific to this command.
-func (c *Command[Pipe, Ctx]) SetLogLevel(stdout logrus.Level, stderr logrus.Level) *Command[Pipe, Ctx] {
+func (c *Command[Pipe]) SetLogLevel(stdout logrus.Level, stderr logrus.Level) *Command[Pipe] {
 	if stdout == 0 {
 		c.stdoutLevel = logrus.InfoLevel
 	}
@@ -74,14 +74,14 @@ func (c *Command[Pipe, Ctx]) SetLogLevel(stdout logrus.Level, stderr logrus.Leve
 }
 
 // Command.AppendArgs Appends arguments to the command.
-func (c *Command[Pipe, Ctx]) AppendArgs(args ...string) *Command[Pipe, Ctx] {
+func (c *Command[Pipe]) AppendArgs(args ...string) *Command[Pipe] {
 	c.Command.Args = append(c.Command.Args, args...)
 
 	return c
 }
 
 // Command.AppendEnvironment Appends environment variables to command as map.
-func (c *Command[Pipe, Ctx]) AppendEnvironment(environment map[string]string) *Command[Pipe, Ctx] {
+func (c *Command[Pipe]) AppendEnvironment(environment map[string]string) *Command[Pipe] {
 	for k, v := range environment {
 		c.AppendDirectEnvironment(fmt.Sprintf("%s=%s", k, v))
 	}
@@ -90,28 +90,28 @@ func (c *Command[Pipe, Ctx]) AppendEnvironment(environment map[string]string) *C
 }
 
 // Command.AppendDirectEnvironment Appends environment variables to command as directly.
-func (c *Command[Pipe, Ctx]) AppendDirectEnvironment(environment ...string) *Command[Pipe, Ctx] {
+func (c *Command[Pipe]) AppendDirectEnvironment(environment ...string) *Command[Pipe] {
 	c.Command.Env = append(c.Command.Env, environment...)
 
 	return c
 }
 
 // Command.SetDir Sets the directory of the command.
-func (c *Command[Pipe, Ctx]) SetDir(dir string) *Command[Pipe, Ctx] {
+func (c *Command[Pipe]) SetDir(dir string) *Command[Pipe] {
 	c.Command.Dir = dir
 
 	return c
 }
 
 // Command.SetPath Sets the directory of the command.
-func (c *Command[Pipe, Ctx]) SetPath(dir string) *Command[Pipe, Ctx] {
+func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
 	c.Command.Path = dir
 
 	return c
 }
 
 // Command.Run Run the defined command.
-func (c *Command[Pipe, Ctx]) Run() error {
+func (c *Command[Pipe]) Run() error {
 	cmd := strings.Join(c.Command.Args, " ")
 
 	c.log.WithField("status", command_started).
@@ -131,14 +131,26 @@ func (c *Command[Pipe, Ctx]) Run() error {
 	return nil
 }
 
-func (c *Command[Pipe, Ctx]) Job() floc.Job {
+func (c *Command[Pipe]) Job() floc.Job {
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		return c.Run()
 	}
 }
 
+func (c *Command[Pipe]) AddSelfToTheTask() *Command[Pipe] {
+	c.task.AddCommands(c)
+
+	return c
+}
+
+func (c *Command[Pipe]) AddSelfToParentTask(parent *Task[Pipe]) *Command[Pipe] {
+	parent.AddCommands(c)
+
+	return c
+}
+
 // Command.pipe Executes the command and pipes the output through the logger.
-func (c *Command[Pipe, Ctx]) pipe() error {
+func (c *Command[Pipe]) pipe() error {
 	cmd := strings.Join(c.Command.Args, " ")
 
 	if err := c.createReaders(); err != nil {
@@ -170,7 +182,7 @@ func (c *Command[Pipe, Ctx]) pipe() error {
 }
 
 // Command.createReaders Creates closers and readers for stdout and stderr.
-func (c *Command[Pipe, Ctx]) createReaders() error {
+func (c *Command[Pipe]) createReaders() error {
 	closer, err := c.Command.StdoutPipe()
 
 	if err != nil {
@@ -195,7 +207,7 @@ func (c *Command[Pipe, Ctx]) createReaders() error {
 }
 
 // Command.handleStream Handles incoming data stream from a command.
-func (c *Command[Pipe, Ctx]) handleStream(output output, level logrus.Level) {
+func (c *Command[Pipe]) handleStream(output output, level logrus.Level) {
 	defer output.closer.Close()
 
 	log := c.log.WithFields(logrus.Fields{})

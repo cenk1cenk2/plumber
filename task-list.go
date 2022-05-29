@@ -17,37 +17,36 @@ type TaskListData interface {
 	any
 }
 
-type TaskList[Pipe TaskListData, Ctx TaskListData] struct {
+type TaskList[Pipe TaskListData] struct {
 	Tasks floc.Job
 
 	App *App
 
 	Pipe    Pipe
-	Context Ctx
 	Lock    *sync.RWMutex
 	Log     *logrus.Logger
 	Channel *AppChannel
 	Control floc.Control
 
 	flocContext floc.Context
-	runBefore   taskListFn[Pipe, Ctx]
-	runAfter    taskListFn[Pipe, Ctx]
+	runBefore   taskListFn[Pipe]
+	runAfter    taskListFn[Pipe]
 }
 
 type (
-	taskListFn[Pipe TaskListData, Ctx TaskListData] func(*TaskList[Pipe, Ctx], *cli.Context) error
+	taskListFn[Pipe TaskListData] func(*TaskList[Pipe], *cli.Context) error
 )
 
-func (t *TaskList[Pipe, Ctx]) New(a *App) *TaskList[Pipe, Ctx] {
+func (t *TaskList[Pipe]) New(a *App) *TaskList[Pipe] {
 	t.App = a
 	t.Log = a.Log
 	t.Channel = &a.Channel
 	t.Lock = &sync.RWMutex{}
 
-	t.runBefore = func(tl *TaskList[Pipe, Ctx], ctx *cli.Context) error {
+	t.runBefore = func(tl *TaskList[Pipe], ctx *cli.Context) error {
 		return nil
 	}
-	t.runAfter = func(tl *TaskList[Pipe, Ctx], ctx *cli.Context) error {
+	t.runAfter = func(tl *TaskList[Pipe], ctx *cli.Context) error {
 		return nil
 	}
 
@@ -57,29 +56,35 @@ func (t *TaskList[Pipe, Ctx]) New(a *App) *TaskList[Pipe, Ctx] {
 	return t
 }
 
-func (t *TaskList[Pipe, Ctx]) GetTasks() floc.Job {
+func (t *TaskList[Pipe]) GetTasks() floc.Job {
 	return t.Tasks
 }
 
-func (t *TaskList[Pipe, Ctx]) SetTasks(tasks floc.Job) *TaskList[Pipe, Ctx] {
+func (t *TaskList[Pipe]) SetTasks(tasks floc.Job) *TaskList[Pipe] {
 	t.Tasks = tasks
 
 	return t
 }
 
-func (t *TaskList[Pipe, Ctx]) ShouldRunBefore(fn taskListFn[Pipe, Ctx]) *TaskList[Pipe, Ctx] {
+func (t *TaskList[Pipe]) CreateTask(name string) *Task[Pipe] {
+	task := &Task[Pipe]{}
+
+	return task.New(t, name)
+}
+
+func (t *TaskList[Pipe]) ShouldRunBefore(fn taskListFn[Pipe]) *TaskList[Pipe] {
 	t.runBefore = fn
 
 	return t
 }
 
-func (t *TaskList[Pipe, Ctx]) ShouldRunAfter(fn taskListFn[Pipe, Ctx]) *TaskList[Pipe, Ctx] {
+func (t *TaskList[Pipe]) ShouldRunAfter(fn taskListFn[Pipe]) *TaskList[Pipe] {
 	t.runAfter = fn
 
 	return t
 }
 
-func (t *TaskList[Pipe, Ctx]) Validate(data TaskListData) error {
+func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 	if err := defaults.Set(data); err != nil {
 		return fmt.Errorf("Can not set defaults: %s", err)
 	}
@@ -110,12 +115,8 @@ func (t *TaskList[Pipe, Ctx]) Validate(data TaskListData) error {
 	return nil
 }
 
-func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
+func (t *TaskList[Pipe]) Run(c *cli.Context) error {
 	if err := t.Validate(&t.Pipe); err != nil {
-		return err
-	}
-
-	if err := t.Validate(&t.Context); err != nil {
 		return err
 	}
 
@@ -146,7 +147,7 @@ func (t *TaskList[Pipe, Ctx]) Run(c *cli.Context) error {
 	return nil
 }
 
-func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
+func (t *TaskList[Pipe]) RunJobs(job floc.Job) error {
 	if job == nil {
 		return nil
 	}
@@ -167,7 +168,7 @@ func (t *TaskList[Pipe, Ctx]) RunJobs(job floc.Job) error {
 	return nil
 }
 
-func (t *TaskList[Pipe, Ctx]) Job(c *cli.Context) floc.Job {
+func (t *TaskList[Pipe]) Job(c *cli.Context) floc.Job {
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		t.flocContext = ctx
 		t.Control = ctrl
