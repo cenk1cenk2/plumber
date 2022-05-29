@@ -183,6 +183,21 @@ func (a *App) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		a.Log = logger.InitiateLogger(level)
 
+		a.Log.SetFormatter(
+			&logger.Formatter{
+				FieldsOrder:      []string{"context", "status"},
+				TimestampFormat:  "",
+				HideKeys:         true,
+				NoColors:         false,
+				NoFieldsColors:   false,
+				NoFieldsSpace:    false,
+				ShowFullLevel:    false,
+				NoUppercaseLevel: false,
+				TrimMessages:     true,
+				CallerFirst:      false,
+			},
+		)
+
 		a.Log.ExitFunc = a.Terminate
 
 		if before != nil {

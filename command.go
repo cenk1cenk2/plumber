@@ -114,19 +114,19 @@ func (c *Command[Pipe, Ctx]) SetPath(dir string) *Command[Pipe, Ctx] {
 func (c *Command[Pipe, Ctx]) Run() error {
 	cmd := strings.Join(c.Command.Args, " ")
 
-	c.log.WithField("context", command_started).
+	c.log.WithField("status", command_started).
 		Infof("$ %s", cmd)
 
 	c.Command.Args = utils.DeleteEmptyStringsFromSlice(c.Command.Args)
 
 	if err := c.pipe(); err != nil {
-		c.log.WithField("context", command_failed).
+		c.log.WithField("status", command_failed).
 			Errorf("$ %s > %s", cmd, err.Error())
 
 		return err
 	}
 
-	c.log.WithField("context", command_finished).Infof("$ %s", cmd)
+	c.log.WithField("status", command_finished).Infof("$ %s", cmd)
 
 	return nil
 }
@@ -146,7 +146,7 @@ func (c *Command[Pipe, Ctx]) pipe() error {
 	}
 
 	if err := c.Command.Start(); err != nil {
-		c.log.WithField("context", command_failed).
+		c.log.WithField("status", command_failed).
 			Errorf("Can not start the command: $ %s", cmd)
 
 		return err
@@ -158,7 +158,7 @@ func (c *Command[Pipe, Ctx]) pipe() error {
 	if err := c.Command.Wait(); err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				c.log.WithField("context", command_exited).
+				c.log.WithField("status", command_exited).
 					Debugf("$ %s > Exit Code: %v", cmd, status.ExitStatus())
 			}
 		}
