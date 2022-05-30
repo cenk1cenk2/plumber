@@ -1,3 +1,10 @@
+## [2.11.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.11.0...v2.11.1) (2022-05-30)
+
+
+### Bug Fixes
+
+* update for webundsoehne problems ([8f01872](https://gitlab.kilic.dev/libraries/plumber/commit/8f01872ba41e3d3eaaeec56be18c96c247aa85f2))
+
 # [2.11.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.10.4...v2.11.0) (2022-05-29)
 
 
