@@ -161,7 +161,7 @@ func (t *Task[Pipe]) ShouldRunAfter(fn taskFn[Pipe]) *Task[Pipe] {
 }
 
 func (t *Task[Pipe]) CreateCommand(command string, args ...string) *Command[Pipe] {
-	cmd := Command[Pipe]{}
+	cmd := &Command[Pipe]{}
 
 	return cmd.New(t, command, args...)
 }

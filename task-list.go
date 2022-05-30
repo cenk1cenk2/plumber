@@ -103,7 +103,7 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 
 			param := err.Param()
 			if param != "" {
-				error = fmt.Sprintf("%s -> %s", error, param)
+				error = fmt.Sprintf("%s > %s", error, param)
 			}
 
 			t.Log.Errorln(error)

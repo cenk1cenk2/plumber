@@ -21,6 +21,7 @@ type Command[Pipe TaskListData] struct {
 	stderr      output
 	task        *Task[Pipe]
 	log         *logrus.Entry
+	cmdFn       cmdFn[Pipe]
 }
 
 type (
@@ -51,11 +52,7 @@ func (c *Command[Pipe]) New(task *Task[Pipe], command string, args ...string) *C
 
 // Command.Set Sets the command details.
 func (c *Command[Pipe]) Set(fn cmdFn[Pipe]) *Command[Pipe] {
-	err := fn(c)
-
-	if err != nil {
-		c.task.Channel.Fatal <- err
-	}
+	c.cmdFn = fn
 
 	return c
 }
@@ -112,6 +109,12 @@ func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
 
 // Command.Run Run the defined command.
 func (c *Command[Pipe]) Run() error {
+	err := c.cmdFn(c)
+
+	if err != nil {
+		c.task.Channel.Fatal <- err
+	}
+
 	cmd := strings.Join(c.Command.Args, " ")
 
 	c.log.WithField("status", command_started).
@@ -159,7 +162,7 @@ func (c *Command[Pipe]) pipe() error {
 
 	if err := c.Command.Start(); err != nil {
 		c.log.WithField("status", command_failed).
-			Debugf("$ %s -> Can not start command!", cmd)
+			Debugf("$ %s > Can not start command!", cmd)
 
 		return err
 	}
