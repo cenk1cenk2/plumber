@@ -20,8 +20,8 @@ type Command[Pipe TaskListData] struct {
 	stdout      output
 	stderr      output
 	task        *Task[Pipe]
-	log         *logrus.Entry
-	cmdFn       cmdFn[Pipe]
+	Log         *logrus.Entry
+	setFn       setFn[Pipe]
 }
 
 type (
@@ -29,7 +29,7 @@ type (
 		closer io.ReadCloser
 		reader *bufio.Reader
 	}
-	cmdFn[Pipe TaskListData] func(*Command[Pipe]) error
+	setFn[Pipe TaskListData] func(*Command[Pipe]) error
 )
 
 const (
@@ -39,11 +39,12 @@ const (
 	command_exited   string = "EXIT"
 )
 
-// Command.New Creates a new command to be executed.
-func (c *Command[Pipe]) New(task *Task[Pipe], command string, args ...string) *Command[Pipe] {
-	c.Command = exec.Command(command, args...)
-	c.task = task
-	c.log = task.Log
+func NewCommand[P TaskListData](task *Task[P], command string, args ...string) *Command[P] {
+	c := &Command[P]{
+		Command: exec.Command(command, args...),
+		task:    task,
+		Log:     task.Log,
+	}
 
 	c.SetLogLevel(0, 0)
 
@@ -51,8 +52,14 @@ func (c *Command[Pipe]) New(task *Task[Pipe], command string, args ...string) *C
 }
 
 // Command.Set Sets the command details.
-func (c *Command[Pipe]) Set(fn cmdFn[Pipe]) *Command[Pipe] {
-	c.cmdFn = fn
+func (c *Command[Pipe]) Set(fn setFn[Pipe]) *Command[Pipe] {
+	c.setFn = fn
+
+	err := c.setFn(c)
+
+	if err != nil {
+		c.task.Channel.Fatal <- err
+	}
 
 	return c
 }
@@ -61,10 +68,14 @@ func (c *Command[Pipe]) Set(fn cmdFn[Pipe]) *Command[Pipe] {
 func (c *Command[Pipe]) SetLogLevel(stdout logrus.Level, stderr logrus.Level) *Command[Pipe] {
 	if stdout == 0 {
 		c.stdoutLevel = logrus.InfoLevel
+	} else {
+		c.stdoutLevel = stdout
 	}
 
 	if stderr == 0 {
 		c.stderrLevel = logrus.WarnLevel
+	} else {
+		c.stderrLevel = stderr
 	}
 
 	return c
@@ -109,27 +120,27 @@ func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
 
 // Command.Run Run the defined command.
 func (c *Command[Pipe]) Run() error {
-	err := c.cmdFn(c)
-
-	if err != nil {
-		c.task.Channel.Fatal <- err
-	}
+	// err := c.setFn(c)
+	//
+	// if err != nil {
+	// 	return err
+	// }
 
 	cmd := strings.Join(c.Command.Args, " ")
 
-	c.log.WithField("status", command_started).
+	c.Log.WithField("status", command_started).
 		Infof("$ %s", cmd)
 
 	c.Command.Args = utils.DeleteEmptyStringsFromSlice(c.Command.Args)
 
 	if err := c.pipe(); err != nil {
-		c.log.WithField("status", command_failed).
+		c.Log.WithField("status", command_failed).
 			Errorf("$ %s > %s", cmd, err.Error())
 
 		return err
 	}
 
-	c.log.WithField("status", command_finished).Infof("$ %s", cmd)
+	c.Log.WithField("status", command_finished).Infof("$ %s", cmd)
 
 	return nil
 }
@@ -146,8 +157,8 @@ func (c *Command[Pipe]) AddSelfToTheTask() *Command[Pipe] {
 	return c
 }
 
-func (c *Command[Pipe]) AddSelfToParentTask(parent *Task[Pipe]) *Command[Pipe] {
-	parent.AddCommands(c)
+func (c *Command[Pipe]) AddSelfToParentTask(pt *Task[Pipe]) *Command[Pipe] {
+	pt.AddCommands(c)
 
 	return c
 }
@@ -161,7 +172,7 @@ func (c *Command[Pipe]) pipe() error {
 	}
 
 	if err := c.Command.Start(); err != nil {
-		c.log.WithField("status", command_failed).
+		c.Log.WithField("status", command_failed).
 			Debugf("$ %s > Can not start command!", cmd)
 
 		return err
@@ -173,7 +184,7 @@ func (c *Command[Pipe]) pipe() error {
 	if err := c.Command.Wait(); err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				c.log.WithField("status", command_exited).
+				c.Log.WithField("status", command_exited).
 					Debugf("$ %s > Exit Code: %v", cmd, status.ExitStatus())
 			}
 		}
@@ -213,7 +224,7 @@ func (c *Command[Pipe]) createReaders() error {
 func (c *Command[Pipe]) handleStream(output output, level logrus.Level) {
 	defer output.closer.Close()
 
-	log := c.log.WithFields(logrus.Fields{})
+	log := c.Log.WithFields(logrus.Fields{})
 
 	for {
 		str, err := output.reader.ReadString('\n')

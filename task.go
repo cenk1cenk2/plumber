@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -11,10 +12,11 @@ type Task[Pipe TaskListData] struct {
 	Name    string
 	options TaskOptions[Pipe]
 
-	Plumber *Plumber
-	Log     *logrus.Entry
-	Channel *AppChannel
-	Lock    *sync.RWMutex
+	Plumber  *Plumber
+	Log      *logrus.Entry
+	Channel  *AppChannel
+	Lock     *sync.RWMutex
+	taskLock *sync.RWMutex
 
 	Pipe    *Pipe
 	Control floc.Control
@@ -23,7 +25,8 @@ type Task[Pipe TaskListData] struct {
 
 	subtask   Job
 	emptyJob  Job
-	commands  *[]Command[Pipe]
+	parent    *Task[Pipe]
+	commands  []*Command[Pipe]
 	fn        taskFn[Pipe]
 	runBefore taskFn[Pipe]
 	runAfter  taskFn[Pipe]
@@ -44,7 +47,9 @@ const (
 	task_skipped  = "SKIP"
 )
 
-func (t *Task[Pipe]) New(tl *TaskList[Pipe], name string) *Task[Pipe] {
+func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name string) *Task[Pipe] {
+	t := &Task[Pipe]{}
+
 	t.Name = name
 	t.options = TaskOptions[Pipe]{
 		Skip: func(t *Task[Pipe]) bool {
@@ -54,7 +59,7 @@ func (t *Task[Pipe]) New(tl *TaskList[Pipe], name string) *Task[Pipe] {
 			return false
 		},
 	}
-	t.commands = &[]Command[Pipe]{}
+	t.commands = []*Command[Pipe]{}
 
 	t.runBefore = func(tl *Task[Pipe]) error {
 		return nil
@@ -68,6 +73,7 @@ func (t *Task[Pipe]) New(tl *TaskList[Pipe], name string) *Task[Pipe] {
 	t.Plumber = tl.Plumber
 	t.Log = tl.Log.WithField("context", t.Name)
 	t.Lock = tl.Lock
+	t.taskLock = &sync.RWMutex{}
 	t.Channel = tl.Channel
 
 	t.emptyJob = tl.JobIf(tl.Predicate(func(tl *TaskList[Pipe]) bool {
@@ -92,32 +98,58 @@ func (t *Task[Pipe]) Set(fn taskFn[Pipe]) *Task[Pipe] {
 }
 
 func (t *Task[Pipe]) CreateSubtask(name string) *Task[Pipe] {
-	st := &Task[Pipe]{}
+	st := NewTask(t.taskList, name)
+
+	st.parent = t
 
 	if name == "" {
-		name = t.Name
+		st.Name = t.Name
 	}
 
-	return st.New(t.taskList, name)
+	return st
 }
 
 func (t *Task[Pipe]) ToParent(
 	parent *Task[Pipe],
 	fn func(pt *Task[Pipe], st *Task[Pipe]),
 ) *Task[Pipe] {
+	t.parent.taskLock.Lock()
 	fn(parent, t)
+	t.parent.taskLock.Unlock()
+
+	return t
+}
+
+func (t *Task[Pipe]) HasParent() bool {
+	return t.parent != nil
+}
+
+func (t *Task[Pipe]) AddSelfToParent(
+	fn func(pt *Task[Pipe], st *Task[Pipe]),
+) *Task[Pipe] {
+	if !t.HasParent() {
+		t.Channel.Fatal <- fmt.Errorf("Task has no parent value set.")
+	}
+
+	t.parent.Lock.Lock()
+	fn(t.parent, t)
+	t.parent.Lock.Unlock()
 
 	return t
 }
 
 func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
+	t.taskLock.Lock()
 	t.subtask = job
+	t.taskLock.Unlock()
 
 	return t
 }
 
 func (t *Task[Pipe]) ExtendSubtask(fn func(Job) Job) *Task[Pipe] {
+	t.taskLock.Lock()
 	t.subtask = fn(t.subtask)
+	t.taskLock.Unlock()
 
 	return t
 }
@@ -129,7 +161,7 @@ func (t *Task[Pipe]) GetSubtasks() Job {
 func (t *Task[Pipe]) RunSubtasks() error {
 	err := t.taskList.RunJobs(t.subtask)
 
-	if err != nil {
+	if err == nil {
 		t.SetSubtask(t.emptyJob)
 	}
 
@@ -161,54 +193,52 @@ func (t *Task[Pipe]) ShouldRunAfter(fn taskFn[Pipe]) *Task[Pipe] {
 }
 
 func (t *Task[Pipe]) CreateCommand(command string, args ...string) *Command[Pipe] {
-	cmd := &Command[Pipe]{}
-
-	return cmd.New(t, command, args...)
+	return NewCommand(t, command, args...)
 }
 
 func (t *Task[Pipe]) AddCommands(commands ...*Command[Pipe]) *Task[Pipe] {
-	for _, v := range commands {
-		*t.commands = append(*t.commands, *v)
-	}
+	t.taskLock.Lock()
+	t.commands = append(t.commands, commands...)
+	t.taskLock.Unlock()
 
 	return t
 }
 
-func (t *Task[Pipe]) GetCommands() *[]Command[Pipe] {
+func (t *Task[Pipe]) GetCommands() []*Command[Pipe] {
 	return t.commands
 }
 
 func (t *Task[Pipe]) GetCommandJobs() []Job {
-	jobs := []Job{}
-	for _, v := range *t.commands {
-		jobs = append(jobs, v.Job())
+	j := []Job{}
+	for _, c := range t.GetCommands() {
+		j = append(j, c.Job())
 	}
 
-	return jobs
+	return j
 }
 
 func (t *Task[Pipe]) GetCommandJobAsJobSequence() Job {
-	jobs := t.GetCommandJobs()
+	j := t.GetCommandJobs()
 
-	if len(jobs) == 0 {
+	if len(j) == 0 {
 		return nil
 	}
 
-	return t.taskList.JobSequence(jobs...)
+	return t.taskList.JobSequence(j...)
+}
+
+func (t *Task[Pipe]) GetCommandJobAsJobParallel() Job {
+	j := t.GetCommandJobs()
+
+	if len(j) == 0 {
+		return nil
+	}
+
+	return t.taskList.JobParallel(j...)
 }
 
 func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
 	return t.taskList.RunJobs(t.GetCommandJobAsJobSequence())
-}
-
-func (t *Task[Pipe]) GetCommandJobAsJobParallel() Job {
-	jobs := t.GetCommandJobs()
-
-	if len(jobs) == 0 {
-		return nil
-	}
-
-	return t.taskList.JobParallel(jobs...)
 }
 
 func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {

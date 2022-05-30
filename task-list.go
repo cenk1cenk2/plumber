@@ -67,9 +67,7 @@ func (t *TaskList[Pipe]) SetTasks(tasks Job) *TaskList[Pipe] {
 }
 
 func (t *TaskList[Pipe]) CreateTask(name string) *Task[Pipe] {
-	task := &Task[Pipe]{}
-
-	return task.New(t, name)
+	return NewTask(t, name)
 }
 
 func (t *TaskList[Pipe]) ShouldRunBefore(fn taskListFn[Pipe]) *TaskList[Pipe] {
