@@ -1,3 +1,10 @@
+# [2.12.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.11.1...v2.12.0) (2022-05-30)
+
+
+### Features
+
+* monkey patch ([cb6070e](https://gitlab.kilic.dev/libraries/plumber/commit/cb6070ef5f77dfffe79065b8c215fdf983c287ca))
+
 ## [2.11.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.11.0...v2.11.1) (2022-05-30)
 
 
