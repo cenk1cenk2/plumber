@@ -27,9 +27,9 @@ type Task[Pipe TaskListData] struct {
 	emptyJob  Job
 	parent    *Task[Pipe]
 	commands  []*Command[Pipe]
-	fn        taskFn[Pipe]
-	runBefore taskFn[Pipe]
-	runAfter  taskFn[Pipe]
+	fn        TaskFn[Pipe]
+	runBefore TaskFn[Pipe]
+	runAfter  TaskFn[Pipe]
 }
 
 type TaskOptions[Pipe TaskListData] struct {
@@ -38,7 +38,7 @@ type TaskOptions[Pipe TaskListData] struct {
 }
 
 type (
-	taskFn[Pipe TaskListData]          func(*Task[Pipe]) error
+	TaskFn[Pipe TaskListData]          func(*Task[Pipe]) error
 	taskPredicateFn[Pipe TaskListData] func(*Task[Pipe]) bool
 )
 
@@ -91,7 +91,7 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name string) *Task[Pipe] {
 	return t
 }
 
-func (t *Task[Pipe]) Set(fn taskFn[Pipe]) *Task[Pipe] {
+func (t *Task[Pipe]) Set(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.fn = fn
 
 	return t
@@ -180,13 +180,13 @@ func (t *Task[Pipe]) ShouldSkip(fn taskPredicateFn[Pipe]) *Task[Pipe] {
 	return t
 }
 
-func (t *Task[Pipe]) ShouldRunBefore(fn taskFn[Pipe]) *Task[Pipe] {
+func (t *Task[Pipe]) ShouldRunBefore(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.runBefore = fn
 
 	return t
 }
 
-func (t *Task[Pipe]) ShouldRunAfter(fn taskFn[Pipe]) *Task[Pipe] {
+func (t *Task[Pipe]) ShouldRunAfter(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.runAfter = fn
 
 	return t
@@ -210,7 +210,7 @@ func (t *Task[Pipe]) GetCommands() []*Command[Pipe] {
 
 func (t *Task[Pipe]) GetCommandJobs() []Job {
 	j := []Job{}
-	for _, c := range t.GetCommands() {
+	for _, c := range t.commands {
 		j = append(j, c.Job())
 	}
 

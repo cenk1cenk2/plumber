@@ -21,7 +21,7 @@ type Command[Pipe TaskListData] struct {
 	stderr      output
 	task        *Task[Pipe]
 	Log         *logrus.Entry
-	setFn       setFn[Pipe]
+	SetFn       CommandFn[Pipe]
 }
 
 type (
@@ -29,7 +29,7 @@ type (
 		closer io.ReadCloser
 		reader *bufio.Reader
 	}
-	setFn[Pipe TaskListData] func(*Command[Pipe]) error
+	CommandFn[Pipe TaskListData] func(*Command[Pipe]) error
 )
 
 const (
@@ -52,14 +52,8 @@ func NewCommand[P TaskListData](task *Task[P], command string, args ...string) *
 }
 
 // Command.Set Sets the command details.
-func (c *Command[Pipe]) Set(fn setFn[Pipe]) *Command[Pipe] {
-	c.setFn = fn
-
-	err := c.setFn(c)
-
-	if err != nil {
-		c.task.Channel.Fatal <- err
-	}
+func (c *Command[Pipe]) Set(fn CommandFn[Pipe]) *Command[Pipe] {
+	c.SetFn = fn
 
 	return c
 }
@@ -120,11 +114,11 @@ func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
 
 // Command.Run Run the defined command.
 func (c *Command[Pipe]) Run() error {
-	// err := c.setFn(c)
-	//
-	// if err != nil {
-	// 	return err
-	// }
+	err := c.SetFn(c)
+
+	if err != nil {
+		return err
+	}
 
 	cmd := strings.Join(c.Command.Args, " ")
 
