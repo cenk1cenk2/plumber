@@ -112,9 +112,19 @@ func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
 	return c
 }
 
+func (c *Command[Pipe]) RunSet() error {
+	err := c.SetFn(c)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Command.Run Run the defined command.
 func (c *Command[Pipe]) Run() error {
-	err := c.SetFn(c)
+	err := c.RunSet()
 
 	if err != nil {
 		return err
