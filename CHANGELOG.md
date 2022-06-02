@@ -1,3 +1,10 @@
+# [2.14.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.13.0...v2.14.0) (2022-06-02)
+
+
+### Features
+
+* add run set function for edge cases ([8d836f5](https://gitlab.kilic.dev/libraries/plumber/commit/8d836f58cfa54abc85e594287a2166832aa8941c))
+
 # [2.13.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.12.0...v2.13.0) (2022-06-02)
 
 
