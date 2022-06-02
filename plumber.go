@@ -283,13 +283,13 @@ func (p *Plumber) registerExitHandler() {
 
 // App.Terminate Terminates the application.
 func (p *Plumber) Terminate(code int) {
-	close(p.Channel.Err)
-	close(p.Channel.Fatal)
-	close(p.Channel.Interrupt)
-
 	if p.onTerminateFn != nil {
 		p.Channel.Err <- p.onTerminateFn()
 	}
+
+	close(p.Channel.Err)
+	close(p.Channel.Fatal)
+	close(p.Channel.Interrupt)
 
 	p.Channel.Exit <- code
 }
