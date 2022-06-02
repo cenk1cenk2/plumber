@@ -1,3 +1,10 @@
+## [2.14.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.14.0...v2.14.1) (2022-06-02)
+
+
+### Bug Fixes
+
+* change the order for on terminate function ([5d756e8](https://gitlab.kilic.dev/libraries/plumber/commit/5d756e8c06a1b7ca9636689522b23608938bf8e0))
+
 # [2.14.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.13.0...v2.14.0) (2022-06-02)
 
 
