@@ -1,3 +1,10 @@
+# [2.13.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.12.0...v2.13.0) (2022-06-02)
+
+
+### Features
+
+* fix problems with memory management ([c5ee645](https://gitlab.kilic.dev/libraries/plumber/commit/c5ee6452653878e086ffb008e858c2f24a33e36e))
+
 # [2.12.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.11.1...v2.12.0) (2022-05-30)
 
 
