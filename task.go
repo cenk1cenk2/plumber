@@ -253,16 +253,19 @@ func (t *Task[Pipe]) Run() error {
 
 	if t.runBefore != nil {
 		if err := t.runBefore(t); err != nil {
+			t.Log.Errorln(err)
 			return err
 		}
 	}
 
 	if err := t.fn(t); err != nil {
+		t.Log.Errorln(err)
 		return err
 	}
 
 	if t.runAfter != nil {
 		if err := t.runAfter(t); err != nil {
+			t.Log.Errorln(err)
 			return err
 		}
 	}
