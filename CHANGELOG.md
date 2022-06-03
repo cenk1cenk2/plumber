@@ -1,3 +1,10 @@
+## [3.1.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.1.0...v3.1.1) (2022-06-03)
+
+
+### Bug Fixes
+
+* first log by task ([13a82a0](https://gitlab.kilic.dev/libraries/plumber/commit/13a82a0f59bc4b9ee21f52d98ef7987c2c812be0))
+
 # [3.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.0.0...v3.1.0) (2022-06-03)
 
 
