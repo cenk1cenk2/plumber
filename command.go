@@ -21,7 +21,7 @@ type Command[Pipe TaskListData] struct {
 	stderr      output
 	task        *Task[Pipe]
 	Log         *logrus.Entry
-	SetFn       CommandFn[Pipe]
+	setFn       CommandFn[Pipe]
 }
 
 type (
@@ -53,7 +53,7 @@ func NewCommand[P TaskListData](task *Task[P], command string, args ...string) *
 
 // Command.Set Sets the command details.
 func (c *Command[Pipe]) Set(fn CommandFn[Pipe]) *Command[Pipe] {
-	c.SetFn = fn
+	c.setFn = fn
 
 	return c
 }
@@ -113,7 +113,11 @@ func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
 }
 
 func (c *Command[Pipe]) RunSet() error {
-	err := c.SetFn(c)
+	if c.setFn == nil {
+		return nil
+	}
+
+	err := c.setFn(c)
 
 	if err != nil {
 		return err

@@ -61,13 +61,6 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name string) *Task[Pipe] {
 	}
 	t.commands = []*Command[Pipe]{}
 
-	t.runBefore = func(tl *Task[Pipe]) error {
-		return nil
-	}
-	t.runAfter = func(tl *Task[Pipe]) error {
-		return nil
-	}
-
 	t.taskList = tl
 
 	t.Plumber = tl.Plumber
@@ -258,16 +251,20 @@ func (t *Task[Pipe]) Run() error {
 		return nil
 	}
 
-	if err := t.runBefore(t); err != nil {
-		return err
+	if t.runBefore != nil {
+		if err := t.runBefore(t); err != nil {
+			return err
+		}
 	}
 
 	if err := t.fn(t); err != nil {
 		return err
 	}
 
-	if err := t.runAfter(t); err != nil {
-		return err
+	if t.runAfter != nil {
+		if err := t.runAfter(t); err != nil {
+			return err
+		}
 	}
 
 	return nil
