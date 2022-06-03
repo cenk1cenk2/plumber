@@ -1,3 +1,10 @@
+# [2.15.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.14.1...v2.15.0) (2022-06-03)
+
+
+### Features
+
+* enable adding no set function to commands ([e387502](https://gitlab.kilic.dev/libraries/plumber/commit/e38750232bc70d77b04d50e6aeeabd26639d9566))
+
 ## [2.14.1](https://gitlab.kilic.dev/libraries/plumber/compare/v2.14.0...v2.14.1) (2022-06-02)
 
 
