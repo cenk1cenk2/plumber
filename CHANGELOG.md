@@ -1,3 +1,15 @@
+# [3.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.15.0...v3.0.0) (2022-06-03)
+
+
+### Performance Improvements
+
+* channge api for injection of cli context ([b52bb41](https://gitlab.kilic.dev/libraries/plumber/commit/b52bb413ded620c553d12e5fa5f507a147d35db1))
+
+
+### BREAKING CHANGES
+
+* seting a plumber app changes a bit
+
 # [2.15.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.14.1...v2.15.0) (2022-06-03)
 
 
