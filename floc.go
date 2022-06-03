@@ -112,8 +112,8 @@ Diagram:
                       | NO             |
                       +----->[JOB_2]---+
 */
-func (t *TaskList[Pipe]) JobIf(predicate JobPredicate, job Job) Job {
-	return run.If(predicate, job)
+func (t *TaskList[Pipe]) JobIf(predicate JobPredicate, jobs ...Job) Job {
+	return run.If(predicate, jobs...)
 }
 
 /*
@@ -142,6 +142,22 @@ Diagram:
 */
 func (t *TaskList[Pipe]) JobIfNot(predicate JobPredicate, jobs ...Job) Job {
 	return run.IfNot(predicate, jobs...)
+}
+
+/*
+Then just returns the job unmodified. Then is used for expressiveness
+and can be omitted.
+
+Summary:
+	- Run jobs in goroutines : N/A
+	- Wait all jobs finish   : N/A
+	- Run order              : N/A
+
+Diagram:
+  ----[JOB]--->
+*/
+func (t *TaskList[Pipe]) JobThen(job Job) Job {
+	return run.Then(job)
 }
 
 /*
