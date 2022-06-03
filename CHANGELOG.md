@@ -1,3 +1,10 @@
+# [3.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.0.0...v3.1.0) (2022-06-03)
+
+
+### Features
+
+* add job then as well ([4cbbbba](https://gitlab.kilic.dev/libraries/plumber/commit/4cbbbbacc290c60e0ff35f9bfb032bc01f9ba14c))
+
 # [3.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v2.15.0...v3.0.0) (2022-06-03)
 
 
