@@ -1,4 +1,4 @@
-module gitlab.kilic.dev/libraries/plumber/v2
+module gitlab.kilic.dev/libraries/plumber/v3
 
 go 1.18
 

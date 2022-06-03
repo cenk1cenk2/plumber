@@ -22,11 +22,12 @@ type TaskList[Pipe TaskListData] struct {
 
 	Plumber *Plumber
 
-	Pipe    Pipe
-	Lock    *sync.RWMutex
-	Log     *logrus.Logger
-	Channel *AppChannel
-	Control floc.Control
+	CliContext *cli.Context
+	Pipe       Pipe
+	Lock       *sync.RWMutex
+	Log        *logrus.Logger
+	Channel    *AppChannel
+	Control    floc.Control
 
 	flocContext floc.Context
 	runBefore   taskListFn[Pipe]
@@ -34,24 +35,25 @@ type TaskList[Pipe TaskListData] struct {
 }
 
 type (
-	taskListFn[Pipe TaskListData] func(*TaskList[Pipe], *cli.Context) error
+	taskListFn[Pipe TaskListData] func(*TaskList[Pipe]) error
 )
 
 func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
+	t.Lock = &sync.RWMutex{}
 	t.Plumber = p
 	t.Log = p.Log
 	t.Channel = &p.Channel
-	t.Lock = &sync.RWMutex{}
-
-	t.runBefore = func(tl *TaskList[Pipe], ctx *cli.Context) error {
-		return nil
-	}
-	t.runAfter = func(tl *TaskList[Pipe], ctx *cli.Context) error {
-		return nil
-	}
 
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
+
+	return t
+}
+
+func (t *TaskList[Pipe]) SetCliContext(ctx *cli.Context) *TaskList[Pipe] {
+	t.Lock.Lock()
+	t.CliContext = ctx
+	t.Lock.Unlock()
 
 	return t
 }
@@ -61,7 +63,9 @@ func (t *TaskList[Pipe]) GetTasks() Job {
 }
 
 func (t *TaskList[Pipe]) SetTasks(tasks Job) *TaskList[Pipe] {
+	t.Lock.Lock()
 	t.Tasks = tasks
+	t.Lock.Unlock()
 
 	return t
 }
@@ -71,13 +75,17 @@ func (t *TaskList[Pipe]) CreateTask(name string) *Task[Pipe] {
 }
 
 func (t *TaskList[Pipe]) ShouldRunBefore(fn taskListFn[Pipe]) *TaskList[Pipe] {
+	t.Lock.Lock()
 	t.runBefore = fn
+	t.Lock.Unlock()
 
 	return t
 }
 
 func (t *TaskList[Pipe]) ShouldRunAfter(fn taskListFn[Pipe]) *TaskList[Pipe] {
+	t.Lock.Lock()
 	t.runAfter = fn
+	t.Lock.Unlock()
 
 	return t
 }
@@ -113,13 +121,15 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 	return nil
 }
 
-func (t *TaskList[Pipe]) Run(ctx *cli.Context) error {
+func (t *TaskList[Pipe]) Run() error {
 	if err := t.Validate(&t.Pipe); err != nil {
 		return err
 	}
 
-	if err := t.runBefore(t, ctx); err != nil {
-		return err
+	if t.runBefore != nil {
+		if err := t.runBefore(t); err != nil {
+			return err
+		}
 	}
 
 	if t.Tasks == nil {
@@ -136,8 +146,10 @@ func (t *TaskList[Pipe]) Run(ctx *cli.Context) error {
 		return err
 	}
 
-	if err := t.runAfter(t, ctx); err != nil {
-		return err
+	if t.runAfter != nil {
+		if err := t.runAfter(t); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -170,11 +182,11 @@ func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error 
 	return nil
 }
 
-func (t *TaskList[Pipe]) Job(ctx *cli.Context) Job {
+func (t *TaskList[Pipe]) Job() Job {
 	return func(fctx floc.Context, ctrl floc.Control) error {
 		t.flocContext = fctx
 		t.Control = ctrl
 
-		return t.Run(ctx)
+		return t.Run()
 	}
 }
