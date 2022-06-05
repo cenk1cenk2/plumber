@@ -12,9 +12,18 @@ import (
 type (
 	Job          = floc.Job
 	JobPredicate = floc.Predicate
+	Result       = floc.Result
+	ResultMask   = floc.ResultMask
 
 	taskListPredicateFn[Pipe TaskListData] func(*TaskList[Pipe]) bool
 	guardHandlerFn[Pipe TaskListData]      func(*TaskList[Pipe])
+)
+
+const (
+	TASK_ANY       = floc.None
+	TASK_COMPLETED = floc.Completed
+	TASK_CANCELLED = floc.Canceled
+	TASK_FAILED    = floc.Failed
 )
 
 // TaskList.Predicate Creates a new floc predicate out of the given conditions.
@@ -361,4 +370,17 @@ func (t *TaskList[Pipe]) GuardOnPanic(job Job, fn guardHandlerFn[Pipe]) Job {
 			fn(t)
 		},
 	)
+}
+
+// Resume resumes execution of the flow possibly finished by the job.
+// If the mask is empty execution will be resumed regardless the reason
+// it was finished. Otherwise execution will be resumed if the reason
+// it finished with is masked.
+func (t *TaskList[Pipe]) GuardResume(job Job, mask Result) Job {
+	return guard.Resume(t.NewResultMask(mask), job)
+}
+
+// NewResultMask constructs new instance from the mask given.
+func (t *TaskList[Pipe]) NewResultMask(mask Result) ResultMask {
+	return floc.NewResultMask(mask)
 }
