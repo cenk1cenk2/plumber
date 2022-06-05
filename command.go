@@ -15,9 +15,9 @@ import (
 
 type Command[Pipe TaskListData] struct {
 	Command       *exec.Cmd
-	stdoutLevel   logrus.Level
-	stderrLevel   logrus.Level
-	lifetimeLevel logrus.Level
+	stdoutLevel   LogLevel
+	stderrLevel   LogLevel
+	lifetimeLevel LogLevel
 	stdout        output
 	stderr        output
 	task          *Task[Pipe]
@@ -61,9 +61,9 @@ func (c *Command[Pipe]) Set(fn CommandFn[Pipe]) *Command[Pipe] {
 
 // Command.SetLogLevel Sets the log level specific to this command.
 func (c *Command[Pipe]) SetLogLevel(
-	stdout logrus.Level,
-	stderr logrus.Level,
-	lifetime logrus.Level,
+	stdout LogLevel,
+	stderr LogLevel,
+	lifetime LogLevel,
 ) *Command[Pipe] {
 	if stdout == 0 {
 		c.stdoutLevel = logrus.InfoLevel
@@ -240,7 +240,7 @@ func (c *Command[Pipe]) createReaders() error {
 }
 
 // Command.handleStream Handles incoming data stream from a command.
-func (c *Command[Pipe]) handleStream(output output, level logrus.Level) {
+func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 	defer output.closer.Close()
 
 	log := c.Log.WithFields(logrus.Fields{})

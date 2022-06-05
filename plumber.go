@@ -196,7 +196,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	}
 }
 
-func (p *Plumber) setupLogger(level logrus.Level) {
+func (p *Plumber) setupLogger(level LogLevel) {
 	p.Log.Level = level
 
 	p.Log.SetFormatter(
