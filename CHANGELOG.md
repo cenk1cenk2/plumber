@@ -1,3 +1,10 @@
+# [3.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.1.2...v3.2.0) (2022-06-05)
+
+
+### Features
+
+* extend command log level to have lifeetime ([cf6e8a9](https://gitlab.kilic.dev/libraries/plumber/commit/cf6e8a9d155cb0d7ff04ed1a50082fb2fd473f23))
+
 ## [3.1.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.1.1...v3.1.2) (2022-06-05)
 
 
