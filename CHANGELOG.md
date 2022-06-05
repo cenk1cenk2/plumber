@@ -1,3 +1,10 @@
+## [3.4.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.4.0...v3.4.1) (2022-06-05)
+
+
+### Bug Fixes
+
+* update message for shorter one ([9451709](https://gitlab.kilic.dev/libraries/plumber/commit/9451709abb3438810d175c4290926bc89eea93be))
+
 # [3.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.3.0...v3.4.0) (2022-06-05)
 
 
