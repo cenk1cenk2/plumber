@@ -38,8 +38,8 @@ type TaskOptions[Pipe TaskListData] struct {
 }
 
 type (
-	TaskFn[Pipe TaskListData]          func(*Task[Pipe]) error
-	taskPredicateFn[Pipe TaskListData] func(*Task[Pipe]) bool
+	TaskFn[Pipe TaskListData]          func(t *Task[Pipe]) error
+	taskPredicateFn[Pipe TaskListData] func(t *Task[Pipe]) bool
 )
 
 const (
@@ -139,7 +139,7 @@ func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
 	return t
 }
 
-func (t *Task[Pipe]) ExtendSubtask(fn func(Job) Job) *Task[Pipe] {
+func (t *Task[Pipe]) ExtendSubtask(fn func(job Job) Job) *Task[Pipe] {
 	t.taskLock.Lock()
 	t.subtask = fn(t.subtask)
 	t.taskLock.Unlock()
@@ -159,6 +159,12 @@ func (t *Task[Pipe]) RunSubtasks() error {
 	}
 
 	return err
+}
+
+func (t *Task[Pipe]) RunSubtasksWithExtension(fn func(job Job) Job) error {
+	t.subtask = fn(t.subtask)
+
+	return t.RunSubtasks()
 }
 
 func (t *Task[Pipe]) ShouldDisable(fn taskPredicateFn[Pipe]) *Task[Pipe] {
@@ -234,8 +240,16 @@ func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
 	return t.taskList.RunJobs(t.GetCommandJobAsJobSequence())
 }
 
+func (t *Task[Pipe]) RunCommandJobAsJobSequenceWithExtension(fn func(job Job) Job) error {
+	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobSequence()))
+}
+
 func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {
 	return t.taskList.RunJobs(t.GetCommandJobAsJobParallel())
+}
+
+func (t *Task[Pipe]) RunCommandJobAsJobParallelWithExtension(fn func(job Job) Job) error {
+	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobParallel()))
 }
 
 func (t *Task[Pipe]) Run() error {
