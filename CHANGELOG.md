@@ -1,3 +1,10 @@
+# [3.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.4.1...v3.5.0) (2022-06-05)
+
+
+### Features
+
+* expose logrus directly ([c611ebd](https://gitlab.kilic.dev/libraries/plumber/commit/c611ebd4e0f34b1d826681721db4efde2bc349e6))
+
 ## [3.4.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.4.0...v3.4.1) (2022-06-05)
 
 
