@@ -1,3 +1,10 @@
+# [3.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.3.0...v3.4.0) (2022-06-05)
+
+
+### Features
+
+* add with extension commands ([36b49fe](https://gitlab.kilic.dev/libraries/plumber/commit/36b49fe316c3fa653550b467d210b9efbdba7324))
+
 # [3.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.2.0...v3.3.0) (2022-06-05)
 
 
