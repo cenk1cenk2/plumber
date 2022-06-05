@@ -233,7 +233,7 @@ func (p *Plumber) registerInterruptHandler() {
 
 	interrupt := <-p.Channel.Interrupt
 	p.Log.Errorf(
-		"Terminating the application with operating system signal: %s",
+		"Terminating the application with signal: %s",
 		interrupt,
 	)
 
