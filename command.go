@@ -14,14 +14,15 @@ import (
 )
 
 type Command[Pipe TaskListData] struct {
-	Command     *exec.Cmd
-	stdoutLevel logrus.Level
-	stderrLevel logrus.Level
-	stdout      output
-	stderr      output
-	task        *Task[Pipe]
-	Log         *logrus.Entry
-	setFn       CommandFn[Pipe]
+	Command       *exec.Cmd
+	stdoutLevel   logrus.Level
+	stderrLevel   logrus.Level
+	lifetimeLevel logrus.Level
+	stdout        output
+	stderr        output
+	task          *Task[Pipe]
+	Log           *logrus.Entry
+	setFn         CommandFn[Pipe]
 }
 
 type (
@@ -46,7 +47,7 @@ func NewCommand[P TaskListData](task *Task[P], command string, args ...string) *
 		Log:     task.Log,
 	}
 
-	c.SetLogLevel(0, 0)
+	c.SetLogLevel(0, 0, 0)
 
 	return c
 }
@@ -59,7 +60,11 @@ func (c *Command[Pipe]) Set(fn CommandFn[Pipe]) *Command[Pipe] {
 }
 
 // Command.SetLogLevel Sets the log level specific to this command.
-func (c *Command[Pipe]) SetLogLevel(stdout logrus.Level, stderr logrus.Level) *Command[Pipe] {
+func (c *Command[Pipe]) SetLogLevel(
+	stdout logrus.Level,
+	stderr logrus.Level,
+	lifetime logrus.Level,
+) *Command[Pipe] {
 	if stdout == 0 {
 		c.stdoutLevel = logrus.InfoLevel
 	} else {
@@ -70,6 +75,12 @@ func (c *Command[Pipe]) SetLogLevel(stdout logrus.Level, stderr logrus.Level) *C
 		c.stderrLevel = logrus.WarnLevel
 	} else {
 		c.stderrLevel = stderr
+	}
+
+	if lifetime == 0 {
+		c.lifetimeLevel = logrus.InfoLevel
+	} else {
+		c.lifetimeLevel = lifetime
 	}
 
 	return c
@@ -137,7 +148,7 @@ func (c *Command[Pipe]) Run() error {
 	cmd := strings.Join(c.Command.Args, " ")
 
 	c.Log.WithField("status", command_started).
-		Infof("$ %s", cmd)
+		Logf(c.lifetimeLevel, "$ %s", cmd)
 
 	c.Command.Args = utils.DeleteEmptyStringsFromSlice(c.Command.Args)
 
@@ -148,7 +159,7 @@ func (c *Command[Pipe]) Run() error {
 		return err
 	}
 
-	c.Log.WithField("status", command_finished).Infof("$ %s", cmd)
+	c.Log.WithField("status", command_finished).Logf(c.lifetimeLevel, "$ %s", cmd)
 
 	return nil
 }
