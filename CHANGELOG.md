@@ -1,3 +1,10 @@
+## [3.1.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.1.1...v3.1.2) (2022-06-05)
+
+
+### Bug Fixes
+
+* update checking for nil explicitly ([db4ef9d](https://gitlab.kilic.dev/libraries/plumber/commit/db4ef9dd9c58a3e1f712b76f3d2b7e7da18a3fae))
+
 ## [3.1.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.1.0...v3.1.1) (2022-06-03)
 
 
