@@ -1,3 +1,10 @@
+## [3.5.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.5.0...v3.5.1) (2022-06-05)
+
+
+### Bug Fixes
+
+* add default level ([41b890b](https://gitlab.kilic.dev/libraries/plumber/commit/41b890b3faab971b6d9d0f14cd8e8fbf31b8b61c))
+
 # [3.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.4.1...v3.5.0) (2022-06-05)
 
 
