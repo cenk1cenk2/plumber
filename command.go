@@ -87,8 +87,10 @@ func (c *Command[Pipe]) SetLogLevel(
 	return c
 }
 
-func (c *Command[Pipe]) SetIgnoreError(ignoreError bool) {
+func (c *Command[Pipe]) SetIgnoreError(ignoreError bool) *Command[Pipe] {
 	c.ignoreError = ignoreError
+
+	return c
 }
 
 // Command.AppendArgs Appends arguments to the command.
