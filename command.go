@@ -20,6 +20,7 @@ type Command[Pipe TaskListData] struct {
 	lifetimeLevel LogLevel
 	stdout        output
 	stderr        output
+	ignoreError   bool
 	task          *Task[Pipe]
 	Log           *logrus.Entry
 	setFn         CommandFn[Pipe]
@@ -84,6 +85,10 @@ func (c *Command[Pipe]) SetLogLevel(
 	}
 
 	return c
+}
+
+func (c *Command[Pipe]) SetIgnoreError(ignoreError bool) {
+	c.ignoreError = ignoreError
 }
 
 // Command.AppendArgs Appends arguments to the command.
@@ -208,7 +213,9 @@ func (c *Command[Pipe]) pipe() error {
 			}
 		}
 
-		return err
+		if !c.ignoreError {
+			return err
+		}
 	}
 
 	return nil
