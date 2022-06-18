@@ -1,3 +1,10 @@
+## [3.7.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.7.0...v3.7.1) (2022-06-18)
+
+
+### Bug Fixes
+
+* the interface ([31c67bb](https://gitlab.kilic.dev/libraries/plumber/commit/31c67bbf821068a2deca75106fa5327ed51afea8))
+
 # [3.7.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.6.4...v3.7.0) (2022-06-18)
 
 
