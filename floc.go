@@ -380,6 +380,11 @@ func (t *TaskList[Pipe]) GuardResume(job Job, mask Result) Job {
 	return guard.Resume(t.NewResultMask(mask), job)
 }
 
+// Always run this job!
+func (t *TaskList[Pipe]) GuardAlways(job Job) Job {
+	return guard.Resume(t.NewResultMask(TASK_ANY), job)
+}
+
 // NewResultMask constructs new instance from the mask given.
 func (t *TaskList[Pipe]) NewResultMask(mask Result) ResultMask {
 	return floc.NewResultMask(mask)
