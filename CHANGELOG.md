@@ -1,3 +1,10 @@
+## [3.6.3](https://gitlab.kilic.dev/libraries/plumber/compare/v3.6.2...v3.6.3) (2022-06-18)
+
+
+### Bug Fixes
+
+* timing issue ([0cbe49c](https://gitlab.kilic.dev/libraries/plumber/commit/0cbe49cd79593c3ae4d2b92800549ac6afba3a4a))
+
 ## [3.6.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.6.1...v3.6.2) (2022-06-18)
 
 
