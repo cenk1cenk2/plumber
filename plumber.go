@@ -139,7 +139,7 @@ func (p *Plumber) greet() {
 	var version = p.Cli.Version
 
 	if version == "latest" {
-		version = fmt.Sprintf("BUILD.%s", p.Cli.Compiled.Format("20060102T15-04Z"))
+		version = fmt.Sprintf("BUILD.%s", p.Cli.Compiled.UTC().Format("20060102-1504"))
 	}
 
 	name := fmt.Sprintf("%s - %s", p.Cli.Name, version)
