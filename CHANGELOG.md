@@ -1,3 +1,10 @@
+## [3.6.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.6.0...v3.6.1) (2022-06-18)
+
+
+### Bug Fixes
+
+* add build numbers ([da6debd](https://gitlab.kilic.dev/libraries/plumber/commit/da6debd1dcb62ab36beeb3715f4fc1d7406d0695))
+
 # [3.6.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.5.1...v3.6.0) (2022-06-18)
 
 
