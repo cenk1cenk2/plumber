@@ -1,3 +1,10 @@
+# [3.7.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.6.4...v3.7.0) (2022-06-18)
+
+
+### Features
+
+* add ignore error function ([3bd0611](https://gitlab.kilic.dev/libraries/plumber/commit/3bd06118fd393fefaf534ad9857c1121f97d71fe))
+
 ## [3.6.4](https://gitlab.kilic.dev/libraries/plumber/compare/v3.6.3...v3.6.4) (2022-06-18)
 
 
