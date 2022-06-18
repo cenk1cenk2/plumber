@@ -136,7 +136,13 @@ func (p *Plumber) SetReadme(file string) *Plumber {
 
 // Cli.greet Greet the user with the application name and version.
 func (p *Plumber) greet() {
-	name := fmt.Sprintf("%s - %s", p.Cli.Name, p.Cli.Version)
+	var version = p.Cli.Version
+
+	if version == "latest" {
+		version = p.Cli.Compiled.Format("RELEASE.20060102T15-04Z")
+	}
+
+	name := fmt.Sprintf("%s - %s", p.Cli.Name, version)
 	fmt.Println(name)
 	fmt.Println(strings.Repeat("-", len(name)))
 }
