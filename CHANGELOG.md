@@ -1,3 +1,10 @@
+## [3.7.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.7.1...v3.7.2) (2022-06-18)
+
+
+### Bug Fixes
+
+* update naming scheme ([7f1a23b](https://gitlab.kilic.dev/libraries/plumber/commit/7f1a23bbaa36b61277d065440c5bcd43f361f420))
+
 ## [3.7.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.7.0...v3.7.1) (2022-06-18)
 
 
