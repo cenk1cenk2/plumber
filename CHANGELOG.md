@@ -1,3 +1,10 @@
+## [3.6.4](https://gitlab.kilic.dev/libraries/plumber/compare/v3.6.3...v3.6.4) (2022-06-18)
+
+
+### Bug Fixes
+
+* update auto versioning ([9ce1661](https://gitlab.kilic.dev/libraries/plumber/commit/9ce1661d91a3dbe46bbb9c283fa88edf24795a69))
+
 ## [3.6.3](https://gitlab.kilic.dev/libraries/plumber/compare/v3.6.2...v3.6.3) (2022-06-18)
 
 
