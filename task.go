@@ -43,7 +43,7 @@ type (
 )
 
 const (
-	task_disabled = "OFF"
+	task_disabled = "DISABLE"
 	task_skipped  = "SKIP"
 )
 
