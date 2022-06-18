@@ -1,3 +1,10 @@
+# [3.6.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.5.1...v3.6.0) (2022-06-18)
+
+
+### Features
+
+* add new guard to do things always for floc ([b39e3cb](https://gitlab.kilic.dev/libraries/plumber/commit/b39e3cb55d99ddc313e47fb7a2ec6c7a4126acd2))
+
 ## [3.5.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.5.0...v3.5.1) (2022-06-05)
 
 
