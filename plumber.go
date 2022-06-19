@@ -285,7 +285,7 @@ func (p *Plumber) registerErrorHandler() {
 				return
 			}
 
-			err.Log.Errorln(err)
+			err.Log.Errorln(err.Err)
 		}
 	}
 }
@@ -309,7 +309,7 @@ func (p *Plumber) registerFatalErrorHandler() {
 				return
 			}
 
-			err.Log.Fatalln(err)
+			err.Log.Fatalln(err.Err)
 		}
 	}
 
