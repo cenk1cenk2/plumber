@@ -208,7 +208,15 @@ func (t *Task[Pipe]) SendError(err error) *Task[Pipe] {
 }
 
 func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
+	t.Control.Cancel(err)
 	t.Plumber.SendCustomFatal(t.Log, err)
+
+	return t
+}
+
+func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
+	t.Control.Cancel(fmt.Sprintf("Will exit with code: %d", code))
+	t.Plumber.SendExit(code)
 
 	return t
 }
