@@ -1,3 +1,10 @@
+## [3.9.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.9.0...v3.9.1) (2022-06-19)
+
+
+### Bug Fixes
+
+* custom errors ([8c830b9](https://gitlab.kilic.dev/libraries/plumber/commit/8c830b960a18a26231a4daa97c44813d4e772bc0))
+
 # [3.9.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.8.2...v3.9.0) (2022-06-19)
 
 
