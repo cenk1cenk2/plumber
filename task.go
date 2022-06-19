@@ -201,6 +201,18 @@ func (t *Task[Pipe]) ShouldRunAfter(fn TaskFn[Pipe]) *Task[Pipe] {
 	return t
 }
 
+func (t *Task[Pipe]) SendError(err error) *Task[Pipe] {
+	t.Plumber.SendCustomError(t.Log, err)
+
+	return t
+}
+
+func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
+	t.Plumber.SendCustomFatal(t.Log, err)
+
+	return t
+}
+
 func (t *Task[Pipe]) CreateCommand(command string, args ...string) *Command[Pipe] {
 	return NewCommand(t, command, args...)
 }
