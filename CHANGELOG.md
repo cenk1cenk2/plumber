@@ -1,3 +1,10 @@
+# [3.9.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.8.2...v3.9.0) (2022-06-19)
+
+
+### Features
+
+* add custom error channels with logger ([a423f4f](https://gitlab.kilic.dev/libraries/plumber/commit/a423f4f7b61861446cf54126b9e4b08cfb677b6a))
+
 ## [3.8.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.8.1...v3.8.2) (2022-06-19)
 
 
