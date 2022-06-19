@@ -33,8 +33,12 @@ type AppEnvironment struct {
 type AppChannel struct {
 	// to communicate the errors while not blocking
 	Err chan error
+	// to communicate the errors while not blocking
+	CustomErr chan ErrorChannelWithLogger
 	// Fatal errors
 	Fatal chan error
+	// to communicate the errors while not blocking
+	CustomFatal chan ErrorChannelWithLogger
 	// terminate channel
 	Interrupt chan os.Signal
 	// exit channel
@@ -42,7 +46,11 @@ type AppChannel struct {
 }
 
 type (
-	onTerminateFn func() error
+	onTerminateFn          func() error
+	ErrorChannelWithLogger struct {
+		Log *logrus.Entry
+		Err error
+	}
 )
 
 // Cli.New Creates a new plumber for pipes.
@@ -84,10 +92,12 @@ func (p *Plumber) New(
 
 	// create error channels
 	p.Channel = AppChannel{
-		Err:       make(chan error),
-		Fatal:     make(chan error),
-		Interrupt: make(chan os.Signal),
-		Exit:      make(chan int, 1),
+		Err:         make(chan error),
+		CustomErr:   make(chan ErrorChannelWithLogger),
+		Fatal:       make(chan error),
+		CustomFatal: make(chan ErrorChannelWithLogger),
+		Interrupt:   make(chan os.Signal),
+		Exit:        make(chan int, 1),
 	}
 
 	return p
@@ -209,7 +219,7 @@ func (p *Plumber) setupLogger(level LogLevel) {
 
 	p.Log.SetFormatter(
 		&logger.Formatter{
-			FieldsOrder:      []string{"context", "status"},
+			FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
 			TimestampFormat:  "",
 			HideKeys:         true,
 			NoColors:         false,
@@ -258,31 +268,51 @@ func (p *Plumber) registerHandlers() {
 // App.registerErrorHandler Registers the error handlers for the runtime errors, this will not terminate application.
 func (p *Plumber) registerErrorHandler() {
 	for {
-		err := <-p.Channel.Err
+		select {
+		case err := <-p.Channel.Err:
 
-		if err == nil {
-			return
+			if err == nil {
+				return
+			}
+
+			if p.Log != nil {
+				p.Log.Errorln(err)
+			} else {
+				panic(err)
+			}
+		case err := <-p.Channel.CustomErr:
+			if err.Err == nil {
+				return
+			}
+
+			err.Log.Errorln(err)
 		}
-
-		p.Log.Errorln(err)
 	}
 }
 
 // App.registerFatalErrorHandler Registers the error handler for fatal errors, this will terminate the application.
 func (p *Plumber) registerFatalErrorHandler() {
 	for {
-		err := <-p.Channel.Fatal
+		select {
+		case err := <-p.Channel.Fatal:
+			if err == nil {
+				return
+			}
 
-		if err == nil {
-			return
-		}
+			if p.Log != nil {
+				p.Log.Fatalln(err)
+			} else {
+				panic(err)
+			}
+		case err := <-p.Channel.CustomFatal:
+			if err.Err == nil {
+				return
+			}
 
-		if p.Log != nil {
-			p.Log.Fatalln(err)
-		} else {
-			panic(err)
+			err.Log.Fatalln(err)
 		}
 	}
+
 }
 
 func (p *Plumber) registerExitHandler() {
@@ -296,7 +326,9 @@ func (p *Plumber) Terminate(code int) {
 	}
 
 	close(p.Channel.Err)
+	close(p.Channel.CustomErr)
 	close(p.Channel.Fatal)
+	close(p.Channel.CustomFatal)
 	close(p.Channel.Interrupt)
 
 	p.Channel.Exit <- code

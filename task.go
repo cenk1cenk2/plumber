@@ -66,7 +66,7 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name string) *Task[Pipe] {
 	t.taskList = tl
 
 	t.Plumber = tl.Plumber
-	t.Log = tl.Log.WithField("context", t.Name)
+	t.Log = tl.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
 	t.Lock = tl.Lock
 	t.taskLock = &sync.RWMutex{}
 	t.Channel = tl.Channel
@@ -123,7 +123,7 @@ func (t *Task[Pipe]) AddSelfToParent(
 	fn func(pt *Task[Pipe], st *Task[Pipe]),
 ) *Task[Pipe] {
 	if !t.HasParent() {
-		t.Channel.Fatal <- fmt.Errorf("Task has no parent value set.")
+		t.Channel.CustomFatal <- ErrorChannelWithLogger{Err: fmt.Errorf("Task has no parent value set."), Log: t.Log}
 	}
 
 	t.parent.Lock.Lock()
@@ -289,12 +289,12 @@ func (t *Task[Pipe]) Run() error {
 
 func (t *Task[Pipe]) handleStopCases() bool {
 	if result := t.options.Disable(t); result {
-		t.Log.WithField("context", task_disabled).
+		t.Log.WithField(LOG_FIELD_CONTEXT, task_disabled).
 			Debugf("%s", t.Name)
 
 		return true
 	} else if result := t.options.Skip(t); result {
-		t.Log.WithField("context", task_skipped).
+		t.Log.WithField(LOG_FIELD_CONTEXT, task_skipped).
 			Warnf("%s", t.Name)
 
 		return true

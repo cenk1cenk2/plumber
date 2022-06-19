@@ -15,4 +15,6 @@ const (
 	LOG_LEVEL_INFO    LogLevel = logrus.InfoLevel
 	LOG_LEVEL_DEBUG   LogLevel = logrus.DebugLevel
 	LOG_LEVEL_TRACE   LogLevel = logrus.TraceLevel
+	LOG_FIELD_CONTEXT string   = "context"
+	LOG_FIELD_STATUS  string   = "status"
 )
