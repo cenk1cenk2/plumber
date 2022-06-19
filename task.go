@@ -311,9 +311,7 @@ func (t *Task[Pipe]) Job() Job {
 		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
 			if t.jobWrapper != nil {
 				return tl.RunJobs(t.jobWrapper(
-					tl.CreateJob(func(t *TaskList[Pipe]) error {
-						return t.Run()
-					}),
+					tl.CreateBasicJob(t.Run),
 				))
 			}
 
