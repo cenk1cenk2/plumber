@@ -1,3 +1,10 @@
+## [3.11.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.11.0...v3.11.1) (2022-06-19)
+
+
+### Bug Fixes
+
+* update to use the internal func ([e6b3c3e](https://gitlab.kilic.dev/libraries/plumber/commit/e6b3c3e04282e577b0e17a55e029af004b3933ec))
+
 # [3.11.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.10.0...v3.11.0) (2022-06-19)
 
 
