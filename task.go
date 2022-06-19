@@ -123,7 +123,7 @@ func (t *Task[Pipe]) AddSelfToParent(
 	fn func(pt *Task[Pipe], st *Task[Pipe]),
 ) *Task[Pipe] {
 	if !t.HasParent() {
-		t.Plumber.SendCustomFatal(t.Log, fmt.Errorf("Task has no parent value set."))
+		t.SendFatal(fmt.Errorf("Task has no parent value set."))
 
 		return t
 	}
