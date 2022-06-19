@@ -176,6 +176,12 @@ func (p *Plumber) SendCustomFatal(log *logrus.Entry, err error) *Plumber {
 	return p
 }
 
+func (p *Plumber) SendExit(code int) *Plumber {
+	p.Channel.Exit <- code
+
+	return p
+}
+
 // Cli.greet Greet the user with the application name and version.
 func (p *Plumber) greet() {
 	var version = p.Cli.Version
@@ -361,7 +367,7 @@ func (p *Plumber) Terminate(code int) {
 	close(p.Channel.CustomFatal)
 	close(p.Channel.Interrupt)
 
-	p.Channel.Exit <- code
+	p.SendExit(code)
 }
 
 func (p *Plumber) generateMarkdownDocumentation() error {
