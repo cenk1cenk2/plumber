@@ -30,18 +30,18 @@ type Task[Pipe TaskListData] struct {
 	fn         TaskFn[Pipe]
 	runBefore  TaskFn[Pipe]
 	runAfter   TaskFn[Pipe]
-	jobWrapper jobWrapper
+	jobWrapper JobWrapperFn
 }
 
 type TaskOptions[Pipe TaskListData] struct {
-	Skip    taskPredicateFn[Pipe]
-	Disable taskPredicateFn[Pipe]
+	Skip    TaskPredicateFn[Pipe]
+	Disable TaskPredicateFn[Pipe]
 }
 
 type (
 	TaskFn[Pipe TaskListData]          func(t *Task[Pipe]) error
-	taskPredicateFn[Pipe TaskListData] func(t *Task[Pipe]) bool
-	jobWrapper                         func(job Job) Job
+	TaskPredicateFn[Pipe TaskListData] func(t *Task[Pipe]) bool
+	JobWrapperFn                       func(job Job) Job
 )
 
 const (
@@ -141,7 +141,7 @@ func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
 	return t
 }
 
-func (t *Task[Pipe]) ExtendSubtask(fn jobWrapper) *Task[Pipe] {
+func (t *Task[Pipe]) ExtendSubtask(fn JobWrapperFn) *Task[Pipe] {
 	t.taskLock.Lock()
 	t.subtask = fn(t.subtask)
 	t.taskLock.Unlock()
@@ -169,19 +169,19 @@ func (t *Task[Pipe]) RunSubtasksWithExtension(fn func(job Job) Job) error {
 	return t.RunSubtasks()
 }
 
-func (t *Task[Pipe]) SetJobWrapper(fn jobWrapper) *Task[Pipe] {
+func (t *Task[Pipe]) SetJobWrapper(fn JobWrapperFn) *Task[Pipe] {
 	t.jobWrapper = fn
 
 	return t
 }
 
-func (t *Task[Pipe]) ShouldDisable(fn taskPredicateFn[Pipe]) *Task[Pipe] {
+func (t *Task[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
 	t.options.Disable = fn
 
 	return t
 }
 
-func (t *Task[Pipe]) ShouldSkip(fn taskPredicateFn[Pipe]) *Task[Pipe] {
+func (t *Task[Pipe]) ShouldSkip(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
 	t.options.Skip = fn
 
 	return t
@@ -248,7 +248,7 @@ func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
 	return t.taskList.RunJobs(t.GetCommandJobAsJobSequence())
 }
 
-func (t *Task[Pipe]) RunCommandJobAsJobSequenceWithExtension(fn jobWrapper) error {
+func (t *Task[Pipe]) RunCommandJobAsJobSequenceWithExtension(fn JobWrapperFn) error {
 	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobSequence()))
 }
 
@@ -256,7 +256,7 @@ func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {
 	return t.taskList.RunJobs(t.GetCommandJobAsJobParallel())
 }
 
-func (t *Task[Pipe]) RunCommandJobAsJobParallelWithExtension(fn jobWrapper) error {
+func (t *Task[Pipe]) RunCommandJobAsJobParallelWithExtension(fn JobWrapperFn) error {
 	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobParallel()))
 }
 
@@ -306,7 +306,7 @@ func (t *Task[Pipe]) handleStopCases() bool {
 func (t *Task[Pipe]) Job() Job {
 	return t.taskList.JobIfNot(
 		t.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
-			return t.options.Disable(t) && t.options.Skip(t)
+			return t.options.Disable(t) || t.options.Skip(t)
 		}),
 		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
 			if t.jobWrapper != nil {
