@@ -1,3 +1,11 @@
+# [3.10.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.9.1...v3.10.0) (2022-06-19)
+
+
+### Features
+
+* add custom jumpers for sending to channels ([a3fa4bc](https://gitlab.kilic.dev/libraries/plumber/commit/a3fa4bceeb7813d275c45ae034456efc601cc09c))
+* add jumpers for sending channel exit ([50ade55](https://gitlab.kilic.dev/libraries/plumber/commit/50ade556384c6e68ebd26b9f9e8d299962355859))
+
 ## [3.9.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.9.0...v3.9.1) (2022-06-19)
 
 
