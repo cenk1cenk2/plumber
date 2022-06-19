@@ -1,3 +1,10 @@
+# [3.12.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.11.1...v3.12.0) (2022-06-19)
+
+
+### Features
+
+* fix and add exiting mechanism ([e857098](https://gitlab.kilic.dev/libraries/plumber/commit/e857098c26d9f5a0c5f98ef24dc4b1a6534301f2))
+
 ## [3.11.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.11.0...v3.11.1) (2022-06-19)
 
 
