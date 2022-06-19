@@ -146,6 +146,36 @@ func (p *Plumber) SetReadme(file string) *Plumber {
 	return p
 }
 
+func (p *Plumber) SendError(err error) *Plumber {
+	p.Channel.Err <- err
+
+	return p
+}
+
+func (p *Plumber) SendCustomError(log *logrus.Entry, err error) *Plumber {
+	p.Channel.CustomErr <- ErrorChannelWithLogger{
+		Err: err,
+		Log: log,
+	}
+
+	return p
+}
+
+func (p *Plumber) SendFatal(err error) *Plumber {
+	p.Channel.Fatal <- err
+
+	return p
+}
+
+func (p *Plumber) SendCustomFatal(log *logrus.Entry, err error) *Plumber {
+	p.Channel.CustomFatal <- ErrorChannelWithLogger{
+		Err: err,
+		Log: log,
+	}
+
+	return p
+}
+
 // Cli.greet Greet the user with the application name and version.
 func (p *Plumber) greet() {
 	var version = p.Cli.Version
