@@ -1,3 +1,10 @@
+# [3.11.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.10.0...v3.11.0) (2022-06-19)
+
+
+### Features
+
+* change jumper functions ([78597f3](https://gitlab.kilic.dev/libraries/plumber/commit/78597f32fe9203627a17e04eed4d708e569af981))
+
 # [3.10.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.9.1...v3.10.0) (2022-06-19)
 
 
