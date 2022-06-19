@@ -1,3 +1,10 @@
+## [3.8.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.8.1...v3.8.2) (2022-06-19)
+
+
+### Bug Fixes
+
+* fix repeat bug ([f99ee6f](https://gitlab.kilic.dev/libraries/plumber/commit/f99ee6fbfe76d318a27cc9bc259ad8a23f88cf2a))
+
 ## [3.8.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.8.0...v3.8.1) (2022-06-19)
 
 
