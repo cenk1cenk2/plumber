@@ -1,3 +1,10 @@
+## [3.8.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.8.0...v3.8.1) (2022-06-19)
+
+
+### Bug Fixes
+
+* predicate and expsoe types ([efd025c](https://gitlab.kilic.dev/libraries/plumber/commit/efd025c347add4be239f64dce6b5ed5b14b1fad4))
+
 # [3.8.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.7.2...v3.8.0) (2022-06-19)
 
 
