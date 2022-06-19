@@ -1,3 +1,10 @@
+## [3.12.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.12.0...v3.12.1) (2022-06-19)
+
+
+### Bug Fixes
+
+* update variables and flags ([bbd9aa4](https://gitlab.kilic.dev/libraries/plumber/commit/bbd9aa45b4727cb1fb9d97dc02a72bdc1b5b8d5d))
+
 # [3.12.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.11.1...v3.12.0) (2022-06-19)
 
 
