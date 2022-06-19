@@ -64,6 +64,12 @@ func (t *TaskList[Pipe]) JobBackground(job Job) Job {
 	return run.Background(job)
 }
 
+func (t *TaskList[Pipe]) CreateJob(fn func(tl *TaskList[Pipe]) error) Job {
+	return func(ctx floc.Context, ctrl floc.Control) error {
+		return fn(t)
+	}
+}
+
 /*
 JobLoop repeats running the job forever.
 
@@ -80,6 +86,15 @@ Diagram:
 */
 func (t *TaskList[Pipe]) JobLoop(job Job) Job {
 	return run.Loop(job)
+}
+
+func (t *TaskList[Pipe]) JobLoopWithWaitAfter(job Job, delay time.Duration) Job {
+	return run.Loop(
+		run.Sequence(
+			job,
+			run.Delay(delay, t.CreateJob(func(tl *TaskList[Pipe]) error { return nil })),
+		),
+	)
 }
 
 /*
