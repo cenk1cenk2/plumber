@@ -1,3 +1,10 @@
+## [3.13.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.13.0...v3.13.1) (2022-06-20)
+
+
+### Bug Fixes
+
+* issues with memory ([46264fa](https://gitlab.kilic.dev/libraries/plumber/commit/46264fa46835231f8c66f75721008940670bfd57))
+
 # [3.13.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.12.1...v3.13.0) (2022-06-20)
 
 
