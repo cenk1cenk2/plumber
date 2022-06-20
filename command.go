@@ -45,11 +45,21 @@ const (
 	command_exited   string = "EXIT"
 )
 
-func NewCommand[P TaskListData](task *Task[P], command string, args ...string) *Command[P] {
-	c := &Command[P]{
+func NewCommand[Pipe TaskListData](
+	task *Task[Pipe],
+	command string,
+	args ...string,
+) *Command[Pipe] {
+	c := &Command[Pipe]{
 		Command: exec.Command(command, args...),
 		task:    task,
 		Log:     task.Log,
+	}
+
+	c.options = CommandOptions[Pipe]{
+		Disable: func(t *Task[Pipe]) bool {
+			return false
+		},
 	}
 
 	c.SetLogLevel(0, 0, 0)
