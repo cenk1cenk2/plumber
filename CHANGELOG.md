@@ -1,3 +1,10 @@
+# [3.13.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.12.1...v3.13.0) (2022-06-20)
+
+
+### Features
+
+* add command disable ([c94e874](https://gitlab.kilic.dev/libraries/plumber/commit/c94e874629619bafda57864ab82e153121340266))
+
 ## [3.12.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.12.0...v3.12.1) (2022-06-19)
 
 
