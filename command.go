@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/sirupsen/logrus"
-	"github.com/workanator/go-floc/v3"
 	"gitlab.kilic.dev/libraries/go-utils/utils"
 )
 
@@ -24,6 +23,11 @@ type Command[Pipe TaskListData] struct {
 	task          *Task[Pipe]
 	Log           *logrus.Entry
 	setFn         CommandFn[Pipe]
+	options       CommandOptions[Pipe]
+}
+
+type CommandOptions[Pipe TaskListData] struct {
+	Disable TaskPredicateFn[Pipe]
 }
 
 type (
@@ -93,6 +97,12 @@ func (c *Command[Pipe]) SetIgnoreError(ignoreError bool) *Command[Pipe] {
 	return c
 }
 
+func (c *Command[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Command[Pipe] {
+	c.options.Disable = fn
+
+	return c
+}
+
 // Command.AppendArgs Appends arguments to the command.
 func (c *Command[Pipe]) AppendArgs(args ...string) *Command[Pipe] {
 	c.Command.Args = append(c.Command.Args, args...)
@@ -146,6 +156,10 @@ func (c *Command[Pipe]) RunSet() error {
 
 // Command.Run Run the defined command.
 func (c *Command[Pipe]) Run() error {
+	if stop := c.handleStopCases(); stop {
+		return nil
+	}
+
 	err := c.RunSet()
 
 	if err != nil {
@@ -172,9 +186,19 @@ func (c *Command[Pipe]) Run() error {
 }
 
 func (c *Command[Pipe]) Job() Job {
-	return func(ctx floc.Context, ctrl floc.Control) error {
-		return c.Run()
-	}
+	return c.task.taskList.JobIfNot(
+		c.task.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
+			return c.options.Disable(c.task)
+		}),
+		c.task.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
+			return c.Run()
+		}),
+		c.task.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
+			c.handleStopCases()
+
+			return nil
+		}),
+	)
 }
 
 func (c *Command[Pipe]) AddSelfToTheTask() *Command[Pipe] {
@@ -263,4 +287,15 @@ func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 
 		log.Logln(level, str)
 	}
+}
+
+func (c *Command[Pipe]) handleStopCases() bool {
+	if result := c.options.Disable(c.task); result {
+		c.Log.WithField(LOG_FIELD_CONTEXT, task_disabled).
+			Debugf("%s", c.task.Name)
+
+		return true
+	}
+
+	return false
 }
