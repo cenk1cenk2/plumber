@@ -1,3 +1,10 @@
+# [3.14.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.13.1...v3.14.0) (2022-06-21)
+
+
+### Features
+
+* add new jumper commands for subtasks ([94d69f1](https://gitlab.kilic.dev/libraries/plumber/commit/94d69f1781e4c8f3eea997bf712ae9fc29b306ba))
+
 ## [3.13.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.13.0...v3.13.1) (2022-06-20)
 
 
