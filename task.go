@@ -135,6 +135,38 @@ func (t *Task[Pipe]) AddSelfToParent(
 	return t
 }
 
+func (t *Task[Pipe]) AddSelfToTheParentAsParallel() *Task[Pipe] {
+	if !t.HasParent() {
+		t.SendFatal(fmt.Errorf("Task has no parent value set."))
+
+		return t
+	}
+
+	t.parent.Lock.Lock()
+	t.parent.ExtendSubtask(func(job Job) Job {
+		return t.taskList.JobParallel(job, t.Job())
+	})
+	t.parent.Lock.Unlock()
+
+	return t
+}
+
+func (t *Task[Pipe]) AddSelfToTheParentAsSequence() *Task[Pipe] {
+	if !t.HasParent() {
+		t.SendFatal(fmt.Errorf("Task has no parent value set."))
+
+		return t
+	}
+
+	t.parent.Lock.Lock()
+	t.parent.ExtendSubtask(func(job Job) Job {
+		return t.taskList.JobSequence(job, t.Job())
+	})
+	t.parent.Lock.Unlock()
+
+	return t
+}
+
 func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
 	t.taskLock.Lock()
 	t.subtask = job
