@@ -20,6 +20,7 @@ type Plumber struct {
 	Log         *logrus.Logger
 	Environment AppEnvironment
 	Channel     AppChannel
+	Terminator
 
 	onTerminateFn
 	readme string
@@ -28,6 +29,13 @@ type Plumber struct {
 type AppEnvironment struct {
 	Debug bool
 	CI    bool
+}
+
+type Terminator struct {
+	Enabled                   bool
+	ShouldTerminate           chan bool
+	ShouldTerminateWithSignal chan os.Signal
+	Terminated                chan bool
 }
 
 type AppChannel struct {
@@ -100,6 +108,10 @@ func (p *Plumber) New(
 		Exit:        make(chan int, 1),
 	}
 
+	p.Terminator = Terminator{
+		Enabled: false,
+	}
+
 	return p
 }
 
@@ -135,6 +147,17 @@ func (p *Plumber) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 // Cli.SetOnTerminate Sets the action that would be executed on terminate.
 func (p *Plumber) SetOnTerminate(fn onTerminateFn) *Plumber {
 	p.onTerminateFn = fn
+
+	return p
+}
+
+func (p *Plumber) EnableTerminator() *Plumber {
+	p.Terminator = Terminator{
+		Enabled:                   true,
+		ShouldTerminate:           make(chan bool),
+		Terminated:                make(chan bool),
+		ShouldTerminateWithSignal: make(chan os.Signal),
+	}
 
 	return p
 }
@@ -291,6 +314,10 @@ func (p *Plumber) registerInterruptHandler() {
 		interrupt,
 	)
 
+	if p.Terminator.Enabled {
+		p.Terminator.ShouldTerminateWithSignal <- interrupt
+	}
+
 	p.Terminate(1)
 }
 
@@ -359,6 +386,16 @@ func (p *Plumber) registerExitHandler() {
 func (p *Plumber) Terminate(code int) {
 	if p.onTerminateFn != nil {
 		p.Channel.Err <- p.onTerminateFn()
+	}
+
+	if p.Terminator.Enabled {
+		p.Terminator.ShouldTerminate <- true
+
+		<-p.Terminator.Terminated
+
+		close(p.Terminator.ShouldTerminate)
+		close(p.Terminator.ShouldTerminateWithSignal)
+		close(p.Terminator.Terminated)
 	}
 
 	close(p.Channel.Err)
