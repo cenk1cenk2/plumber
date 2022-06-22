@@ -1,3 +1,10 @@
+# [3.16.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.15.2...v3.16.0) (2022-06-22)
+
+
+### Features
+
+* update interfaces and internal loggin ([c333a38](https://gitlab.kilic.dev/libraries/plumber/commit/c333a38d8565a5f931d6f51c72b349ab994af6dd))
+
 ## [3.15.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.15.1...v3.15.2) (2022-06-22)
 
 
