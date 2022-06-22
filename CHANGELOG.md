@@ -1,3 +1,10 @@
+# [3.15.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.14.1...v3.15.0) (2022-06-22)
+
+
+### Features
+
+* add terminator ([fb7af17](https://gitlab.kilic.dev/libraries/plumber/commit/fb7af17ff0c3f41711f07ec682bfdb05ad6aacad))
+
 ## [3.14.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.14.0...v3.14.1) (2022-06-22)
 
 
