@@ -1,3 +1,10 @@
+# [3.17.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.16.1...v3.17.0) (2022-06-22)
+
+
+### Features
+
+* jumper from command to terminator ([8f96d0e](https://gitlab.kilic.dev/libraries/plumber/commit/8f96d0e95cdd38646c0f4577dee7960b03cf86ce))
+
 ## [3.16.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.16.0...v3.16.1) (2022-06-22)
 
 
