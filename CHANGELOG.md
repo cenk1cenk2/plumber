@@ -1,3 +1,10 @@
+## [3.15.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.15.1...v3.15.2) (2022-06-22)
+
+
+### Bug Fixes
+
+* use signaling mech ([99fa1b5](https://gitlab.kilic.dev/libraries/plumber/commit/99fa1b56f721467e1b1c786fd2e67921d768b7a6))
+
 ## [3.15.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.15.0...v3.15.1) (2022-06-22)
 
 
