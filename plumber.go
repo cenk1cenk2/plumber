@@ -124,7 +124,7 @@ func (p *Plumber) Run() {
 	go p.registerHandlers()
 
 	if err := p.Cli.Run(os.Args); err != nil {
-		p.Channel.Fatal <- err
+		p.SendFatal(err)
 
 		for {
 			// to be sure that os.exit is completed
@@ -385,7 +385,7 @@ func (p *Plumber) registerExitHandler() {
 // App.Terminate Terminates the application.
 func (p *Plumber) Terminate(code int) {
 	if p.onTerminateFn != nil {
-		p.Channel.Err <- p.onTerminateFn()
+		p.SendError(p.onTerminateFn())
 	}
 
 	if p.Terminator.Enabled {
