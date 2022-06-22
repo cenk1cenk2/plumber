@@ -32,10 +32,9 @@ type AppEnvironment struct {
 }
 
 type Terminator struct {
-	Enabled                   bool
-	ShouldTerminate           chan bool
-	ShouldTerminateWithSignal chan os.Signal
-	Terminated                chan bool
+	Enabled         bool
+	ShouldTerminate chan os.Signal
+	Terminated      chan bool
 }
 
 type AppChannel struct {
@@ -153,10 +152,9 @@ func (p *Plumber) SetOnTerminate(fn onTerminateFn) *Plumber {
 
 func (p *Plumber) EnableTerminator() *Plumber {
 	p.Terminator = Terminator{
-		Enabled:                   true,
-		ShouldTerminate:           make(chan bool),
-		Terminated:                make(chan bool),
-		ShouldTerminateWithSignal: make(chan os.Signal),
+		Enabled:         true,
+		ShouldTerminate: make(chan os.Signal),
+		Terminated:      make(chan bool),
 	}
 
 	return p
@@ -201,6 +199,18 @@ func (p *Plumber) SendCustomFatal(log *logrus.Entry, err error) *Plumber {
 
 func (p *Plumber) SendExit(code int) *Plumber {
 	p.Channel.Exit <- code
+
+	return p
+}
+
+func (p *Plumber) SendTerminated() *Plumber {
+	if !p.Terminator.Enabled {
+		p.SendFatal(fmt.Errorf("Plumber does not have the Terminator enabled."))
+
+		return p
+	}
+
+	p.Terminator.Terminated <- true
 
 	return p
 }
@@ -315,7 +325,8 @@ func (p *Plumber) registerInterruptHandler() {
 	)
 
 	if p.Terminator.Enabled {
-		p.Terminator.ShouldTerminateWithSignal <- interrupt
+		p.Log.Debugln("Sending operating system signal through terminator.")
+		p.Terminator.ShouldTerminate <- interrupt
 	}
 
 	p.Terminate(1)
@@ -389,12 +400,16 @@ func (p *Plumber) Terminate(code int) {
 	}
 
 	if p.Terminator.Enabled {
-		p.Terminator.ShouldTerminate <- true
+		p.Log.Debugln("Sending should terminate through terminator.")
+		p.Terminator.ShouldTerminate <- syscall.SIGSTOP
+
+		p.Log.Debugln("Waiting for result through terminator...")
 
 		<-p.Terminator.Terminated
 
+		p.Log.Debugln("Terminated through terminator.")
+
 		close(p.Terminator.ShouldTerminate)
-		close(p.Terminator.ShouldTerminateWithSignal)
 		close(p.Terminator.Terminated)
 	}
 
