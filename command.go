@@ -217,7 +217,7 @@ func (c *Command[Pipe]) AddSelfToTheTask() *Command[Pipe] {
 	return c
 }
 
-func (c *Command[Pipe]) AddSelfToParentTask(pt *Task[Pipe]) *Command[Pipe] {
+func (c *Command[Pipe]) AddSelfToTheParentTask(pt *Task[Pipe]) *Command[Pipe] {
 	pt.AddCommands(c)
 
 	return c
