@@ -1,3 +1,10 @@
+## [3.14.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.14.0...v3.14.1) (2022-06-22)
+
+
+### Bug Fixes
+
+* add quit signal to the mix ([a7a18b7](https://gitlab.kilic.dev/libraries/plumber/commit/a7a18b7b30c2d8e6fb9e5309ca078ce5f8ac61f2))
+
 # [3.14.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.13.1...v3.14.0) (2022-06-21)
 
 
