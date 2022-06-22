@@ -283,7 +283,7 @@ func (p *Plumber) defaultAction() cli.ActionFunc {
 
 // App.registerInterruptHandler Registers the os.Signal listener for the application.
 func (p *Plumber) registerInterruptHandler() {
-	signal.Notify(p.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(p.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	interrupt := <-p.Channel.Interrupt
 	p.Log.Errorf(
