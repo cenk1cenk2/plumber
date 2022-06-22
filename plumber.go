@@ -74,6 +74,8 @@ func (p *Plumber) New(
 
 	if p.Cli.Action == nil {
 		p.Cli.Action = p.defaultAction()
+
+		p.Log.Traceln("There was no action set so using the default one.")
 	}
 
 	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
@@ -83,8 +85,9 @@ func (p *Plumber) New(
 		Action: func(ctx *cli.Context) error {
 			return p.generateMarkdownDocumentation()
 		},
-		Hidden:   true,
-		HideHelp: true,
+		Hidden:          true,
+		HideHelp:        true,
+		SkipFlagParsing: true,
 	})
 
 	p.readme = "README.md"
@@ -156,6 +159,8 @@ func (p *Plumber) EnableTerminator() *Plumber {
 		ShouldTerminate: make(chan os.Signal),
 		Terminated:      make(chan bool),
 	}
+
+	p.Log.Traceln("Terminator enabled.")
 
 	return p
 }
@@ -243,6 +248,8 @@ func (p *Plumber) loadEnvironment() error {
 		if err := godotenv.Load(env); err != nil {
 			return err
 		}
+
+		p.Log.Traceln("Environment file loaded.")
 	}
 
 	return nil
@@ -302,6 +309,8 @@ func (p *Plumber) setupLogger(level LogLevel) {
 	)
 
 	p.Log.ExitFunc = p.Terminate
+
+	p.Log.Traceln("Logger setup.")
 }
 
 func (p *Plumber) defaultAction() cli.ActionFunc {
@@ -325,7 +334,7 @@ func (p *Plumber) registerInterruptHandler() {
 	)
 
 	if p.Terminator.Enabled {
-		p.Log.Debugln("Sending operating system signal through terminator.")
+		p.Log.Traceln("Sending operating system signal through terminator.")
 		p.Terminator.ShouldTerminate <- interrupt
 	}
 
@@ -337,6 +346,8 @@ func (p *Plumber) registerHandlers() {
 	go p.registerFatalErrorHandler()
 	go p.registerInterruptHandler()
 	go p.registerExitHandler()
+
+	p.Log.Traceln("Registered handlers.")
 }
 
 // App.registerErrorHandler Registers the error handlers for the runtime errors, this will not terminate application.
@@ -400,14 +411,14 @@ func (p *Plumber) Terminate(code int) {
 	}
 
 	if p.Terminator.Enabled {
-		p.Log.Debugln("Sending should terminate through terminator.")
+		p.Log.Traceln("Sending should terminate through terminator.")
 		p.Terminator.ShouldTerminate <- syscall.SIGSTOP
 
-		p.Log.Debugln("Waiting for result through terminator...")
+		p.Log.Traceln("Waiting for result through terminator...")
 
 		<-p.Terminator.Terminated
 
-		p.Log.Debugln("Terminated through terminator.")
+		p.Log.Traceln("Terminated through terminator.")
 
 		close(p.Terminator.ShouldTerminate)
 		close(p.Terminator.Terminated)

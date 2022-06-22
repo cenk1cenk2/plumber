@@ -119,7 +119,7 @@ func (t *Task[Pipe]) HasParent() bool {
 	return t.parent != nil
 }
 
-func (t *Task[Pipe]) AddSelfToParent(
+func (t *Task[Pipe]) AddSelfToTheParent(
 	fn func(pt *Task[Pipe], st *Task[Pipe]),
 ) *Task[Pipe] {
 	if !t.HasParent() {
