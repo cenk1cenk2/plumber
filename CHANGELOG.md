@@ -1,3 +1,10 @@
+## [3.15.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.15.0...v3.15.1) (2022-06-22)
+
+
+### Bug Fixes
+
+* udpate to use jumper funcs ([1d38a76](https://gitlab.kilic.dev/libraries/plumber/commit/1d38a76923ca837fcb0da499b17f55e7931bfb19))
+
 # [3.15.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.14.1...v3.15.0) (2022-06-22)
 
 
