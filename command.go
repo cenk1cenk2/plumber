@@ -13,17 +13,18 @@ import (
 )
 
 type Command[Pipe TaskListData] struct {
-	Command       *exec.Cmd
-	stdoutLevel   LogLevel
-	stderrLevel   LogLevel
-	lifetimeLevel LogLevel
-	stdout        output
-	stderr        output
-	ignoreError   bool
-	task          *Task[Pipe]
-	Log           *logrus.Entry
-	setFn         CommandFn[Pipe]
-	options       CommandOptions[Pipe]
+	Command        *exec.Cmd
+	stdoutLevel    LogLevel
+	stderrLevel    LogLevel
+	lifetimeLevel  LogLevel
+	stdout         output
+	stderr         output
+	ignoreError    bool
+	task           *Task[Pipe]
+	Log            *logrus.Entry
+	setFn          CommandFn[Pipe]
+	options        CommandOptions[Pipe]
+	onTerminatorFn CommandOnTerminatorFn[Pipe]
 }
 
 type CommandOptions[Pipe TaskListData] struct {
@@ -35,7 +36,8 @@ type (
 		closer io.ReadCloser
 		reader *bufio.Reader
 	}
-	CommandFn[Pipe TaskListData] func(*Command[Pipe]) error
+	CommandFn[Pipe TaskListData]             func(*Command[Pipe]) error
+	CommandOnTerminatorFn[Pipe TaskListData] func(*Command[Pipe]) error
 )
 
 const (
@@ -219,6 +221,30 @@ func (c *Command[Pipe]) AddSelfToTheTask() *Command[Pipe] {
 
 func (c *Command[Pipe]) AddSelfToTheParentTask(pt *Task[Pipe]) *Command[Pipe] {
 	pt.AddCommands(c)
+
+	return c
+}
+
+func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
+	go func() {
+		signal := <-c.task.Plumber.Terminator.ShouldTerminate
+
+		c.Log.Debugf("Forwarding signal to process: %s", signal)
+
+		if err := c.Command.Process.Signal(signal); err != nil {
+			c.task.SendError(err)
+		}
+
+		if c.onTerminatorFn != nil {
+			c.task.SendError(c.onTerminatorFn(c))
+		}
+	}()
+
+	return c
+}
+
+func (c *Command[Pipe]) SetOnTerminator(fn CommandOnTerminatorFn[Pipe]) *Command[Pipe] {
+	c.onTerminatorFn = fn
 
 	return c
 }
