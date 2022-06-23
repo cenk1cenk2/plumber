@@ -1,3 +1,10 @@
+## [3.18.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.18.0...v3.18.1) (2022-06-23)
+
+
+### Bug Fixes
+
+* change the job format ([0f6b64c](https://gitlab.kilic.dev/libraries/plumber/commit/0f6b64c3156633d0bafb0e7ab9bf1a9106f3f7cf))
+
 # [3.18.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.17.1...v3.18.0) (2022-06-23)
 
 
