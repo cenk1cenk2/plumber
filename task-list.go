@@ -29,10 +29,9 @@ type TaskList[Pipe TaskListData] struct {
 	Channel    *AppChannel
 	Control    floc.Control
 
-	flocContext       floc.Context
-	runBefore         taskListFn[Pipe]
-	runAfter          taskListFn[Pipe]
-	waitForTerminated bool
+	flocContext floc.Context
+	runBefore   taskListFn[Pipe]
+	runAfter    taskListFn[Pipe]
 }
 
 type (
@@ -174,12 +173,6 @@ func (t *TaskList[Pipe]) RunJobs(job Job) error {
 	return nil
 }
 
-func (t *TaskList[Pipe]) SetWaitForTerminated() *TaskList[Pipe] {
-	t.waitForTerminated = true
-
-	return t
-}
-
 func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error {
 	switch {
 	case result.IsCanceled() && data != nil:
@@ -193,23 +186,6 @@ func (t *TaskList[Pipe]) Job() Job {
 	return func(fctx floc.Context, ctrl floc.Control) error {
 		t.flocContext = fctx
 		t.Control = ctrl
-
-		if t.waitForTerminated {
-			return t.RunJobs(t.JobSequence(
-				t.Job(),
-				t.CreateBasicJob(func() error {
-					if !t.Plumber.Terminator.Enabled {
-						return fmt.Errorf("Terminator is not enabled.")
-					}
-
-					t.Log.Traceln("Waiting for the terminator signal...")
-
-					<-t.Plumber.Terminator.Terminated
-
-					return nil
-				}),
-			))
-		}
 
 		return t.Run()
 	}
