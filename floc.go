@@ -301,7 +301,7 @@ func (t *TaskList[Pipe]) JobRepeat(job Job, times int) Job {
 	return run.Repeat(times, job)
 }
 
-func (t *TaskList[Pipe]) JobWaitForTerminator(job Job, times int) Job {
+func (t *TaskList[Pipe]) JobWaitForTerminator() Job {
 	return t.CreateBasicJob(func() error {
 		if !t.Plumber.Terminator.Enabled {
 			return fmt.Errorf("Terminator is not enabled.")
