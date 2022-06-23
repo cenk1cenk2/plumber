@@ -1,3 +1,10 @@
+# [3.18.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.17.1...v3.18.0) (2022-06-23)
+
+
+### Features
+
+* add wait for terminated ([e7ecf02](https://gitlab.kilic.dev/libraries/plumber/commit/e7ecf02c0f2a57da75fad3e6897e293adc19d051))
+
 ## [3.17.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.17.0...v3.17.1) (2022-06-22)
 
 
