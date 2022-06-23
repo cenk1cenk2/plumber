@@ -1,3 +1,10 @@
+## [3.18.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.18.1...v3.18.2) (2022-06-23)
+
+
+### Bug Fixes
+
+* update args ([35cc1fe](https://gitlab.kilic.dev/libraries/plumber/commit/35cc1fe6d6bfbd349d254f50e51d8a7b0ed9047b))
+
 ## [3.18.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.18.0...v3.18.1) (2022-06-23)
 
 
