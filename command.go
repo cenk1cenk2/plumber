@@ -103,8 +103,8 @@ func (c *Command[Pipe]) SetLogLevel(
 	return c
 }
 
-func (c *Command[Pipe]) SetIgnoreError(ignoreError bool) *Command[Pipe] {
-	c.ignoreError = ignoreError
+func (c *Command[Pipe]) SetIgnoreError() *Command[Pipe] {
+	c.ignoreError = true
 
 	return c
 }
