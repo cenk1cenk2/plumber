@@ -23,14 +23,14 @@ type Task[Pipe TaskListData] struct {
 
 	taskList *TaskList[Pipe]
 
-	subtask    Job
-	emptyJob   Job
-	parent     *Task[Pipe]
-	commands   []*Command[Pipe]
-	fn         TaskFn[Pipe]
-	runBefore  TaskFn[Pipe]
-	runAfter   TaskFn[Pipe]
-	jobWrapper JobWrapperFn
+	subtask      Job
+	emptyJob     Job
+	parent       *Task[Pipe]
+	commands     []*Command[Pipe]
+	fn           TaskFn[Pipe]
+	runBeforeFn  TaskFn[Pipe]
+	runAfterFn   TaskFn[Pipe]
+	jobWrapperFn JobWrapperFn
 }
 
 type TaskOptions[Pipe TaskListData] struct {
@@ -96,6 +96,7 @@ func (t *Task[Pipe]) CreateSubtask(name string) *Task[Pipe] {
 	st := NewTask(t.taskList, name)
 
 	st.parent = t
+	st.Lock = t.Lock
 
 	if name == "" {
 		st.Name = t.Name
@@ -204,7 +205,7 @@ func (t *Task[Pipe]) RunSubtasksWithExtension(fn func(job Job) Job) error {
 }
 
 func (t *Task[Pipe]) SetJobWrapper(fn JobWrapperFn) *Task[Pipe] {
-	t.jobWrapper = fn
+	t.jobWrapperFn = fn
 
 	return t
 }
@@ -222,13 +223,13 @@ func (t *Task[Pipe]) ShouldSkip(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
 }
 
 func (t *Task[Pipe]) ShouldRunBefore(fn TaskFn[Pipe]) *Task[Pipe] {
-	t.runBefore = fn
+	t.runBeforeFn = fn
 
 	return t
 }
 
 func (t *Task[Pipe]) ShouldRunAfter(fn TaskFn[Pipe]) *Task[Pipe] {
-	t.runAfter = fn
+	t.runAfterFn = fn
 
 	return t
 }
@@ -319,8 +320,8 @@ func (t *Task[Pipe]) Run() error {
 		return nil
 	}
 
-	if t.runBefore != nil {
-		if err := t.runBefore(t); err != nil {
+	if t.runBeforeFn != nil {
+		if err := t.runBeforeFn(t); err != nil {
 			t.Log.Errorln(err)
 			return err
 		}
@@ -331,8 +332,8 @@ func (t *Task[Pipe]) Run() error {
 		return err
 	}
 
-	if t.runAfter != nil {
-		if err := t.runAfter(t); err != nil {
+	if t.runAfterFn != nil {
+		if err := t.runAfterFn(t); err != nil {
 			t.Log.Errorln(err)
 			return err
 		}
@@ -363,8 +364,8 @@ func (t *Task[Pipe]) Job() Job {
 			return t.options.Disable(t) || t.options.Skip(t)
 		}),
 		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
-			if t.jobWrapper != nil {
-				return tl.RunJobs(t.jobWrapper(
+			if t.jobWrapperFn != nil {
+				return tl.RunJobs(t.jobWrapperFn(
 					tl.CreateBasicJob(t.Run),
 				))
 			}

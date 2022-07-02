@@ -19,10 +19,15 @@ type Command[Pipe TaskListData] struct {
 	lifetimeLevel  LogLevel
 	stdout         output
 	stderr         output
+	stdoutStream   []string
+	stderrStream   []string
+	combinedStream []string
+	recordStream   bool
 	ignoreError    bool
 	task           *Task[Pipe]
 	Log            *logrus.Entry
 	setFn          CommandFn[Pipe]
+	runAfterFn     CommandFn[Pipe]
 	options        CommandOptions[Pipe]
 	onTerminatorFn CommandOnTerminatorFn[Pipe]
 }
@@ -35,6 +40,7 @@ type (
 	output struct {
 		closer io.ReadCloser
 		reader *bufio.Reader
+		stream string
 	}
 	CommandFn[Pipe TaskListData]             func(*Command[Pipe]) error
 	CommandOnTerminatorFn[Pipe TaskListData] func(*Command[Pipe]) error
@@ -45,6 +51,8 @@ const (
 	command_failed   string = "FAIL"
 	command_finished string = "END"
 	command_exited   string = "EXIT"
+	stream_stdout    string = "stdout"
+	stream_stderr    string = "stderr"
 )
 
 func NewCommand[Pipe TaskListData](
@@ -53,9 +61,12 @@ func NewCommand[Pipe TaskListData](
 	args ...string,
 ) *Command[Pipe] {
 	c := &Command[Pipe]{
-		Command: exec.Command(command, args...),
-		task:    task,
-		Log:     task.Log,
+		Command:        exec.Command(command, args...),
+		task:           task,
+		Log:            task.Log,
+		stdoutStream:   []string{},
+		stderrStream:   []string{},
+		combinedStream: []string{},
 	}
 
 	c.options = CommandOptions[Pipe]{
@@ -152,6 +163,12 @@ func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
 	return c
 }
 
+func (c *Command[Pipe]) ShouldRecordStream() *Command[Pipe] {
+	c.recordStream = true
+
+	return c
+}
+
 func (c *Command[Pipe]) RunSet() error {
 	if c.setFn == nil {
 		return nil
@@ -190,6 +207,12 @@ func (c *Command[Pipe]) Run() error {
 			Errorf("$ %s > %s", cmd, err.Error())
 
 		return err
+	}
+
+	if c.runAfterFn != nil {
+		if err := c.runAfterFn(c); err != nil {
+			return err
+		}
 	}
 
 	c.Log.WithField(LOG_FIELD_STATUS, command_finished).Logf(c.lifetimeLevel, "$ %s", cmd)
@@ -249,6 +272,36 @@ func (c *Command[Pipe]) SetOnTerminator(fn CommandOnTerminatorFn[Pipe]) *Command
 	return c
 }
 
+func (c *Command[Pipe]) ShouldRunAfter(fn CommandFn[Pipe]) *Command[Pipe] {
+	c.runAfterFn = fn
+
+	return c
+}
+
+func (c *Command[Pipe]) GetStdoutStream() []string {
+	if !c.recordStream {
+		c.task.SendFatal(fmt.Errorf("Stream recording should be enabled to fetch the command output stream."))
+	}
+
+	return c.stdoutStream
+}
+
+func (c *Command[Pipe]) GetStderrStream() []string {
+	if !c.recordStream {
+		c.task.SendFatal(fmt.Errorf("Stream recording should be enabled to fetch the command output stream."))
+	}
+
+	return c.stderrStream
+}
+
+func (c *Command[Pipe]) GetCombinedStream() []string {
+	if !c.recordStream {
+		c.task.SendFatal(fmt.Errorf("Stream recording should be enabled to fetch the command output stream."))
+	}
+
+	return c.combinedStream
+}
+
 // Command.pipe Executes the command and pipes the output through the logger.
 func (c *Command[Pipe]) pipe() error {
 	cmd := strings.Join(c.Command.Args, " ")
@@ -293,7 +346,7 @@ func (c *Command[Pipe]) createReaders() error {
 
 	reader := bufio.NewReader(closer)
 
-	c.stdout = output{closer: closer, reader: reader}
+	c.stdout = output{closer: closer, reader: reader, stream: stream_stdout}
 
 	closer, err = c.Command.StderrPipe()
 
@@ -303,7 +356,7 @@ func (c *Command[Pipe]) createReaders() error {
 
 	reader = bufio.NewReader(closer)
 
-	c.stderr = output{closer: closer, reader: reader}
+	c.stderr = output{closer: closer, reader: reader, stream: stream_stderr}
 
 	return nil
 }
@@ -322,6 +375,17 @@ func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 		}
 
 		log.Logln(level, str)
+
+		if c.recordStream {
+			c.combinedStream = append(c.combinedStream, str)
+
+			switch output.stream {
+			case stream_stdout:
+				c.stdoutStream = append(c.stdoutStream, str)
+			case stream_stderr:
+				c.stderrStream = append(c.stderrStream, str)
+			}
+		}
 	}
 }
 
