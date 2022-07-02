@@ -163,7 +163,7 @@ func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
 	return c
 }
 
-func (c *Command[Pipe]) ShouldRecordStream() *Command[Pipe] {
+func (c *Command[Pipe]) EnableStreamRecording() *Command[Pipe] {
 	c.recordStream = true
 
 	return c
