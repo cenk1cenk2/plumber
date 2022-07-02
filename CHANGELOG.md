@@ -1,3 +1,10 @@
+# [3.19.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.18.3...v3.19.0) (2022-07-02)
+
+
+### Features
+
+* add stream recording for commands ([5a718b5](https://gitlab.kilic.dev/libraries/plumber/commit/5a718b585708e046f289ec63d2a6ee2e5594414d))
+
 ## [3.18.3](https://gitlab.kilic.dev/libraries/plumber/compare/v3.18.2...v3.18.3) (2022-06-24)
 
 
