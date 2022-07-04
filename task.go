@@ -327,9 +327,11 @@ func (t *Task[Pipe]) Run() error {
 		}
 	}
 
-	if err := t.fn(t); err != nil {
-		t.Log.Errorln(err)
-		return err
+	if t.fn != nil {
+		if err := t.fn(t); err != nil {
+			t.Log.Errorln(err)
+			return err
+		}
 	}
 
 	if t.runAfterFn != nil {
