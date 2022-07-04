@@ -1,3 +1,10 @@
+## [3.20.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.20.0...v3.20.1) (2022-07-04)
+
+
+### Bug Fixes
+
+* early panic ([548185e](https://gitlab.kilic.dev/libraries/plumber/commit/548185e65eb7d0a01a8b2364673b444c2ea527ea))
+
 # [3.20.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.19.1...v3.20.0) (2022-07-04)
 
 
