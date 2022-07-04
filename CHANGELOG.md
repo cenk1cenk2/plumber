@@ -1,3 +1,10 @@
+# [3.20.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.19.1...v3.20.0) (2022-07-04)
+
+
+### Features
+
+* add running without a set function ([12a11d0](https://gitlab.kilic.dev/libraries/plumber/commit/12a11d0c51c35f11d02f32252103141c4566e4bc))
+
 ## [3.19.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.19.0...v3.19.1) (2022-07-02)
 
 
