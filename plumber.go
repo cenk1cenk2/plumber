@@ -365,7 +365,7 @@ func (p *Plumber) registerErrorHandler() {
 			if p.Log != nil {
 				p.Log.Errorln(err)
 			} else {
-				panic(err)
+				panic(err.Error())
 			}
 		case err := <-p.Channel.CustomErr:
 			if err.Err == nil {
@@ -389,7 +389,7 @@ func (p *Plumber) registerFatalErrorHandler() {
 			if p.Log != nil {
 				p.Log.Fatalln(err)
 			} else {
-				panic(err)
+				panic(err.Error())
 			}
 		case err := <-p.Channel.CustomFatal:
 			if err.Err == nil {
