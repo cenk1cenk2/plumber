@@ -6,7 +6,7 @@ require (
 	github.com/creasty/defaults v1.6.0
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/joho/godotenv v1.4.0
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/workanator/go-floc/v3 v3.0.1
 	gitlab.kilic.dev/libraries/go-utils v1.1.2
 )
@@ -24,5 +24,5 @@ require (
 
 require (
 	github.com/urfave/cli/v2 v2.8.1
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
 )
