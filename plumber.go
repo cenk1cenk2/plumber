@@ -2,7 +2,6 @@ package plumber
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"regexp"
@@ -399,7 +398,6 @@ func (p *Plumber) registerFatalErrorHandler() {
 			err.Log.Fatalln(err.Err)
 		}
 	}
-
 }
 
 func (p *Plumber) registerExitHandler() {
@@ -450,7 +448,7 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 
 	p.Log.Infof("Trying to read file: %s", p.readme)
 
-	content, err := ioutil.ReadFile(p.readme)
+	content, err := os.ReadFile(p.readme)
 
 	if err != nil {
 		return err

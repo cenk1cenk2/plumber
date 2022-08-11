@@ -321,6 +321,7 @@ func (c *Command[Pipe]) pipe() error {
 	go c.handleStream(c.stderr, c.stderrLevel)
 
 	if err := c.Command.Wait(); err != nil {
+		//nolint:errorlint
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				c.Log.WithField(LOG_FIELD_STATUS, command_exited).
@@ -341,7 +342,7 @@ func (c *Command[Pipe]) createReaders() error {
 	closer, err := c.Command.StdoutPipe()
 
 	if err != nil {
-		return fmt.Errorf("Failed creating command stdout pipe: %s", err)
+		return fmt.Errorf("Failed creating command stdout pipe: %w", err)
 	}
 
 	reader := bufio.NewReader(closer)
@@ -351,7 +352,7 @@ func (c *Command[Pipe]) createReaders() error {
 	closer, err = c.Command.StderrPipe()
 
 	if err != nil {
-		return fmt.Errorf("Failed creating command stderr pipe: %s", err)
+		return fmt.Errorf("Failed creating command stderr pipe: %w", err)
 	}
 
 	reader = bufio.NewReader(closer)

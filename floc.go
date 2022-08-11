@@ -52,14 +52,15 @@ synchronization and termination of it is implemented outside.
 	})
 
 Summary:
-	- Run jobs in goroutines : YES
-	- Wait all jobs finish   : NO
-	- Run order              : SINGLE
+  - Run jobs in goroutines : YES
+  - Wait all jobs finish   : NO
+  - Run order              : SINGLE
 
 Diagram:
-  --+----------->
-    |
-    +-->[JOB]
+
+	--+----------->
+	  |
+	  +-->[JOB]
 */
 func (t *TaskList[Pipe]) JobBackground(job Job) Job {
 	return run.Background(job)
@@ -81,15 +82,16 @@ func (t *TaskList[Pipe]) CreateBasicJob(fn func() error) Job {
 JobLoop repeats running the job forever.
 
 Summary:
-	- Run jobs in goroutines : NO
-	- Wait all jobs finish   : YES
-	- Run order              : SINGLE
+  - Run jobs in goroutines : NO
+  - Wait all jobs finish   : YES
+  - Run order              : SINGLE
 
 Diagram:
-    +----------+
-    |          |
-    V          |
-  ----->[JOB]--+
+
+	  +----------+
+	  |          |
+	  V          |
+	----->[JOB]--+
 */
 func (t *TaskList[Pipe]) JobLoop(job Job) Job {
 	return run.Loop(job)
@@ -108,12 +110,13 @@ func (t *TaskList[Pipe]) JobLoopWithWaitAfter(job Job, delay time.Duration) Job 
 JobDelay does delay before starting the job.
 
 Summary:
-	- Run jobs in goroutines : NO
-	- Wait all jobs finish   : YES
-	- Run order              : SINGLE
+  - Run jobs in goroutines : NO
+  - Wait all jobs finish   : YES
+  - Run order              : SINGLE
 
 Diagram:
-  --(DELAY)-->[JOB]-->
+
+	--(DELAY)-->[JOB]-->
 */
 func (t *TaskList[Pipe]) JobDelay(job Job, delay time.Duration) Job {
 	return run.Delay(delay, job)
@@ -126,22 +129,23 @@ The function panics if no or more than two jobs are given.
 
 For expressiveness Then() and Else() can be used.
 
-  flow := run.If(testSomething,
-    run.Then(doSomething),
-    run.Else(doSomethingElse),
-  )
+	flow := run.If(testSomething,
+	  run.Then(doSomething),
+	  run.Else(doSomethingElse),
+	)
 
 Summary:
-	- Run jobs in goroutines : NO
-	- Wait all jobs finish   : YES
-	- Run order              : SINGLE
+  - Run jobs in goroutines : NO
+  - Wait all jobs finish   : YES
+  - Run order              : SINGLE
 
 Diagram:
-                      +----->[JOB_1]---+
-                      | YES            |
-  --(CONDITION MET?)--+                +-->
-                      | NO             |
-                      +----->[JOB_2]---+
+
+	                    +----->[JOB_1]---+
+	                    | YES            |
+	--(CONDITION MET?)--+                +-->
+	                    | NO             |
+	                    +----->[JOB_2]---+
 */
 func (t *TaskList[Pipe]) JobIf(predicate JobPredicate, jobs ...Job) Job {
 	return run.If(predicate, jobs...)
@@ -154,22 +158,23 @@ The function panics if no or more than two jobs are given.
 
 For expressiveness Then() and Else() can be used.
 
-  flow := run.IfNot(testSomething,
-    run.Then(doSomething),
-    run.Else(doSomethingElse),
-  )
+	flow := run.IfNot(testSomething,
+	  run.Then(doSomething),
+	  run.Else(doSomethingElse),
+	)
 
 Summary:
-	- Run jobs in goroutines : NO
-	- Wait all jobs finish   : YES
-	- Run order              : SINGLE
+  - Run jobs in goroutines : NO
+  - Wait all jobs finish   : YES
+  - Run order              : SINGLE
 
 Diagram:
-                      +----->[JOB_1]---+
-                      | NO             |
-  --(CONDITION MET?)--+                +-->
-                      | YES            |
-                      +----->[JOB_2]---+
+
+	                    +----->[JOB_1]---+
+	                    | NO             |
+	--(CONDITION MET?)--+                +-->
+	                    | YES            |
+	                    +----->[JOB_2]---+
 */
 func (t *TaskList[Pipe]) JobIfNot(predicate JobPredicate, jobs ...Job) Job {
 	return run.IfNot(predicate, jobs...)
@@ -180,12 +185,13 @@ Then just returns the job unmodified. Then is used for expressiveness
 and can be omitted.
 
 Summary:
-	- Run jobs in goroutines : N/A
-	- Wait all jobs finish   : N/A
-	- Run order              : N/A
+  - Run jobs in goroutines : N/A
+  - Wait all jobs finish   : N/A
+  - Run order              : N/A
 
 Diagram:
-  ----[JOB]--->
+
+	----[JOB]--->
 */
 func (t *TaskList[Pipe]) JobThen(job Job) Job {
 	return run.Then(job)
@@ -196,12 +202,13 @@ JobElse just returns the job unmodified. Else is used for expressiveness
 and can be omitted.
 
 Summary:
-	- Run jobs in goroutines : N/A
-	- Wait all jobs finish   : N/A
-	- Run order              : N/A
+  - Run jobs in goroutines : N/A
+  - Wait all jobs finish   : N/A
+  - Run order              : N/A
 
 Diagram:
-  ----[JOB]--->
+
+	----[JOB]--->
 */
 func (t *TaskList[Pipe]) JobElse(job Job) Job {
 	return run.Else(job)
@@ -214,16 +221,17 @@ actually and just repeatedly checks predicate's return value. When the predicate
 returns true the function finishes.
 
 Summary:
-	- Run jobs in goroutines : N/A
-	- Wait all jobs finish   : N/A
-	- Run order              : N/A
+  - Run jobs in goroutines : N/A
+  - Wait all jobs finish   : N/A
+  - Run order              : N/A
 
 Diagram:
-                    NO
-    +------(SLEEP)------+
-    |                   |
-    V                   | YES
-  ----(CONDITION MET?)--+----->
+
+	                  NO
+	  +------(SLEEP)------+
+	  |                   |
+	  V                   | YES
+	----(CONDITION MET?)--+----->
 */
 func (t *TaskList[Pipe]) JobWait(predicate JobPredicate, sleep time.Duration) Job {
 	return run.Wait(predicate, sleep)
@@ -233,16 +241,17 @@ func (t *TaskList[Pipe]) JobWait(predicate JobPredicate, sleep time.Duration) Jo
 JobWhile repeats running the job while the condition is met.
 
 Summary:
-	- Run jobs in goroutines : NO
-	- Wait all jobs finish   : YES
-	- Run order              : SINGLE
+  - Run jobs in goroutines : NO
+  - Wait all jobs finish   : YES
+  - Run order              : SINGLE
 
 Diagram:
-                    YES
-    +-------[JOB]<------+
-    |                   |
-    V                   | NO
-  ----(CONDITION MET?)--+---->
+
+	                  YES
+	  +-------[JOB]<------+
+	  |                   |
+	  V                   | NO
+	----(CONDITION MET?)--+---->
 */
 func (t *TaskList[Pipe]) JobWhile(predicate JobPredicate, job Job) Job {
 	return run.While(predicate, job)
@@ -252,16 +261,17 @@ func (t *TaskList[Pipe]) JobWhile(predicate JobPredicate, job Job) Job {
 JobParallel runs jobs in their own goroutines and waits until all of them finish.
 
 Summary:
-	- Run jobs in goroutines : YES
-	- Wait all jobs finish   : YES
-	- Run order              : PARALLEL
+  - Run jobs in goroutines : YES
+  - Wait all jobs finish   : YES
+  - Run order              : PARALLEL
 
 Diagram:
-    +-->[JOB_1]--+
-    |            |
-  --+-->  ..   --+-->
-    |            |
-    +-->[JOB_N]--+
+
+	  +-->[JOB_1]--+
+	  |            |
+	--+-->  ..   --+-->
+	  |            |
+	  +-->[JOB_N]--+
 */
 func (t *TaskList[Pipe]) JobParallel(jobs ...Job) Job {
 	return run.Parallel(jobs...)
@@ -271,12 +281,13 @@ func (t *TaskList[Pipe]) JobParallel(jobs ...Job) Job {
 JobSequence runs jobs sequentially, one by one.
 
 Summary:
-	- Run jobs in goroutines : NO
-	- Wait all jobs finish   : YES
-	- Run order              : SEQUENCE
+  - Run jobs in goroutines : NO
+  - Wait all jobs finish   : YES
+  - Run order              : SEQUENCE
 
 Diagram:
-  -->[JOB_1]-...->[JOB_N]-->
+
+	-->[JOB_1]-...->[JOB_N]-->
 */
 func (t *TaskList[Pipe]) JobSequence(jobs ...Job) Job {
 	return run.Sequence(jobs...)
@@ -286,16 +297,17 @@ func (t *TaskList[Pipe]) JobSequence(jobs ...Job) Job {
 JobRepeat repeats running the job for N times.
 
 Summary:
-	- Run jobs in goroutines : NO
-	- Wait all jobs finish   : YES
-	- Run order              : SINGLE
+  - Run jobs in goroutines : NO
+  - Wait all jobs finish   : YES
+  - Run order              : SINGLE
 
 Diagram:
-                          NO
-    +-----------[JOB]<---------+
-    |                          |
-    V                          | YES
-  ----(ITERATED COUNT TIMES?)--+---->
+
+	                        NO
+	  +-----------[JOB]<---------+
+	  |                          |
+	  V                          | YES
+	----(ITERATED COUNT TIMES?)--+---->
 */
 func (t *TaskList[Pipe]) JobRepeat(job Job, times int) Job {
 	return run.Repeat(times, job)
@@ -321,7 +333,8 @@ func (t *TaskList[Pipe]) JobWaitForTerminator() Job {
 // the number of predicates is less than 2.
 //
 // The result predicate tests the condition as follows.
-//   [PRED_1] AND ... AND [PRED_N]
+//
+//	[PRED_1] AND ... AND [PRED_N]
 func (t *TaskList[Pipe]) PredicateAnd(predicates ...JobPredicate) JobPredicate {
 	return pred.And(predicates...)
 }
@@ -331,7 +344,8 @@ func (t *TaskList[Pipe]) PredicateAnd(predicates ...JobPredicate) JobPredicate {
 // the condition as fast as the result is known.
 //
 // The result predicate tests the condition as follows.
-//   [PRED_1] OR ... OR [PRED_N]
+//
+//	[PRED_1] OR ... OR [PRED_N]
 func (t *TaskList[Pipe]) PredicateOr(predicates ...JobPredicate) JobPredicate {
 	return pred.Or(predicates...)
 }
@@ -339,7 +353,8 @@ func (t *TaskList[Pipe]) PredicateOr(predicates ...JobPredicate) JobPredicate {
 // PredicateNot returns the negated value of the predicate.
 //
 // The result predicate tests the condition as follows.
-//   NOT [PRED]
+//
+//	NOT [PRED]
 func (t *TaskList[Pipe]) PredicateNot(predicate JobPredicate) JobPredicate {
 	return pred.Not(predicate)
 }
@@ -349,7 +364,8 @@ func (t *TaskList[Pipe]) PredicateNot(predicate JobPredicate) JobPredicate {
 // the condition as fast as the result is known.
 //
 // The result predicate tests the condition as follows.
-//   (([PRED_1] XOR [PRED_2]) ... XOR [PRED_N])
+//
+//	(([PRED_1] XOR [PRED_2]) ... XOR [PRED_N])
 func (t *TaskList[Pipe]) PredicateXor(predicates ...JobPredicate) JobPredicate {
 	return pred.Xor(predicates...)
 }

@@ -92,7 +92,7 @@ func (t *TaskList[Pipe]) ShouldRunAfter(fn taskListFn[Pipe]) *TaskList[Pipe] {
 
 func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 	if err := defaults.Set(data); err != nil {
-		return fmt.Errorf("Can not set defaults: %s", err)
+		return fmt.Errorf("Can not set defaults: %w", err)
 	}
 
 	validate := validator.New()
@@ -100,8 +100,9 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 	err := validate.Struct(data)
 
 	if err != nil {
+		//nolint:errorlint
 		for _, err := range err.(validator.ValidationErrors) {
-			error := fmt.Sprintf(
+			e := fmt.Sprintf(
 				`"%s" field failed validation: %s`,
 				err.Namespace(),
 				err.Tag(),
@@ -109,10 +110,10 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 
 			param := err.Param()
 			if param != "" {
-				error = fmt.Sprintf("%s > %s", error, param)
+				e = fmt.Sprintf("%s > %s", e, param)
 			}
 
-			t.Log.Errorln(error)
+			t.Log.Errorln(e)
 		}
 
 		return fmt.Errorf("Validation failed.")
@@ -136,7 +137,7 @@ func (t *TaskList[Pipe]) Run() error {
 		return fmt.Errorf("Task list is empty.")
 	}
 
-	result, data, err := floc.RunWith(t.flocContext, t.Control, floc.Job(t.Tasks))
+	result, data, err := floc.RunWith(t.flocContext, t.Control, t.Tasks)
 
 	if err != nil {
 		return err
@@ -160,17 +161,13 @@ func (t *TaskList[Pipe]) RunJobs(job Job) error {
 		return nil
 	}
 
-	result, data, err := floc.RunWith(t.flocContext, t.Control, floc.Job(job))
+	result, data, err := floc.RunWith(t.flocContext, t.Control, job)
 
 	if err != nil {
 		return err
 	}
 
-	if err := t.handleFloc(result, data); err != nil {
-		return err
-	}
-
-	return nil
+	return t.handleFloc(result, data)
 }
 
 func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error {

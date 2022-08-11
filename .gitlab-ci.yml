@@ -1,6 +1,12 @@
 stages:
+  - install
+  - build
   - publish
 
 include:
+  - project: devops/pipes
+    file: /templates/go-install.gitlab-ci.yml
+  - project: devops/pipes
+    file: /templates/go-lint.gitlab-ci.yml
   - project: devops/pipes
     file: /templates/semantic-release.gitlab-ci.yml

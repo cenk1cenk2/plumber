@@ -13,6 +13,9 @@ GO_OPTION_C=0
 install:
 	$(GO_VENDOR)
 
+lint:
+	golangci-lint run ./...
+
 update:
 	$(GO_GET) -u all
 	$(GO_VENDOR)
