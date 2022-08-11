@@ -1,3 +1,15 @@
+# [3.21.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.20.1...v3.21.0) (2022-08-11)
+
+
+### Bug Fixes
+
+* update linting and deps ([7532a6e](https://gitlab.kilic.dev/libraries/plumber/commit/7532a6e469ffda311b88b2b337fb04193181128f))
+
+
+### Features
+
+* add linting rules ([4e85e66](https://gitlab.kilic.dev/libraries/plumber/commit/4e85e660d839ab0101d97d247ef9c52913f685ab))
+
 ## [3.20.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.20.0...v3.20.1) (2022-07-04)
 
 
