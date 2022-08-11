@@ -1,3 +1,10 @@
+## [3.21.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.21.0...v3.21.1) (2022-08-11)
+
+
+### Bug Fixes
+
+* upadte go version ([5311c60](https://gitlab.kilic.dev/libraries/plumber/commit/5311c602642360ee362bb3facebcbfd0aec4a888))
+
 # [3.21.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.20.1...v3.21.0) (2022-08-11)
 
 
