@@ -14,7 +14,7 @@ install:
 	$(GO_VENDOR)
 
 lint:
-	golangci-lint run ./...
+	CGO_ENABLED=0	golangci-lint run ./...
 
 update:
 	$(GO_GET) -u all
