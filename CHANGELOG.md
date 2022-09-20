@@ -1,3 +1,10 @@
+## [3.23.3](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.2...v3.23.3) (2022-09-20)
+
+
+### Bug Fixes
+
+* update documentation going crazy with regex ([7b15a4b](https://gitlab.kilic.dev/libraries/plumber/commit/7b15a4b2b3b726d70c5c49427620db94538d4c33))
+
 ## [3.23.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.1...v3.23.2) (2022-09-20)
 
 
