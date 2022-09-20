@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"regexp"
 	"strings"
 	"syscall"
 
@@ -230,8 +229,10 @@ func (p *Plumber) greet() {
 	}
 
 	name := fmt.Sprintf("%s - %s", p.Cli.Name, version)
+	//revive:disable:unhandled-error
 	fmt.Println(name)
 	fmt.Println(strings.Repeat("-", len(name)))
+	//revive:enable:unhandled-error
 }
 
 func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
@@ -431,50 +432,4 @@ func (p *Plumber) Terminate(code int) {
 	close(p.Channel.Interrupt)
 
 	p.SendExit(code)
-}
-
-func (p *Plumber) generateMarkdownDocumentation() error {
-	const start = "<!-- clidocs -->"
-	const end = "<!-- clidocsstop -->"
-	expr := fmt.Sprintf(`(?s)%s(.*)%s`, start, end)
-
-	p.Log.Debugf("Using expression: %s", expr)
-
-	data, err := p.Cli.ToMarkdown()
-
-	if err != nil {
-		return err
-	}
-
-	p.Log.Infof("Trying to read file: %s", p.readme)
-
-	content, err := os.ReadFile(p.readme)
-
-	if err != nil {
-		return err
-	}
-
-	readme := string(content)
-
-	r := regexp.MustCompile(expr)
-
-	replace := strings.Join([]string{start, "", data, end}, "\n")
-
-	result := r.ReplaceAllString(readme, replace)
-
-	f, err := os.OpenFile(p.readme,
-		os.O_WRONLY, 0644)
-
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-	if _, err := f.WriteString(result); err != nil {
-		return err
-	}
-
-	p.Log.Infof("Wrote to file: %s", p.readme)
-
-	return nil
 }

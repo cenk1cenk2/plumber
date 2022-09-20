@@ -1,0 +1,43 @@
+# {{ .App.Name }}
+
+{{ .App.Description }}
+
+## Usage
+{{ if .App.UsageText }}
+`{{ .App.UsageText }}`
+{{ else }}
+`{{ .App.Name }} [GLOBAL FLAGS] command [COMMAND FLAGS] [ARGUMENTS...]`
+{{ end }}
+
+{{- if .GlobalFlags }}
+## Global Flags
+| Name    | Usage    | Column3    |
+|---------------- | --------------- | --------------- |
+{{ range $v := .GlobalFlags }}
+| {{ $v.Name }} | {{ $v.Usage }} |
+{{ end }}
+{{ end }}
+
+{{- if .Commands }}
+# Commands
+{{ range $v := .Commands }}
+## `{{ $v.Name }}` {{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
+
+{{ $v.Description }}
+{{ if $v.Usage }}
+
+### Usage
+{{ $v.Usage }}
+{{ end }}
+
+{{- if $v.Flags }}
+
+### Flags
+| Flag / Environment |  Description   |  Type    | Required | Default |
+|---------------- | --------------- | --------------- |  --------------- |  --------------- |
+{{- range $f := $v.Flags }}
+| {{ StringsJoin $f.Name ", " }} | {{ $f.Description }} |  {{ $f.Type }}  | {{ $f.Required }} | {{ $f.Default }} |
+{{- end }}
+{{- end }}
+{{ end }}
+{{ end }}

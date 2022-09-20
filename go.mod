@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/creasty/defaults v1.6.0
-	github.com/go-playground/validator/v10 v10.11.0
+	github.com/go-playground/validator/v10 v10.11.1
 	github.com/joho/godotenv v1.4.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/workanator/go-floc/v3 v3.0.1
@@ -18,11 +18,11 @@ require (
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
+	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0 // indirect
 	golang.org/x/text v0.3.7 // indirect
 )
 
 require (
-	github.com/urfave/cli/v2 v2.11.1
-	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664 // indirect
+	github.com/urfave/cli/v2 v2.16.3
+	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
 )

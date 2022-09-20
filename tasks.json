@@ -1,0 +1,20 @@
+{
+  "tasks": [
+    {
+      "name": "install",
+      "cmd": "make install"
+    },
+    {
+      "name": "update",
+      "cmd": "make update"
+    },
+    {
+      "name": "tidy",
+      "cmd": "make tidy"
+    },
+    {
+      "name": "lint",
+      "cmd": "make lint"
+    }
+  ]
+}

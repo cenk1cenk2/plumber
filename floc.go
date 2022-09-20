@@ -101,7 +101,9 @@ func (t *TaskList[Pipe]) JobLoopWithWaitAfter(job Job, delay time.Duration) Job 
 	return run.Loop(
 		run.Sequence(
 			job,
-			run.Delay(delay, t.CreateBasicJob(func() error { return nil })),
+			run.Delay(delay, t.CreateBasicJob(func() error {
+				return nil
+			})),
 		),
 	)
 }
