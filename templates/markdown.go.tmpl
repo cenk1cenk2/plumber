@@ -4,10 +4,10 @@
 {{- if .App.UsageText }}
 
 `{{ .App.UsageText }}`
-{{ else }}
+{{- else }}
 
 `{{ .App.Name }} [GLOBAL FLAGS] command [COMMAND FLAGS] [ARGUMENTS...]`
-{{ end }}
+{{- end }}
 {{- if .GlobalFlags }}
 
 ## Global Flags
@@ -16,18 +16,21 @@
 {{- range $f := .GlobalFlags }}
 | {{ StringsJoin $f.Name ", " }} | {{ $f.Description }} |  {{ $f.Type }}  | {{ $f.Required }} | {{ $f.Default }} |
 {{- end }}
-{{ end }}
+{{- end }}
 {{- if .Commands }}
 
 # Commands
-{{ range $v := .Commands }}
+{{- range $v := .Commands }}
+
 ## `{{ $v.Name }}` {{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
+{{- if $v.Description }}
 
 {{ $v.Description }}
-{{ if $v.Usage }}
+{{- end }}
+{{- if $v.Usage }}
 
 `{{ $v.Usage }}`
-{{ end }}
+{{- end }}
 
 {{- if $v.Flags }}
 
@@ -38,5 +41,5 @@
 | {{ StringsJoin $f.Name ", " }} | {{ $f.Description }} |  {{ $f.Type }}  | {{ $f.Required }} | {{ $f.Default }} |
 {{- end }}
 {{- end }}
-{{ end }}
-{{ end }}
+{{- end }}
+{{- end }}
