@@ -1,15 +1,15 @@
 # {{ .App.Name }}
 
 {{ .App.Description }}
+{{- if .App.UsageText }}
 
-## Usage
-{{ if .App.UsageText }}
 `{{ .App.UsageText }}`
 {{ else }}
+
 `{{ .App.Name }} [GLOBAL FLAGS] command [COMMAND FLAGS] [ARGUMENTS...]`
 {{ end }}
-
 {{- if .GlobalFlags }}
+
 ## Global Flags
 | Flag / Environment |  Description   |  Type    | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
@@ -17,8 +17,8 @@
 | {{ StringsJoin $f.Name ", " }} | {{ $f.Description }} |  {{ $f.Type }}  | {{ $f.Required }} | {{ $f.Default }} |
 {{- end }}
 {{ end }}
-
 {{- if .Commands }}
+
 # Commands
 {{ range $v := .Commands }}
 ## `{{ $v.Name }}` {{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
@@ -26,8 +26,7 @@
 {{ $v.Description }}
 {{ if $v.Usage }}
 
-### Usage
-{{ $v.Usage }}
+`{{ $v.Usage }}`
 {{ end }}
 
 {{- if $v.Flags }}

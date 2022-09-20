@@ -67,15 +67,9 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 
 	result := r.ReplaceAllString(readme, replace)
 
-	f, err := os.OpenFile(p.readme,
-		os.O_WRONLY, 0644)
+	err = os.WriteFile(p.readme, []byte(result), 0600)
 
 	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-	if _, err := f.WriteString(result); err != nil {
 		return err
 	}
 
