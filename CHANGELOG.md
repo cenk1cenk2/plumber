@@ -1,3 +1,10 @@
+# [3.23.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.22.0...v3.23.0) (2022-09-20)
+
+
+### Features
+
+* fix issues with running this as subcommand ([35fbeaa](https://gitlab.kilic.dev/libraries/plumber/commit/35fbeaa29854b9d2ddf559c533221860f600c3dc))
+
 # [3.22.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.21.1...v3.22.0) (2022-09-20)
 
 
