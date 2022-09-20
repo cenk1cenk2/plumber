@@ -11,11 +11,11 @@
 
 {{- if .GlobalFlags }}
 ## Global Flags
-| Name    | Usage    | Column3    |
-|---------------- | --------------- | --------------- |
-{{ range $v := .GlobalFlags }}
-| {{ $v.Name }} | {{ $v.Usage }} |
-{{ end }}
+| Flag / Environment |  Description   |  Type    | Required | Default |
+|---------------- | --------------- | --------------- |  --------------- |  --------------- |
+{{- range $f := .GlobalFlags }}
+| {{ StringsJoin $f.Name ", " }} | {{ $f.Description }} |  {{ $f.Type }}  | {{ $f.Required }} | {{ $f.Default }} |
+{{- end }}
 {{ end }}
 
 {{- if .Commands }}

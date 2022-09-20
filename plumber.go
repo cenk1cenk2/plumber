@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gitlab.kilic.dev/libraries/go-utils/logger"
+	"golang.org/x/exp/slices"
 )
 
 type Plumber struct {
@@ -78,25 +79,13 @@ func (p *Plumber) New(
 
 	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
 
-	p.Cli.Commands = append(p.Cli.Commands, &cli.Command{
-		Name: "docs",
-		Action: func(ctx *cli.Context) error {
-			p.Cli.Flags = cli.NewApp().Flags
-
-			return p.generateMarkdownDocumentation()
-		},
-		Hidden:          true,
-		HideHelp:        true,
-		SkipFlagParsing: true,
-	})
-
 	p.readme = "README.md"
 
-	if len(p.Cli.Commands) > 0 {
-		for i, v := range p.Cli.Commands {
-			p.Cli.Commands[i].Flags = p.appendDefaultFlags(v.Flags)
-		}
-	}
+	// if len(p.Cli.Commands) > 0 {
+	// 	for i, v := range p.Cli.Commands {
+	// 		p.Cli.Commands[i].Flags = p.appendDefaultFlags(v.Flags)
+	// 	}
+	// }
 
 	p.Environment = AppEnvironment{}
 
@@ -124,6 +113,18 @@ func (p *Plumber) Run() {
 	p.greet()
 
 	go p.registerHandlers()
+
+	if slices.Contains(os.Args, "MARKDOWN_DOC") {
+		p.setupLogger(LOG_LEVEL_TRACE)
+
+		p.Log.Traceln("Only running the documentation generation without the CLI.")
+
+		if err := p.generateMarkdownDocumentation(); err != nil {
+			p.SendFatal(err)
+		}
+
+		os.Exit(0)
+	}
 
 	if err := p.Cli.Run(os.Args); err != nil {
 		p.SendFatal(err)

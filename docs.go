@@ -63,7 +63,7 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 
 	r := regexp.MustCompile(expr)
 
-	replace := strings.Join([]string{start, "", data, end}, "\n")
+	replace := strings.Join([]string{start, "", data, "", end}, "\n")
 
 	result := r.ReplaceAllString(readme, replace)
 
