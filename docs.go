@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"os"
 	"reflect"
-	"regexp"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -39,11 +38,11 @@ type markdownTemplateInput struct {
 var templates embed.FS
 
 func (p *Plumber) generateMarkdownDocumentation() error {
-	const start = "<!-- clidocs -->"
-	const end = "<!-- clidocsstop -->"
-	expr := fmt.Sprintf(`(?s)%s(.*)%s`, start, end)
-
-	p.Log.Debugf("Using expression: %s", expr)
+	// const start = "<!-- clidocs -->"
+	// const end = "<!-- clidocsstop -->"
+	// expr := fmt.Sprintf(`(?s)%s(.*)%s`, start, end)
+	//
+	// p.Log.Debugf("Using expression: %s", expr)
 
 	data, err := p.toMarkdown()
 
@@ -51,23 +50,23 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 		return err
 	}
 
-	p.Log.Infof("Trying to read file: %s", p.readme)
+	// p.Log.Infof("Trying to read file: %s", p.readme)
+	//
+	// content, err := os.ReadFile(p.readme)
+	//
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// readme := string(content)
+	//
+	// r := regexp.MustCompile(expr)
+	//
+	// replace := strings.Join([]string{start, "", data, "", end}, "\n")
+	//
+	// result := r.ReplaceAllString(readme, replace)
 
-	content, err := os.ReadFile(p.readme)
-
-	if err != nil {
-		return err
-	}
-
-	readme := string(content)
-
-	r := regexp.MustCompile(expr)
-
-	replace := strings.Join([]string{start, "", data, "", end}, "\n")
-
-	result := r.ReplaceAllString(readme, replace)
-
-	err = os.WriteFile(p.readme, []byte(result), 0600)
+	err = os.WriteFile(p.readme, []byte(data), 0600)
 
 	if err != nil {
 		return err
