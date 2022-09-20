@@ -158,7 +158,7 @@ func (p *Plumber) toMarkdownFlags(
 		}
 
 		for _, v := range current.GetEnvVars() {
-			names = append(names, fmt.Sprintf("$$%s", v))
+			names = append(names, fmt.Sprintf("$%s", v))
 		}
 
 		parsed := &markdownTemplateFlag{
