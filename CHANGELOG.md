@@ -1,3 +1,10 @@
+# [3.22.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.21.1...v3.22.0) (2022-09-20)
+
+
+### Features
+
+* add proper documentation for markdown ([c555beb](https://gitlab.kilic.dev/libraries/plumber/commit/c555bebb77b4e2deb29fe5a8e91b378930e32952))
+
 ## [3.21.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.21.0...v3.21.1) (2022-08-11)
 
 
