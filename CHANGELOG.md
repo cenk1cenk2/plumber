@@ -1,3 +1,11 @@
+## [3.23.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.1...v3.23.2) (2022-09-20)
+
+
+### Bug Fixes
+
+* directly write to the readme file. ([e43b0b6](https://gitlab.kilic.dev/libraries/plumber/commit/e43b0b6fad4f1337c754295c30c4fdf768269aec))
+* update template ([cb8840c](https://gitlab.kilic.dev/libraries/plumber/commit/cb8840c43fe27a63aa833c96e7cdfc25f38a4c0d))
+
 ## [3.23.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.0...v3.23.1) (2022-09-20)
 
 
