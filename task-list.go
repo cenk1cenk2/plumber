@@ -173,7 +173,7 @@ func (t *TaskList[Pipe]) RunJobs(job Job) error {
 func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error {
 	switch {
 	case result.IsCanceled() && data != nil:
-		t.Log.Debugf("Tasks are cancelled: %s", data.(string))
+		t.Log.Debugf("Tasks are cancelled: %s", data)
 	}
 
 	return nil

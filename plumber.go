@@ -22,7 +22,7 @@ type Plumber struct {
 	Terminator
 
 	onTerminateFn
-	readme string
+	Readme string
 }
 
 type AppEnvironment struct {
@@ -79,7 +79,7 @@ func (p *Plumber) New(
 
 	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
 
-	p.readme = "README.md"
+	p.Readme = "README.md"
 
 	// if len(p.Cli.Commands) > 0 {
 	// 	for i, v := range p.Cli.Commands {
@@ -162,13 +162,6 @@ func (p *Plumber) EnableTerminator() *Plumber {
 	}
 
 	p.Log.Traceln("Terminator enabled.")
-
-	return p
-}
-
-// Cli.SetReadme Sets readme file for documentation generation.
-func (p *Plumber) SetReadme(file string) *Plumber {
-	p.readme = file
 
 	return p
 }

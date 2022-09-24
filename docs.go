@@ -24,6 +24,7 @@ type markdownTemplateFlag struct {
 	Name        []string
 	Description string
 	Type        string
+	Format      string
 	Required    bool
 	Default     string
 }
@@ -66,13 +67,13 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 	//
 	// result := r.ReplaceAllString(readme, replace)
 
-	err = os.WriteFile(p.readme, []byte(data), 0600)
+	err = os.WriteFile(p.Readme, []byte(data), 0600)
 
 	if err != nil {
 		return err
 	}
 
-	p.Log.Infof("Wrote to file: %s", p.readme)
+	p.Log.Infof("Wrote to file: %s", p.Readme)
 
 	return nil
 }
