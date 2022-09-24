@@ -1,3 +1,10 @@
+## [3.26.2](https://gitlab.kilic.dev/libraries/plumber/compare/v3.26.1...v3.26.2) (2022-09-24)
+
+
+### Bug Fixes
+
+* update template ([3e5cfc2](https://gitlab.kilic.dev/libraries/plumber/commit/3e5cfc22e90b2eacdcdbf5c2e19f34c5efa82fe9))
+
 ## [3.26.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.26.0...v3.26.1) (2022-09-24)
 
 
