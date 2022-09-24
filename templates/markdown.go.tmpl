@@ -13,7 +13,7 @@
 ## Global Flags
 
 {{- range $category, $flags := $.GlobalFlags }}
-{{- if $category != "EMPTY" }}
+{{- if ne $category "EMPTY" }}
 ##### {{ $category }}
 {{- end}}
 | Flag / Environment |  Description   |  Type    | Format | Required | Default |
@@ -42,7 +42,7 @@
 #### Flags
 
 {{- range $category, $flags := $v.Flags }}
-{{- if $category != "EMPTY" }}
+{{- if ne $category "EMPTY" }}
 ##### {{ $category }}
 {{- end}}
 | Flag / Environment |  Description   |  Type    | Format | Required | Default |
