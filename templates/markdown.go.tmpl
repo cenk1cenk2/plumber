@@ -20,7 +20,7 @@
 | Flag / Environment |  Description   |  Type    | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
 {{- range $f := $flags }}
-|{{ range $i, $name := $f.Name }}{{ if ne $i 1 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} |
+|{{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} |
 {{- end }}
 {{- end }}
 {{- if .Commands }}
@@ -50,7 +50,7 @@
 | Flag / Environment |  Description   |  Type    | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
 {{- range $f := $flags }}
-|{{ range $i, $name := $f.Name }}{{ if ne $i 1 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} |
+|{{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} |
 {{- end }}
 {{- end }}
 {{- end }}
