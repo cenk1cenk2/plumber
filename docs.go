@@ -24,7 +24,6 @@ type markdownTemplateFlag struct {
 	Name        []string
 	Description string
 	Type        string
-	Format      string
 	Required    bool
 	Default     string
 }

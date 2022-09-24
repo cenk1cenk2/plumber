@@ -12,10 +12,10 @@
 
 ## Global Flags
 
-| Flag / Environment |  Description   |  Type    | Format | Required | Default |
+| Flag / Environment |  Description   |  Type    | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
 {{- range $f := .GlobalFlags }}
-| {{ StringsJoin $f.Name ", " }} | {{ $f.Description }} |  {{ $f.Type }} | {{ $f.Format }} | {{ $f.Required }} | {{ $f.Default }} |
+| {{ StringsJoin $f.Name ", " }} | {{ $f.Description }} |  {{ $f.Type }} | {{ $f.Required }} | {{ $f.Default }} |
 {{- end }}
 {{- end }}
 {{- if .Commands }}
