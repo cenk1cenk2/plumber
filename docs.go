@@ -12,26 +12,29 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-type markdownTemplateCommand struct {
+type parsedFlags = map[string][]*templateFlag
+
+type templateCommand struct {
 	Name        string
 	Aliases     []string
-	Flags       []*markdownTemplateFlag
+	Flags       parsedFlags
 	Usage       string
 	Description string
 }
 
-type markdownTemplateFlag struct {
+type templateFlag struct {
 	Name        []string
 	Description string
 	Type        string
 	Required    bool
 	Default     string
+	Category    string
 }
 
 type markdownTemplateInput struct {
 	App         *cli.App
-	GlobalFlags []*markdownTemplateFlag
-	Commands    []*markdownTemplateCommand
+	GlobalFlags parsedFlags
+	Commands    []*templateCommand
 }
 
 //go:embed templates
@@ -101,15 +104,15 @@ func (p *Plumber) toMarkdown() (string, error) {
 	return w.String(), err
 }
 
-func (p *Plumber) toMarkdownCommand(commands []*cli.Command) []*markdownTemplateCommand {
-	var processed []*markdownTemplateCommand
+func (p *Plumber) toMarkdownCommand(commands []*cli.Command) []*templateCommand {
+	var processed []*templateCommand
 
 	for _, command := range commands {
 		if command.Hidden {
 			continue
 		}
 
-		parsed := &markdownTemplateCommand{
+		parsed := &templateCommand{
 			Name:        command.FullName(),
 			Aliases:     command.Aliases,
 			Description: command.Description,
@@ -134,8 +137,9 @@ func (p *Plumber) toMarkdownCommand(commands []*cli.Command) []*markdownTemplate
 
 func (p *Plumber) toMarkdownFlags(
 	flags []cli.Flag,
-) []*markdownTemplateFlag {
-	processed := []*markdownTemplateFlag{}
+) parsedFlags {
+	all := []*templateFlag{}
+	processed := parsedFlags{}
 
 	for _, f := range flags {
 		current, ok := f.(cli.DocGenerationFlag)
@@ -161,20 +165,35 @@ func (p *Plumber) toMarkdownFlags(
 			names = append(names, fmt.Sprintf("$%s", v))
 		}
 
-		parsed := &markdownTemplateFlag{
+		parsed := &templateFlag{
 			Name:        names,
 			Description: current.GetUsage(),
 			Type:        strings.ReplaceAll(strings.ReplaceAll(reflect.TypeOf(f).String(), "*cli.", ""), "Flag", ""),
 			Default:     current.GetDefaultText(),
 			Required:    current.(cli.RequiredFlag).IsRequired(),
+			Category:    current.(cli.CategorizableFlag).GetCategory(),
 		}
 
 		p.Log.Debugf("Processed flag: %+v", parsed)
 
-		processed = append(
-			processed,
+		all = append(
+			all,
 			parsed,
 		)
+	}
+
+	for _, flag := range all {
+		category := "EMPTY"
+
+		if flag.Category != "" {
+			category = flag.Category
+		}
+
+		if _, ok := processed[category]; !ok {
+			processed[category] = []*templateFlag{}
+		}
+
+		processed[category] = append(processed[category], flag)
 	}
 
 	return processed
