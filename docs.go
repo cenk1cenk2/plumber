@@ -71,13 +71,13 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 	//
 	// result := r.ReplaceAllString(readme, replace)
 
-	err = os.WriteFile(p.Readme, []byte(data), 0600)
+	err = os.WriteFile(p.DocsFile, []byte(data), 0600)
 
 	if err != nil {
 		return err
 	}
 
-	p.Log.Infof("Wrote to file: %s", p.Readme)
+	p.Log.Infof("Wrote to file: %s", p.DocsFile)
 
 	return nil
 }
@@ -153,18 +153,22 @@ func (p *Plumber) toMarkdownFlags(
 		}
 
 		names := []string{}
-		for _, s := range current.Names() {
-			trimmed := strings.TrimSpace(s)
+		if p.DocsIncludeFlags {
+			for _, s := range current.Names() {
+				trimmed := strings.TrimSpace(s)
 
-			if len(trimmed) > 1 {
-				names = append(names, fmt.Sprintf("--%s", trimmed))
-			} else {
-				names = append(names, fmt.Sprintf("-%s", trimmed))
+				if len(trimmed) > 1 {
+					names = append(names, fmt.Sprintf("--%s", trimmed))
+				} else {
+					names = append(names, fmt.Sprintf("-%s", trimmed))
+				}
 			}
 		}
 
-		for _, v := range current.GetEnvVars() {
-			names = append(names, fmt.Sprintf("$%s", v))
+		if p.DocsIncludeEnvironmentVariables {
+			for _, v := range current.GetEnvVars() {
+				names = append(names, fmt.Sprintf("$%s", v))
+			}
 		}
 
 		description := current.GetUsage()

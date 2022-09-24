@@ -22,7 +22,10 @@ type Plumber struct {
 	Terminator
 
 	onTerminateFn
-	Readme string
+
+	DocsFile                        string
+	DocsIncludeFlags                bool
+	DocsIncludeEnvironmentVariables bool
 }
 
 type AppEnvironment struct {
@@ -79,8 +82,8 @@ func (p *Plumber) New(
 
 	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
 
-	if p.Readme == "" {
-		p.Readme = "README.md"
+	if p.DocsFile == "" {
+		p.DocsFile = "README.md"
 	}
 
 	// if len(p.Cli.Commands) > 0 {

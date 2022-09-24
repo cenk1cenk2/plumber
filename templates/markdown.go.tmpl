@@ -11,15 +11,15 @@
 {{- if .GlobalFlags }}
 
 ## Global Flags
-
 {{- range $category, $flags := $.GlobalFlags }}
 {{- if ne $category "EMPTY" }}
+
 ##### {{ $category }}
 {{- end}}
 | Flag / Environment |  Description   |  Type    | Format | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |--------------- |
 {{- range $f := $flags }}
-|{{ range $name := $f.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}` | `{{ $f.Format }}` | `{{ $f.Required }}` | `{{ $f.Default }}` |
+|{{ range $name := $f.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}` | {{ $f.Format }} | `{{ $f.Required }}` | {{ $f.Default }} |
 {{- end }}
 {{- end }}
 {{- if .Commands }}
@@ -40,15 +40,15 @@
 {{- if $v.Flags }}
 
 #### Flags
-
 {{- range $category, $flags := $v.Flags }}
 {{- if ne $category "EMPTY" }}
+
 ##### {{ $category }}
 {{- end}}
 | Flag / Environment |  Description   |  Type    | Format | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- | --------------- |
 {{- range $f := $flags }}
-|{{ range $name := $f.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}` | `{{ $f.Format }}` | `{{ $f.Required }}` | `{{ $f.Default }}` |
+|{{ range $name := $f.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}` | {{ $f.Format }} | `{{ $f.Required }}` | {{ $f.Default }} |
 {{- end }}
 {{- end }}
 {{- end }}
