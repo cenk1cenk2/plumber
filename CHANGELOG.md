@@ -1,3 +1,10 @@
+# [3.25.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.24.4...v3.25.0) (2022-09-24)
+
+
+### Features
+
+* update documentation with format ([e7d3a3c](https://gitlab.kilic.dev/libraries/plumber/commit/e7d3a3cf3221f6ee0c8d357bbc0ab8cc0af6f52c))
+
 ## [3.24.4](https://gitlab.kilic.dev/libraries/plumber/compare/v3.24.3...v3.24.4) (2022-09-24)
 
 
