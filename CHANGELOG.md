@@ -1,3 +1,10 @@
+## [3.23.6](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.5...v3.23.6) (2022-09-24)
+
+
+### Bug Fixes
+
+* ability to set readme ([17a4ec4](https://gitlab.kilic.dev/libraries/plumber/commit/17a4ec4809b8634cbc965962cfcea983c0e1b54b))
+
 ## [3.23.5](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.4...v3.23.5) (2022-09-24)
 
 
