@@ -79,7 +79,9 @@ func (p *Plumber) New(
 
 	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
 
-	p.Readme = "README.md"
+	if p.Readme == "" {
+		p.Readme = "README.md"
+	}
 
 	// if len(p.Cli.Commands) > 0 {
 	// 	for i, v := range p.Cli.Commands {
