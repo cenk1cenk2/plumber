@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -29,6 +30,7 @@ type templateFlag struct {
 	Required    bool
 	Default     string
 	Category    string
+	Format      string
 }
 
 type markdownTemplateInput struct {
@@ -165,10 +167,19 @@ func (p *Plumber) toMarkdownFlags(
 			names = append(names, fmt.Sprintf("$%s", v))
 		}
 
+		description := current.GetUsage()
+
+		re := regexp.MustCompile("((format|dynamic|enum).*)$")
+
+		format := re.FindString(description)
+
+		description = re.ReplaceAllString(description, "")
+
 		parsed := &templateFlag{
 			Name:        names,
-			Description: current.GetUsage(),
+			Description: description,
 			Type:        strings.ReplaceAll(strings.ReplaceAll(reflect.TypeOf(f).String(), "*cli.", ""), "Flag", ""),
+			Format:      format,
 			Default:     current.GetDefaultText(),
 			Required:    current.(cli.RequiredFlag).IsRequired(),
 			Category:    current.(cli.CategorizableFlag).GetCategory(),
