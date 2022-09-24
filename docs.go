@@ -153,7 +153,7 @@ func (p *Plumber) toMarkdownFlags(
 		}
 
 		names := []string{}
-		if p.DocsIncludeFlags {
+		if !p.DocsExcludeFlags {
 			for _, s := range current.Names() {
 				trimmed := strings.TrimSpace(s)
 
@@ -165,7 +165,7 @@ func (p *Plumber) toMarkdownFlags(
 			}
 		}
 
-		if p.DocsIncludeEnvironmentVariables {
+		if !p.DocsExcludeEnvironmentVariables {
 			for _, v := range current.GetEnvVars() {
 				names = append(names, fmt.Sprintf("$%s", v))
 			}
@@ -187,6 +187,12 @@ func (p *Plumber) toMarkdownFlags(
 			Default:     current.GetDefaultText(),
 			Required:    current.(cli.RequiredFlag).IsRequired(),
 			Category:    current.(cli.CategorizableFlag).GetCategory(),
+		}
+
+		if len(parsed.Name) == 0 {
+			p.Log.Debugf("Skipped flag: %+v", parsed)
+
+			continue
 		}
 
 		p.Log.Debugf("Processed flag: %+v", parsed)

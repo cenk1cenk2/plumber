@@ -24,8 +24,8 @@ type Plumber struct {
 	onTerminateFn
 
 	DocsFile                        string
-	DocsIncludeFlags                bool
-	DocsIncludeEnvironmentVariables bool
+	DocsExcludeFlags                bool
+	DocsExcludeEnvironmentVariables bool
 }
 
 type AppEnvironment struct {

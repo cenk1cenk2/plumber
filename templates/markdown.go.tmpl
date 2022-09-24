@@ -16,10 +16,11 @@
 
 ##### {{ $category }}
 {{- end}}
-| Flag / Environment |  Description   |  Type    | Format | Required | Default |
-|---------------- | --------------- | --------------- |  --------------- |  --------------- |--------------- |
+
+| Flag / Environment |  Description   |  Type    | Required | Default |
+|---------------- | --------------- | --------------- |  --------------- |  --------------- |
 {{- range $f := $flags }}
-|{{ range $name := $f.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}` | {{ $f.Format }} | `{{ $f.Required }}` | {{ $f.Default }} |
+|{{ range $name := $f.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}` {{ $f.Format }} | `{{ $f.Required }}` | {{ $f.Default }} |
 {{- end }}
 {{- end }}
 {{- if .Commands }}
@@ -45,14 +46,14 @@
 
 ##### {{ $category }}
 {{- end}}
-| Flag / Environment |  Description   |  Type    | Format | Required | Default |
-|---------------- | --------------- | --------------- |  --------------- |  --------------- | --------------- |
-{{- range $f := $flags }}
-|{{ range $name := $f.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}` | {{ $f.Format }} | `{{ $f.Required }}` | {{ $f.Default }} |
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
 
+| Flag / Environment |  Description   |  Type    | Required | Default |
+|---------------- | --------------- | --------------- |  --------------- |  --------------- |
+{{- range $f := $flags }}
+|{{ range $name := $f.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}` {{ $f.Format }} | `{{ $f.Required }}` | {{ $f.Default }} |
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
