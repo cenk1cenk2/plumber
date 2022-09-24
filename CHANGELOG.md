@@ -1,3 +1,10 @@
+# [3.24.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.7...v3.24.0) (2022-09-24)
+
+
+### Features
+
+* add category for flags to markdown generation ([75b6f4d](https://gitlab.kilic.dev/libraries/plumber/commit/75b6f4d8302ac7a3a76d6df884971098f5aedfce))
+
 ## [3.23.7](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.6...v3.23.7) (2022-09-24)
 
 
