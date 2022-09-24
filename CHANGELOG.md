@@ -1,3 +1,10 @@
+## [3.24.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.24.0...v3.24.1) (2022-09-24)
+
+
+### Bug Fixes
+
+* update templating issues ([13450d7](https://gitlab.kilic.dev/libraries/plumber/commit/13450d717f947f3e61d808bfa3cf388015659ffc))
+
 # [3.24.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.7...v3.24.0) (2022-09-24)
 
 
