@@ -1,3 +1,10 @@
+# [3.26.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.25.0...v3.26.0) (2022-09-24)
+
+
+### Features
+
+* change doc generation enable flags ([038e149](https://gitlab.kilic.dev/libraries/plumber/commit/038e149c88a9d4489259adf2ac2ecd34f4dc99e4))
+
 # [3.25.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.24.4...v3.25.0) (2022-09-24)
 
 
