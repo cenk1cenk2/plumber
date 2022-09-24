@@ -1,3 +1,10 @@
+## [3.23.7](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.6...v3.23.7) (2022-09-24)
+
+
+### Bug Fixes
+
+* remove dead code ([2f935f2](https://gitlab.kilic.dev/libraries/plumber/commit/2f935f23bb7748b854190e5210b9ec962f08d542))
+
 ## [3.23.6](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.5...v3.23.6) (2022-09-24)
 
 
