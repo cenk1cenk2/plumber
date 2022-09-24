@@ -1,3 +1,10 @@
+## [3.23.5](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.4...v3.23.5) (2022-09-24)
+
+
+### Bug Fixes
+
+* dont convert interface from floc and just log it out ([0015158](https://gitlab.kilic.dev/libraries/plumber/commit/0015158e8f7feeaad611520f631bbfb6f2a5d3e1))
+
 ## [3.23.4](https://gitlab.kilic.dev/libraries/plumber/compare/v3.23.3...v3.23.4) (2022-09-20)
 
 
