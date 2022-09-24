@@ -122,7 +122,7 @@ func (p *Plumber) Run() {
 		p.Log.Traceln("Only running the documentation generation without the CLI.")
 
 		if err := p.generateMarkdownDocumentation(); err != nil {
-			p.SendFatal(err)
+			p.Log.Fatalln(err)
 		}
 
 		os.Exit(0)

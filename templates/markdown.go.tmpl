@@ -12,7 +12,7 @@
 
 ## Global Flags
 
-{{- range $category, $flags := $v.Flags }}
+{{- range $category, $flags := $.GlobalFlags }}
 {{- if $category != "EMPTY" }}
 ##### {{ $category }}
 {{- end}}
