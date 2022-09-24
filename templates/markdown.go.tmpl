@@ -19,7 +19,7 @@
 | Flag / Environment |  Description   |  Type    | Format | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
 {{- range $f := $flags }}
-| {{ StringsJoin $f.Name " " }} | {{ $f.Description }} |  {{ $f.Type }} | {{ $f.Format }} | {{ $f.Required }} | {{ $f.Default }} |
+|{{ range $name := $v.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} |  {{ $f.Type }} | {{ $f.Format }} | {{ $f.Required }} | {{ $f.Default }} |
 {{- end }}
 {{- end }}
 {{- if .Commands }}
@@ -48,9 +48,11 @@
 | Flag / Environment |  Description   |  Type    | Format | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
 {{- range $f := $flags }}
-| {{ StringsJoin $f.Name " " }} | {{ $f.Description }} |  {{ $f.Type }} | {{ $f.Format }} | {{ $f.Required }} | {{ $f.Default }} |
+|{{ range $name := $v.Name }} `{{ $name }}`{{ end }} | {{ $f.Description }} |  {{ $f.Type }} | {{ $f.Format }} | {{ $f.Required }} | {{ $f.Default }} |
 {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
+{{- end }}
+
