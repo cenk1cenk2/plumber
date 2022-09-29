@@ -1,3 +1,10 @@
+## [4.4.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.0...v4.4.1) (2022-09-29)
+
+
+### Bug Fixes
+
+* update internal handling of commands ([4c1e70c](https://gitlab.kilic.dev/libraries/plumber/commit/4c1e70cfa54ebab49666b3b337ec9d6df77bd538))
+
 # [4.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.3.0...v4.4.0) (2022-09-29)
 
 
