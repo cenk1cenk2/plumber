@@ -1,3 +1,10 @@
+## [3.27.1](https://gitlab.kilic.dev/libraries/plumber/compare/v3.27.0...v3.27.1) (2022-09-29)
+
+
+### Bug Fixes
+
+* update documentation generation ([3f8b0b2](https://gitlab.kilic.dev/libraries/plumber/commit/3f8b0b27f7ad49ce7c8caff2598300cc5d36dbe0))
+
 # [3.27.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.26.5...v3.27.0) (2022-09-29)
 
 
