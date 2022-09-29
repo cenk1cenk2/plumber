@@ -11,11 +11,18 @@
 {{- if .GlobalFlags }}
 
 ## Global Flags
-{{- range $category, $flags := $.GlobalFlags }}
+{{- if .GlobalFlags["EMPTY"] }}
+
+| Flag / Environment |  Description   |  Type    | Required | Default |
+|---------------- | --------------- | --------------- |  --------------- |  --------------- |
+{{- range $f := .GlobalFlags["EMPTY"] }}
+|{{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} |
+{{- end }}
+{{- end }}
+{{- range $category, $flags := .GlobalFlags }}
 {{- if ne $category "EMPTY" }}
 
-### {{ $category }}
-{{- end}}
+##### {{ $category }}
 
 | Flag / Environment |  Description   |  Type    | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
@@ -41,16 +48,24 @@
 {{- if $v.Flags }}
 
 #### Flags
+{{- if $v.Flags["EMPTY"] }}
+
+| Flag / Environment |  Description   |  Type    | Required | Default |
+|---------------- | --------------- | --------------- |  --------------- |  --------------- |
+{{- range $f := $v.Flags["EMPTY"] }}
+|{{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} |
+{{- end }}
+{{- end }}
 {{- range $category, $flags := $v.Flags }}
 {{- if ne $category "EMPTY" }}
 
 ##### {{ $category }}
-{{- end}}
 
 | Flag / Environment |  Description   |  Type    | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
 {{- range $f := $flags }}
 |{{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} |
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
