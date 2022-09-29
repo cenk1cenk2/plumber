@@ -1,3 +1,10 @@
+# [4.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.1.0...v4.2.0) (2022-09-29)
+
+
+### Features
+
+* add more jumpers for the terminator ([ffba266](https://gitlab.kilic.dev/libraries/plumber/commit/ffba26642d39a5510abc9f407a997005f98c2977))
+
 # [4.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.0.1...v4.1.0) (2022-09-29)
 
 
