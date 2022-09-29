@@ -1,3 +1,15 @@
+# [4.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.28.0...v4.0.0) (2022-09-29)
+
+
+### Performance Improvements
+
+* change subtasks naming mechanims ([55189e9](https://gitlab.kilic.dev/libraries/plumber/commit/55189e92abe40ad2d5bc27871c99dd6e75c91331))
+
+
+### BREAKING CHANGES
+
+* parts where the subtasks are created must be changed
+
 # [3.28.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.27.3...v3.28.0) (2022-09-29)
 
 
