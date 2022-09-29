@@ -25,14 +25,15 @@ type Task[Pipe TaskListData] struct {
 
 	taskList *TaskList[Pipe]
 
-	subtask      Job
-	emptyJob     Job
-	parent       *Task[Pipe]
-	commands     []*Command[Pipe]
-	fn           TaskFn[Pipe]
-	runBeforeFn  TaskFn[Pipe]
-	runAfterFn   TaskFn[Pipe]
-	jobWrapperFn JobWrapperFn
+	subtask        Job
+	emptyJob       Job
+	parent         *Task[Pipe]
+	commands       []*Command[Pipe]
+	fn             TaskFn[Pipe]
+	runBeforeFn    TaskFn[Pipe]
+	runAfterFn     TaskFn[Pipe]
+	onTerminatorFn TaskFn[Pipe]
+	jobWrapperFn   JobWrapperFn
 }
 
 type TaskOptions[Pipe TaskListData] struct {
@@ -90,6 +91,26 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] 
 
 func (t *Task[Pipe]) Set(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.fn = fn
+
+	return t
+}
+
+func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
+	go func() {
+		signal := <-t.Plumber.Terminator.ShouldTerminate
+
+		t.Log.Tracef("Forwarding signal to task: %s", signal)
+
+		if t.onTerminatorFn != nil {
+			t.SendError(t.onTerminatorFn(t))
+		}
+	}()
+
+	return t
+}
+
+func (t *Task[Pipe]) SetOnTerminator(fn TaskFn[Pipe]) *Task[Pipe] {
+	t.onTerminatorFn = fn
 
 	return t
 }

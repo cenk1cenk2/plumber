@@ -29,7 +29,7 @@ type Command[Pipe TaskListData] struct {
 	setFn          CommandFn[Pipe]
 	runAfterFn     CommandFn[Pipe]
 	options        CommandOptions[Pipe]
-	onTerminatorFn CommandOnTerminatorFn[Pipe]
+	onTerminatorFn CommandFn[Pipe]
 }
 
 type CommandOptions[Pipe TaskListData] struct {
@@ -42,8 +42,7 @@ type (
 		reader *bufio.Reader
 		stream string
 	}
-	CommandFn[Pipe TaskListData]             func(*Command[Pipe]) error
-	CommandOnTerminatorFn[Pipe TaskListData] func(*Command[Pipe]) error
+	CommandFn[Pipe TaskListData] func(*Command[Pipe]) error
 )
 
 const (
@@ -266,7 +265,7 @@ func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
 	return c
 }
 
-func (c *Command[Pipe]) SetOnTerminator(fn CommandOnTerminatorFn[Pipe]) *Command[Pipe] {
+func (c *Command[Pipe]) SetOnTerminator(fn CommandFn[Pipe]) *Command[Pipe] {
 	c.onTerminatorFn = fn
 
 	return c

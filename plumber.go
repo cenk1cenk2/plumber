@@ -224,7 +224,6 @@ func (p *Plumber) SendTerminated() *Plumber {
 	}
 
 	if p.Terminator.Count > 1 {
-
 		if p.Terminator.count < p.Terminator.Count {
 			p.Terminator.count++
 			p.Log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.count, p.Terminator.Count)
