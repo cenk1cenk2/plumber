@@ -1,3 +1,10 @@
+## [4.4.7](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.6...v4.4.7) (2022-09-29)
+
+
+### Bug Fixes
+
+* update logging ([3a7e9fe](https://gitlab.kilic.dev/libraries/plumber/commit/3a7e9fee7eab63b02577c1ab1073eeb14260f685))
+
 ## [4.4.6](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.5...v4.4.6) (2022-09-29)
 
 
