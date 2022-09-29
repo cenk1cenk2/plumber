@@ -1,3 +1,10 @@
+# [4.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.2.0...v4.3.0) (2022-09-29)
+
+
+### Features
+
+* add secrets service ([aab32de](https://gitlab.kilic.dev/libraries/plumber/commit/aab32de613c3d7ede40cc09c6ccc1853d0239890))
+
 # [4.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.1.0...v4.2.0) (2022-09-29)
 
 
