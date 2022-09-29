@@ -1,3 +1,10 @@
+## [4.4.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.2...v4.4.3) (2022-09-29)
+
+
+### Bug Fixes
+
+* update register mechnaism ([e49c86d](https://gitlab.kilic.dev/libraries/plumber/commit/e49c86d78025c59ff8f2330dc92c92b6a708be11))
+
 ## [4.4.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.1...v4.4.2) (2022-09-29)
 
 
