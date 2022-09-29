@@ -97,6 +97,14 @@ func (t *Task[Pipe]) Set(fn TaskFn[Pipe]) *Task[Pipe] {
 
 func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
 	go func() {
+		if t.IsDisabled() || t.IsSkipped() {
+			t.Log.Traceln("Sending terminated directly because the task is already not available.")
+
+			t.Plumber.SendTerminated()
+
+			return
+		}
+
 		signal := <-t.Plumber.Terminator.ShouldTerminate
 
 		t.Log.Tracef("Forwarding signal to task: %s", signal)
@@ -242,10 +250,18 @@ func (t *Task[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
 	return t
 }
 
+func (t *Task[Pipe]) IsDisabled() bool {
+	return t.options.Disable(t)
+}
+
 func (t *Task[Pipe]) ShouldSkip(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
 	t.options.Skip = fn
 
 	return t
+}
+
+func (t *Task[Pipe]) IsSkipped() bool {
+	return t.options.Skip(t)
 }
 
 func (t *Task[Pipe]) ShouldRunBefore(fn TaskFn[Pipe]) *Task[Pipe] {
@@ -371,12 +387,12 @@ func (t *Task[Pipe]) Run() error {
 }
 
 func (t *Task[Pipe]) handleStopCases() bool {
-	if result := t.options.Disable(t); result {
+	if result := t.IsDisabled(); result {
 		t.Log.WithField(LOG_FIELD_CONTEXT, task_disabled).
 			Debugf("%s", t.Name)
 
 		return true
-	} else if result := t.options.Skip(t); result {
+	} else if result := t.IsSkipped(); result {
 		t.Log.WithField(LOG_FIELD_CONTEXT, task_skipped).
 			Warnf("%s", t.Name)
 
@@ -389,7 +405,7 @@ func (t *Task[Pipe]) handleStopCases() bool {
 func (t *Task[Pipe]) Job() Job {
 	return t.taskList.JobIfNot(
 		t.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
-			return t.options.Disable(t) || t.options.Skip(t)
+			return t.IsDisabled() || t.IsSkipped()
 		}),
 		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
 			if t.jobWrapperFn != nil {
