@@ -194,16 +194,14 @@ func (c *Command[Pipe]) Run() error {
 		return err
 	}
 
-	cmd := strings.Join(c.Command.Args, " ")
-
 	c.Log.WithField(LOG_FIELD_STATUS, command_started).
-		Logf(c.lifetimeLevel, "$ %s", cmd)
+		Logf(c.lifetimeLevel, c.GetFormattedCommand())
 
 	c.Command.Args = utils.DeleteEmptyStringsFromSlice(c.Command.Args)
 
 	if err := c.pipe(); err != nil {
 		c.Log.WithField(LOG_FIELD_STATUS, command_failed).
-			Errorf("$ %s > %s", cmd, err.Error())
+			Errorf("%s > %s", c.GetFormattedCommand(), err.Error())
 
 		return err
 	}
@@ -214,7 +212,7 @@ func (c *Command[Pipe]) Run() error {
 		}
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, command_finished).Logf(c.lifetimeLevel, "$ %s", cmd)
+	c.Log.WithField(LOG_FIELD_STATUS, command_finished).Logf(c.lifetimeLevel, c.GetFormattedCommand())
 
 	return nil
 }
@@ -247,6 +245,10 @@ func (c *Command[Pipe]) AddSelfToTheParentTask(pt *Task[Pipe]) *Command[Pipe] {
 	return c
 }
 
+func (c *Command[Pipe]) GetFormattedCommand() string {
+	return fmt.Sprintf("$ %s", strings.Join(c.Command.Args, " "))
+}
+
 func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
 	go func() {
 		signal := <-c.task.Plumber.Terminator.ShouldTerminate
@@ -254,7 +256,7 @@ func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
 		c.Log.Debugf("Forwarding signal to process: %s", signal)
 
 		if err := c.Command.Process.Signal(signal); err != nil {
-			c.task.SendError(err)
+			c.Log.Tracef("Termination error: %s > %s", c.GetFormattedCommand(), err.Error())
 		}
 
 		if c.onTerminatorFn != nil {
@@ -307,15 +309,13 @@ func (c *Command[Pipe]) GetCombinedStream() []string {
 
 // Command.pipe Executes the command and pipes the output through the logger.
 func (c *Command[Pipe]) pipe() error {
-	cmd := strings.Join(c.Command.Args, " ")
-
 	if err := c.createReaders(); err != nil {
 		return err
 	}
 
 	if err := c.Command.Start(); err != nil {
 		c.Log.WithField(LOG_FIELD_STATUS, command_failed).
-			Debugf("$ %s > Can not start command!", cmd)
+			Debugf("%s > Can not start command!", c.GetFormattedCommand())
 
 		return err
 	}
@@ -328,7 +328,7 @@ func (c *Command[Pipe]) pipe() error {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				c.Log.WithField(LOG_FIELD_STATUS, command_exited).
-					Debugf("$ %s > Exit Code: %v", cmd, status.ExitStatus())
+					Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus())
 			}
 		}
 
