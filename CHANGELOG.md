@@ -1,3 +1,10 @@
+## [4.4.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.1...v4.4.2) (2022-09-29)
+
+
+### Bug Fixes
+
+* add more verbositoy for registring ([079bb11](https://gitlab.kilic.dev/libraries/plumber/commit/079bb11e8426bdc3420bf79c94435b9e5335a8f9))
+
 ## [4.4.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.0...v4.4.1) (2022-09-29)
 
 
