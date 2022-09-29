@@ -1,3 +1,10 @@
+## [4.0.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.0.0...v4.0.1) (2022-09-29)
+
+
+### Bug Fixes
+
+* issue with versioning ([d1171e1](https://gitlab.kilic.dev/libraries/plumber/commit/d1171e18e6533ee6f5a9e42cfc1e9d4bbc39b951))
+
 # [4.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.28.0...v4.0.0) (2022-09-29)
 
 
