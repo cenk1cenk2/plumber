@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -29,6 +30,7 @@ type TaskList[Pipe TaskListData] struct {
 	Channel    *AppChannel
 	Control    floc.Control
 
+	delimiter   string
 	flocContext floc.Context
 	runBefore   taskListFn[Pipe]
 	runAfter    taskListFn[Pipe]
@@ -43,6 +45,7 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	t.Plumber = p
 	t.Log = p.Log
 	t.Channel = &p.Channel
+	t.delimiter = ":"
 
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
@@ -54,6 +57,12 @@ func (t *TaskList[Pipe]) SetCliContext(ctx *cli.Context) *TaskList[Pipe] {
 	t.Lock.Lock()
 	t.CliContext = ctx
 	t.Lock.Unlock()
+
+	return t
+}
+
+func (t *TaskList[Pipe]) SetDelimiter(delimiter string) *TaskList[Pipe] {
+	t.delimiter = delimiter
 
 	return t
 }
@@ -70,8 +79,8 @@ func (t *TaskList[Pipe]) SetTasks(tasks Job) *TaskList[Pipe] {
 	return t
 }
 
-func (t *TaskList[Pipe]) CreateTask(name string) *Task[Pipe] {
-	return NewTask(t, name)
+func (t *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
+	return NewTask(t, strings.Join(name, t.delimiter))
 }
 
 func (t *TaskList[Pipe]) ShouldRunBefore(fn taskListFn[Pipe]) *TaskList[Pipe] {
