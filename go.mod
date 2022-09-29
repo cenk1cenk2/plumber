@@ -8,7 +8,7 @@ require (
 	github.com/joho/godotenv v1.4.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/workanator/go-floc/v3 v3.0.1
-	gitlab.kilic.dev/libraries/go-utils v1.1.2
+	gitlab.kilic.dev/libraries/go-utils v1.2.5
 	golang.org/x/exp v0.0.0-20220929160808-de9c53c655b9
 )
 

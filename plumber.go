@@ -22,6 +22,7 @@ type Plumber struct {
 	Terminator
 
 	onTerminateFn
+	secrets []string
 
 	DocsFile                        string
 	DocsExcludeFlags                bool
@@ -177,6 +178,12 @@ func (p *Plumber) EnableTerminator() *Plumber {
 
 func (p *Plumber) SetTerminatorCount(count uint) *Plumber {
 	p.Terminator.Count = count
+
+	return p
+}
+
+func (p *Plumber) AppendSecrets(secrets ...string) *Plumber {
+	p.secrets = append(p.secrets, secrets...)
 
 	return p
 }
@@ -345,6 +352,7 @@ func (p *Plumber) setupLogger(level LogLevel) {
 			NoUppercaseLevel: false,
 			TrimMessages:     true,
 			CallerFirst:      false,
+			Secrets:          &p.secrets,
 		},
 	)
 
@@ -450,18 +458,18 @@ func (p *Plumber) Terminate(code int) {
 	}
 
 	if p.Terminator.Enabled {
-		p.Log.Traceln("Sending should terminate through terminator.")
-		p.Terminator.ShouldTerminate <- syscall.SIGSTOP
-
-		p.Log.Traceln("Waiting for result through terminator...")
-
 		if p.Terminator.registered > 0 {
-			<-p.Terminator.Terminated
-		} else {
-			p.Log.Tracef("Nothing registered in the terminator while expecting %d.", p.Terminator.Count)
-		}
+			p.Log.Traceln("Sending should terminate through terminator.")
 
-		p.Log.Traceln("Terminated through terminator.")
+			p.Terminator.ShouldTerminate <- syscall.SIGSTOP
+
+			p.Log.Traceln("Waiting for result through terminator...")
+
+			<-p.Terminator.Terminated
+			p.Log.Traceln("Terminated through terminator.")
+		} else {
+			p.Log.Tracef("Nothing registered yet in the terminator while expected: %d", p.Terminator.Count)
+		}
 
 		close(p.Terminator.ShouldTerminate)
 		close(p.Terminator.Terminated)
