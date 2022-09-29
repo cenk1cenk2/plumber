@@ -2,10 +2,9 @@
 
 | Flag / Environment |  Description   |  Type    | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
-{{- range $f := . }}
-|{{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} |
-{{- end }}
-{{- end }}
+  {{- range $f := . }}
+|{{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} | {{- end }}
+  {{- end }}
 {{- end }}
 # {{ .App.Name }}
 
@@ -20,44 +19,45 @@
 {{- if .GlobalFlags }}
 
 ## Global Flags
-{{- if .GlobalFlags.EMPTY }}
-{{ template "flags" .GlobalFlags.EMPTY }}
-{{- end }}
-{{- range $category, $flags := .GlobalFlags }}
-{{- if ne $category "EMPTY" }}
+  {{- if .GlobalFlags.EMPTY }}
+    {{- template "flags" .GlobalFlags.EMPTY }}
+  {{- end }}
+  {{- range $category, $flags := .GlobalFlags }}
+    {{- if ne $category "EMPTY" }}
 
 ##### {{ $category }}
-{{ template "flags" $flags }}
+      {{- template "flags" $flags }}
+    {{- end }}
+  {{- end }}
 {{- end }}
 {{- if .Commands }}
 
 ## Commands
-{{- range $v := .Commands }}
+  {{- range $v := .Commands }}
 
 ### `{{ $v.Name }}` {{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
-{{- if $v.Description }}
+    {{- if $v.Description }}
 
 {{ $v.Description }}
-{{- end }}
-{{- if $v.Usage }}
+    {{- end }}
+    {{- if $v.Usage }}
 
 `{{ $v.Usage }}`
-{{- end }}
+    {{- end }}
 
-{{- if $v.Flags }}
+    {{- if $v.Flags }}
 
 #### Flags
-{{- if $v.Flags.EMPTY }}
-{{ template "flags" $v.Flags.Empty }}
-{{- end }}
-{{- range $category, $flags := $v.Flags }}
-{{- if ne $category "EMPTY" }}
+      {{- if $v.Flags.EMPTY }}
+        {{- template "flags" $v.Flags.Empty }}
+      {{- end }}
+      {{- range $category, $flags := $v.Flags }}
+        {{- if ne $category "EMPTY" }}
 
 ##### {{ $category }}
-{{ template "flags" $flags }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
+          {{- template "flags" $flags }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
 {{- end }}
