@@ -106,6 +106,8 @@ func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
 		}
 	}()
 
+	t.Plumber.RegisterTerminator()
+
 	return t
 }
 

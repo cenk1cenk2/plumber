@@ -39,7 +39,8 @@ type Terminator struct {
 	ShouldTerminate chan os.Signal
 	Terminated      chan bool
 	Count           uint
-	count           uint
+	terminated      uint
+	registered      uint
 }
 
 type AppChannel struct {
@@ -223,10 +224,10 @@ func (p *Plumber) SendTerminated() *Plumber {
 		return p
 	}
 
-	if p.Terminator.Count > 1 {
-		if p.Terminator.count < p.Terminator.Count {
-			p.Terminator.count++
-			p.Log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.count, p.Terminator.Count)
+	if p.Terminator.registered > 1 {
+		if p.Terminator.terminated < p.Terminator.registered {
+			p.Terminator.terminated++
+			p.Log.Tracef("Received new terminated signal: %d out of %d expected %d", p.Terminator.terminated, p.Terminator.registered, p.Terminator.Count)
 
 			return p
 		}
@@ -239,11 +240,29 @@ func (p *Plumber) SendTerminated() *Plumber {
 	return p
 }
 
+func (p *Plumber) RegisterTerminator() *Plumber {
+	if !p.Terminator.Enabled {
+		p.SendFatal(fmt.Errorf("Plumber does not have the Terminator enabled."))
+
+		return p
+	}
+
+	p.Terminator.registered++
+
+	if p.Terminator.registered == p.Terminator.Count {
+		p.Log.Tracef("Registered terminators reached the expected count: %d", p.Terminator.registered)
+	} else if p.Terminator.registered > p.Terminator.Count {
+		p.Log.Tracef("Registered terminators exceeded the expected count, this should be programmatic error!: %d", p.Terminator.registered)
+	}
+
+	return p
+}
+
 // Cli.greet Greet the user with the application name and version.
 func (p *Plumber) greet() {
 	var version = p.Cli.Version
 
-	if version == "latest" {
+	if version == "latest" || version == "" {
 		version = fmt.Sprintf("BUILD.%s", p.Cli.Compiled.UTC().Format("20060102Z1504"))
 	}
 
@@ -436,7 +455,11 @@ func (p *Plumber) Terminate(code int) {
 
 		p.Log.Traceln("Waiting for result through terminator...")
 
-		<-p.Terminator.Terminated
+		if p.Terminator.registered > 0 {
+			<-p.Terminator.Terminated
+		} else {
+			p.Log.Tracef("Nothing registered in the terminator while expecting %d.", p.Terminator.Count)
+		}
 
 		p.Log.Traceln("Terminated through terminator.")
 
