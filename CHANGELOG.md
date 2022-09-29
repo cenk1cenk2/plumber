@@ -1,3 +1,10 @@
+## [4.4.8](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.7...v4.4.8) (2022-09-29)
+
+
+### Bug Fixes
+
+* update deps ([37c2472](https://gitlab.kilic.dev/libraries/plumber/commit/37c2472f49274bfc079ea6ad5d41430acfc5921c))
+
 ## [4.4.7](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.6...v4.4.7) (2022-09-29)
 
 
