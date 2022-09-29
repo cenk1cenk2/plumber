@@ -108,6 +108,7 @@ func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
 		t.Plumber.SendTerminated()
 	}()
 
+	t.Log.Tracef("Registered terminator.")
 	t.Plumber.RegisterTerminator()
 
 	return t
