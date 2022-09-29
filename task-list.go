@@ -1,7 +1,6 @@
 package plumber
 
 import (
-	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -80,7 +79,7 @@ func (t *TaskList[Pipe]) SetTasks(tasks Job) *TaskList[Pipe] {
 }
 
 func (t *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
-	return NewTask(t, strings.Join(name, t.delimiter))
+	return NewTask(t, name...)
 }
 
 func (t *TaskList[Pipe]) ShouldRunBefore(fn taskListFn[Pipe]) *TaskList[Pipe] {

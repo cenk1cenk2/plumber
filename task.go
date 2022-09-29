@@ -2,10 +2,12 @@ package plumber
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
 	"github.com/workanator/go-floc/v3"
+	"gitlab.kilic.dev/libraries/go-utils/utils"
 )
 
 type Task[Pipe TaskListData] struct {
@@ -49,10 +51,10 @@ const (
 	task_skipped  = "SKIP"
 )
 
-func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name string) *Task[Pipe] {
+func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] {
 	t := &Task[Pipe]{}
 
-	t.Name = name
+	t.Name = strings.Join(utils.DeleteEmptyStringsFromSlice(name), tl.delimiter)
 	t.options = TaskOptions[Pipe]{
 		Skip: func(t *Task[Pipe]) bool {
 			return false
@@ -92,15 +94,13 @@ func (t *Task[Pipe]) Set(fn TaskFn[Pipe]) *Task[Pipe] {
 	return t
 }
 
-func (t *Task[Pipe]) CreateSubtask(name string) *Task[Pipe] {
-	st := NewTask(t.taskList, name)
+func (t *Task[Pipe]) CreateSubtask(name ...string) *Task[Pipe] {
+	parsed := append([]string{t.Name}, name...)
+
+	st := NewTask(t.taskList, parsed...)
 
 	st.parent = t
 	st.Lock = t.Lock
-
-	if name == "" {
-		st.Name = t.Name
-	}
 
 	return st
 }
