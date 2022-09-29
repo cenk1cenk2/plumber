@@ -212,6 +212,8 @@ func (p *Plumber) SendCustomFatal(log *logrus.Entry, err error) *Plumber {
 }
 
 func (p *Plumber) SendExit(code int) *Plumber {
+	p.Log.Tracef("Exit: %d", code)
+
 	p.Channel.Exit <- code
 
 	return p
@@ -225,10 +227,10 @@ func (p *Plumber) SendTerminated() *Plumber {
 	}
 
 	if p.Terminator.registered > 0 {
-		if p.Terminator.terminated < p.Terminator.registered {
-			p.Terminator.terminated++
-			p.Log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.terminated, p.Terminator.registered)
+		p.Terminator.terminated++
+		p.Log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.terminated, p.Terminator.registered)
 
+		if p.Terminator.terminated < p.Terminator.registered {
 			return p
 		}
 
@@ -455,7 +457,7 @@ func (p *Plumber) Terminate(code int) {
 			p.Log.Traceln("Waiting for result through terminator...")
 
 			<-p.Terminator.Terminated
-			p.Log.Traceln("Terminated through terminator.")
+			p.Log.Traceln("Gracefully terminated through terminator.")
 		}
 
 		close(p.Terminator.ShouldTerminate)
