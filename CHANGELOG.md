@@ -1,3 +1,10 @@
+# [4.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.3.0...v4.4.0) (2022-09-29)
+
+
+### Features
+
+* make terminator more basic ([096b1d4](https://gitlab.kilic.dev/libraries/plumber/commit/096b1d45fb690b873a670354638ec71191b89c11))
+
 # [4.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.2.0...v4.3.0) (2022-09-29)
 
 
