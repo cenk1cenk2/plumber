@@ -125,6 +125,10 @@ func (c *Command[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Command[Pipe] {
 	return c
 }
 
+func (c *Command[Pipe]) IsDisabled() bool {
+	return c.options.Disable(c.task)
+}
+
 // Command.AppendArgs Appends arguments to the command.
 func (c *Command[Pipe]) AppendArgs(args ...string) *Command[Pipe] {
 	c.Command.Args = append(c.Command.Args, args...)
@@ -220,7 +224,7 @@ func (c *Command[Pipe]) Run() error {
 func (c *Command[Pipe]) Job() Job {
 	return c.task.taskList.JobIfNot(
 		c.task.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
-			return c.options.Disable(c.task)
+			return c.IsDisabled()
 		}),
 		c.task.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
 			return c.Run()
@@ -252,6 +256,14 @@ func (c *Command[Pipe]) GetFormattedCommand() string {
 func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
 	go func() {
 		signal := <-c.task.Plumber.Terminator.ShouldTerminate
+
+		if c.IsDisabled() {
+			c.Log.Tracef("Sending terminated directly because the command is already not available: %s", c.GetFormattedCommand())
+
+			c.task.Plumber.SendTerminated()
+
+			return
+		}
 
 		c.Log.Debugf("Forwarding signal to process: %s", signal)
 
@@ -395,7 +407,7 @@ func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 }
 
 func (c *Command[Pipe]) handleStopCases() bool {
-	if result := c.options.Disable(c.task); result {
+	if result := c.IsDisabled(); result {
 		c.Log.WithField(LOG_FIELD_CONTEXT, task_disabled).
 			Debugf("%s", c.task.Name)
 

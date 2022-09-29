@@ -97,6 +97,8 @@ func (t *Task[Pipe]) Set(fn TaskFn[Pipe]) *Task[Pipe] {
 
 func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
 	go func() {
+		signal := <-t.Plumber.Terminator.ShouldTerminate
+
 		if t.IsDisabled() || t.IsSkipped() {
 			t.Log.Traceln("Sending terminated directly because the task is already not available.")
 
@@ -104,8 +106,6 @@ func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
 
 			return
 		}
-
-		signal := <-t.Plumber.Terminator.ShouldTerminate
 
 		t.Log.Tracef("Forwarding signal to task: %s", signal)
 
