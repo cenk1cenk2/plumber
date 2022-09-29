@@ -38,6 +38,8 @@ type Terminator struct {
 	Enabled         bool
 	ShouldTerminate chan os.Signal
 	Terminated      chan bool
+	Count           uint
+	count           uint
 }
 
 type AppChannel struct {
@@ -172,6 +174,12 @@ func (p *Plumber) EnableTerminator() *Plumber {
 	return p
 }
 
+func (p *Plumber) SetTerminatorCount(count uint) *Plumber {
+	p.Terminator.Count = count
+
+	return p
+}
+
 func (p *Plumber) SendError(err error) *Plumber {
 	p.Channel.Err <- err
 
@@ -213,6 +221,18 @@ func (p *Plumber) SendTerminated() *Plumber {
 		p.SendFatal(fmt.Errorf("Plumber does not have the Terminator enabled."))
 
 		return p
+	}
+
+	if p.Terminator.Count > 1 {
+
+		if p.Terminator.count < p.Terminator.Count {
+			p.Terminator.count++
+			p.Log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.count, p.Terminator.Count)
+
+			return p
+		}
+
+		p.Log.Tracef("Enough votes for terminating!")
 	}
 
 	p.Terminator.Terminated <- true
