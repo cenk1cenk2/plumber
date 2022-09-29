@@ -1,3 +1,10 @@
+# [3.27.0](https://gitlab.kilic.dev/libraries/plumber/compare/v3.26.5...v3.27.0) (2022-09-29)
+
+
+### Features
+
+* add delimiter functionality ([698b5bf](https://gitlab.kilic.dev/libraries/plumber/commit/698b5bf80e8a4a6ce80d3e8a893ad48f03b9415d))
+
 ## [3.26.5](https://gitlab.kilic.dev/libraries/plumber/compare/v3.26.4...v3.26.5) (2022-09-24)
 
 
