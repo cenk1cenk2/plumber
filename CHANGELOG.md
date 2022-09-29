@@ -1,3 +1,11 @@
+# [4.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.0.1...v4.1.0) (2022-09-29)
+
+
+### Features
+
+* add terminator for tasks too ([a16c52f](https://gitlab.kilic.dev/libraries/plumber/commit/a16c52f4b1cda1e9d16b4d0d1f29bbb41051948e))
+* enable new terminator function ([69a2690](https://gitlab.kilic.dev/libraries/plumber/commit/69a26900e92227c6e3521fecf8466f262a29a721))
+
 ## [4.0.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.0.0...v4.0.1) (2022-09-29)
 
 
