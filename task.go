@@ -104,6 +104,8 @@ func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
 		if t.onTerminatorFn != nil {
 			t.SendError(t.onTerminatorFn(t))
 		}
+
+		t.Plumber.SendTerminated()
 	}()
 
 	t.Plumber.RegisterTerminator()

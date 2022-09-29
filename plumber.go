@@ -39,7 +39,6 @@ type Terminator struct {
 	Enabled         bool
 	ShouldTerminate chan os.Signal
 	Terminated      chan bool
-	Count           uint
 	terminated      uint
 	registered      uint
 }
@@ -176,12 +175,6 @@ func (p *Plumber) EnableTerminator() *Plumber {
 	return p
 }
 
-func (p *Plumber) SetTerminatorCount(count uint) *Plumber {
-	p.Terminator.Count = count
-
-	return p
-}
-
 func (p *Plumber) AppendSecrets(secrets ...string) *Plumber {
 	p.secrets = append(p.secrets, secrets...)
 
@@ -234,7 +227,7 @@ func (p *Plumber) SendTerminated() *Plumber {
 	if p.Terminator.registered > 1 {
 		if p.Terminator.terminated < p.Terminator.registered {
 			p.Terminator.terminated++
-			p.Log.Tracef("Received new terminated signal: %d out of %d expected %d", p.Terminator.terminated, p.Terminator.registered, p.Terminator.Count)
+			p.Log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.terminated, p.Terminator.registered)
 
 			return p
 		}
@@ -256,11 +249,7 @@ func (p *Plumber) RegisterTerminator() *Plumber {
 
 	p.Terminator.registered++
 
-	if p.Terminator.registered == p.Terminator.Count {
-		p.Log.Tracef("Registered terminators reached the expected count: %d", p.Terminator.registered)
-	} else if p.Terminator.registered > p.Terminator.Count {
-		p.Log.Tracef("Registered terminators exceeded the expected count, this should be programmatic error!: %d", p.Terminator.registered)
-	}
+	p.Log.Tracef("Registered terminator: %d", p.Terminator.registered)
 
 	return p
 }
@@ -467,8 +456,6 @@ func (p *Plumber) Terminate(code int) {
 
 			<-p.Terminator.Terminated
 			p.Log.Traceln("Terminated through terminator.")
-		} else {
-			p.Log.Tracef("Nothing registered yet in the terminator while expected: %d", p.Terminator.Count)
 		}
 
 		close(p.Terminator.ShouldTerminate)
