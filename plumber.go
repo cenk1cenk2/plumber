@@ -224,7 +224,7 @@ func (p *Plumber) SendTerminated() *Plumber {
 		return p
 	}
 
-	if p.Terminator.registered > 1 {
+	if p.Terminator.registered > 0 {
 		if p.Terminator.terminated < p.Terminator.registered {
 			p.Terminator.terminated++
 			p.Log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.terminated, p.Terminator.registered)
@@ -232,7 +232,7 @@ func (p *Plumber) SendTerminated() *Plumber {
 			return p
 		}
 
-		p.Log.Tracef("Enough votes for terminating!")
+		p.Log.Tracef("Enough votes received for termination.")
 	}
 
 	p.Terminator.Terminated <- true

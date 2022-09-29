@@ -31,12 +31,13 @@ type TaskList[Pipe TaskListData] struct {
 
 	delimiter   string
 	flocContext floc.Context
-	runBefore   taskListFn[Pipe]
-	runAfter    taskListFn[Pipe]
+	runBefore   TaskListFn[Pipe]
+	runAfter    TaskListFn[Pipe]
 }
 
 type (
-	taskListFn[Pipe TaskListData] func(*TaskList[Pipe]) error
+	TaskListFn[Pipe TaskListData]    func(*TaskList[Pipe]) error
+	TaskListJobFn[Pipe TaskListData] func(*TaskList[Pipe]) Job
 )
 
 func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
@@ -70,6 +71,14 @@ func (t *TaskList[Pipe]) GetTasks() Job {
 	return t.Tasks
 }
 
+func (t *TaskList[Pipe]) Set(fn TaskListJobFn[Pipe]) *TaskList[Pipe] {
+	t.Lock.Lock()
+	t.Tasks = fn(t)
+	t.Lock.Unlock()
+
+	return t
+}
+
 func (t *TaskList[Pipe]) SetTasks(tasks Job) *TaskList[Pipe] {
 	t.Lock.Lock()
 	t.Tasks = tasks
@@ -82,7 +91,7 @@ func (t *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
 	return NewTask(t, name...)
 }
 
-func (t *TaskList[Pipe]) ShouldRunBefore(fn taskListFn[Pipe]) *TaskList[Pipe] {
+func (t *TaskList[Pipe]) ShouldRunBefore(fn TaskListFn[Pipe]) *TaskList[Pipe] {
 	t.Lock.Lock()
 	t.runBefore = fn
 	t.Lock.Unlock()
@@ -90,7 +99,7 @@ func (t *TaskList[Pipe]) ShouldRunBefore(fn taskListFn[Pipe]) *TaskList[Pipe] {
 	return t
 }
 
-func (t *TaskList[Pipe]) ShouldRunAfter(fn taskListFn[Pipe]) *TaskList[Pipe] {
+func (t *TaskList[Pipe]) ShouldRunAfter(fn TaskListFn[Pipe]) *TaskList[Pipe] {
 	t.Lock.Lock()
 	t.runAfter = fn
 	t.Lock.Unlock()
