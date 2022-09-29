@@ -122,6 +122,10 @@ func (p *Plumber) toMarkdownCommand(commands []*cli.Command) []*templateCommand 
 			Flags:       p.toMarkdownFlags(command.VisibleFlags()),
 		}
 
+		if p.DocsExcludeHelpCommand && parsed.Name == "help" {
+			continue
+		}
+
 		processed = append(processed, parsed)
 
 		p.Log.Debugf("Processed command: %+v", parsed)

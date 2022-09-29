@@ -1,11 +1,3 @@
-{{- define "flags" }}
-
-| Flag / Environment |  Description   |  Type    | Required | Default |
-|---------------- | --------------- | --------------- |  --------------- |  --------------- |
-  {{- range $f := . }}
-|{{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} | {{- end }}
-  {{- end }}
-{{- end }}
 # {{ .App.Name }}
 
 {{ .App.Description }}
@@ -14,18 +6,23 @@
 `{{ .App.UsageText }}`
 {{- else }}
 
-`{{ .App.Name }} [GLOBAL FLAGS] command [COMMAND FLAGS] [ARGUMENTS...]`
+`{{ .App.Name }}{{ if .Commands }} [GLOBAL FLAGS] [COMMAND]{{ end }} [FLAGS]`
 {{- end }}
 {{- if .GlobalFlags }}
+{{- if .Commands }}
 
 ## Global Flags
+{{- else }}
+
+## Flags
+{{- end }}
   {{- if .GlobalFlags.EMPTY }}
     {{- template "flags" .GlobalFlags.EMPTY }}
   {{- end }}
   {{- range $category, $flags := .GlobalFlags }}
     {{- if ne $category "EMPTY" }}
 
-##### {{ $category }}
+### {{ $category }}
       {{- template "flags" $flags }}
     {{- end }}
   {{- end }}
@@ -60,4 +57,11 @@
       {{- end }}
     {{- end }}
   {{- end }}
+{{- end }}
+{{- define "flags" }}
+
+| Flag / Environment |  Description   |  Type    | Required | Default |
+|---------------- | --------------- | --------------- |  --------------- |  --------------- |
+  {{- range $f := . }}
+| {{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ $f.Description }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>{{ $f.Format }}{{ end }} | `{{ $f.Required }}` | {{ $f.Default }} |{{- end }}
 {{- end }}

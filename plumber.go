@@ -26,6 +26,7 @@ type Plumber struct {
 	DocsFile                        string
 	DocsExcludeFlags                bool
 	DocsExcludeEnvironmentVariables bool
+	DocsExcludeHelpCommand          bool
 }
 
 type AppEnvironment struct {
