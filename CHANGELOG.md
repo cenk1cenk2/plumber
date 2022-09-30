@@ -1,3 +1,17 @@
+# [4.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.8...v4.5.0) (2022-09-30)
+
+
+### Bug Fixes
+
+* tidy modules ([6c44ee3](https://gitlab.kilic.dev/libraries/plumber/commit/6c44ee397ae265a01ad0b7594180d1921e0b950c))
+* update broadcaster ([35d1bba](https://gitlab.kilic.dev/libraries/plumber/commit/35d1bba42c39710565042c78de70a503b5f55af5))
+* update template ([3e3b8a2](https://gitlab.kilic.dev/libraries/plumber/commit/3e3b8a2ab206058908b1b0feac4e2a2800106a17))
+
+
+### Features
+
+* add broadcast mechansim for more complicated channel handling ([240f3f8](https://gitlab.kilic.dev/libraries/plumber/commit/240f3f8b028340044d41134e97dcec9a55eccee6))
+
 ## [4.4.8](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.7...v4.4.8) (2022-09-29)
 
 
