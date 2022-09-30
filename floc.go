@@ -323,7 +323,11 @@ func (t *TaskList[Pipe]) JobWaitForTerminator() Job {
 
 		t.Log.Traceln("Waiting for the terminator signal...")
 
-		<-t.Plumber.Terminator.Terminated
+		ch := make(chan bool, 1)
+		t.Plumber.Terminator.Terminated.Register(ch)
+		defer t.Plumber.Terminator.Terminated.Unregister(ch)
+
+		<-ch
 
 		return nil
 	})

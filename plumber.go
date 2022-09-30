@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"gitlab.kilic.dev/libraries/go-broadcaster"
 	"gitlab.kilic.dev/libraries/go-utils/logger"
 	"golang.org/x/exp/slices"
 )
@@ -37,10 +38,11 @@ type AppEnvironment struct {
 
 type Terminator struct {
 	Enabled         bool
-	ShouldTerminate chan os.Signal
-	Terminated      chan bool
+	ShouldTerminate *broadcaster.Broadcaster[os.Signal]
+	Terminated      *broadcaster.Broadcaster[bool]
 	terminated      uint
 	registered      uint
+	initiated       bool
 }
 
 type AppChannel struct {
@@ -55,7 +57,7 @@ type AppChannel struct {
 	// terminate channel
 	Interrupt chan os.Signal
 	// exit channel
-	Exit chan int
+	Exit *broadcaster.Broadcaster[int]
 }
 
 type (
@@ -105,7 +107,7 @@ func (p *Plumber) New(
 		Fatal:       make(chan error),
 		CustomFatal: make(chan ErrorChannelWithLogger),
 		Interrupt:   make(chan os.Signal),
-		Exit:        make(chan int, 1),
+		Exit:        broadcaster.NewBroadcaster[int](0),
 	}
 
 	p.Terminator = Terminator{
@@ -138,9 +140,10 @@ func (p *Plumber) Run() {
 	if err := p.Cli.Run(os.Args); err != nil {
 		p.SendFatal(err)
 
+		ch := make(chan int, 1)
+		p.Channel.Exit.Register(ch)
 		for {
-			// to be sure that os.exit is completed
-			<-p.Channel.Exit
+			<-ch
 		}
 	}
 }
@@ -166,8 +169,8 @@ func (p *Plumber) SetOnTerminate(fn onTerminateFn) *Plumber {
 func (p *Plumber) EnableTerminator() *Plumber {
 	p.Terminator = Terminator{
 		Enabled:         true,
-		ShouldTerminate: make(chan os.Signal),
-		Terminated:      make(chan bool),
+		ShouldTerminate: broadcaster.NewBroadcaster[os.Signal](1),
+		Terminated:      broadcaster.NewBroadcaster[bool](1),
 	}
 
 	p.Log.Traceln("Terminator enabled.")
@@ -214,12 +217,12 @@ func (p *Plumber) SendCustomFatal(log *logrus.Entry, err error) *Plumber {
 func (p *Plumber) SendExit(code int) *Plumber {
 	p.Log.Tracef("Exit: %d", code)
 
-	p.Channel.Exit <- code
+	p.Channel.Exit.Submit(code)
 
 	return p
 }
 
-func (p *Plumber) SendTerminated() *Plumber {
+func (p *Plumber) RegisterTerminated() *Plumber {
 	if !p.Terminator.Enabled {
 		p.SendFatal(fmt.Errorf("Plumber does not have the Terminator enabled."))
 
@@ -237,7 +240,7 @@ func (p *Plumber) SendTerminated() *Plumber {
 		p.Log.Tracef("Enough votes received for termination.")
 	}
 
-	p.Terminator.Terminated <- true
+	p.Terminator.Terminated.Submit(true)
 
 	return p
 }
@@ -370,12 +373,25 @@ func (p *Plumber) registerInterruptHandler() {
 		interrupt,
 	)
 
+	p.SendTerminate(interrupt, 127)
+}
+
+func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 	if p.Terminator.Enabled {
-		p.Log.Traceln("Sending operating system signal through terminator.")
-		p.Terminator.ShouldTerminate <- interrupt
+		if p.Terminator.initiated {
+			p.Log.Tracef("Termination process already started, ignoring: %s", sig)
+
+			return
+		}
+
+		p.Log.Tracef("Sending should terminate through terminator: %s", sig)
+
+		p.Terminator.ShouldTerminate.Submit(sig)
+
+		p.Terminator.initiated = true
 	}
 
-	p.Terminate(1)
+	p.Terminate(code)
 }
 
 func (p *Plumber) registerHandlers() {
@@ -437,29 +453,18 @@ func (p *Plumber) registerFatalErrorHandler() {
 }
 
 func (p *Plumber) registerExitHandler() {
-	os.Exit(<-p.Channel.Exit)
-}
+	ch := make(chan int, 1)
 
-// App.Terminate Terminates the application.
-func (p *Plumber) Terminate(code int) {
-	if p.onTerminateFn != nil {
-		p.SendError(p.onTerminateFn())
-	}
+	p.Channel.Exit.Register(ch)
+
+	code := <-ch
+
+	defer p.Channel.Exit.Unregister(ch)
+	defer p.Channel.Exit.Close()
 
 	if p.Terminator.Enabled {
-		if p.Terminator.registered > 0 {
-			p.Log.Traceln("Sending should terminate through terminator.")
-
-			p.Terminator.ShouldTerminate <- syscall.SIGSTOP
-
-			p.Log.Traceln("Waiting for result through terminator...")
-
-			<-p.Terminator.Terminated
-			p.Log.Traceln("Gracefully terminated through terminator.")
-		}
-
-		close(p.Terminator.ShouldTerminate)
-		close(p.Terminator.Terminated)
+		p.Terminator.ShouldTerminate.Close()
+		p.Terminator.Terminated.Close()
 	}
 
 	close(p.Channel.Err)
@@ -467,6 +472,36 @@ func (p *Plumber) Terminate(code int) {
 	close(p.Channel.Fatal)
 	close(p.Channel.CustomFatal)
 	close(p.Channel.Interrupt)
+
+	os.Exit(code)
+}
+
+// App.Terminate Terminates the application.
+func (p *Plumber) Terminate(code int) {
+	if p.Terminator.Enabled {
+		if p.Terminator.registered > 0 {
+			if !p.Terminator.initiated {
+				p.SendTerminate(syscall.SIGSTOP, 1)
+
+				return
+			}
+
+			p.Log.Traceln("Waiting for result through terminator...")
+
+			ch := make(chan bool, 1)
+
+			p.Terminator.Terminated.Register(ch)
+			defer p.Terminator.Terminated.Unregister(ch)
+
+			<-ch
+
+			p.Log.Traceln("Gracefully terminated through terminator.")
+		}
+	}
+
+	if p.onTerminateFn != nil {
+		p.SendError(p.onTerminateFn())
+	}
 
 	p.SendExit(code)
 }

@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"os"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -49,6 +50,7 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
+	go t.registerTerminateHandler()
 
 	return t
 }
@@ -203,4 +205,14 @@ func (t *TaskList[Pipe]) Job() Job {
 
 		return t.Run()
 	}
+}
+
+func (t *TaskList[Pipe]) registerTerminateHandler() {
+	ch := make(chan os.Signal, 1)
+
+	t.Plumber.Terminator.ShouldTerminate.Register(ch)
+
+	<-ch
+
+	// t.Control.Cancel(fmt.Errorf("Trying to terminate..."))
 }

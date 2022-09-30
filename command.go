@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 
 type Command[Pipe TaskListData] struct {
 	Command        *exec.Cmd
+	Plumber        *Plumber
 	stdoutLevel    LogLevel
 	stderrLevel    LogLevel
 	lifetimeLevel  LogLevel
@@ -24,6 +26,7 @@ type Command[Pipe TaskListData] struct {
 	combinedStream []string
 	recordStream   bool
 	ignoreError    bool
+	ensureIsAlive  bool
 	task           *Task[Pipe]
 	Log            *logrus.Entry
 	setFn          CommandFn[Pipe]
@@ -73,6 +76,8 @@ func NewCommand[Pipe TaskListData](
 			return false
 		},
 	}
+
+	c.Plumber = task.Plumber
 
 	c.SetLogLevel(0, 0, 0)
 
@@ -253,39 +258,51 @@ func (c *Command[Pipe]) GetFormattedCommand() string {
 	return fmt.Sprintf("$ %s", strings.Join(c.Command.Args, " "))
 }
 
+func (c *Command[Pipe]) handleTerminator() {
+	ch := make(chan os.Signal, 1)
+	c.Plumber.Terminator.ShouldTerminate.Register(ch)
+	defer c.Plumber.Terminator.ShouldTerminate.Unregister(ch)
+
+	sig := <-ch
+
+	if c.IsDisabled() {
+		c.Log.Tracef("Sending terminated directly because the command is already not available: %s", c.GetFormattedCommand())
+
+		c.Plumber.RegisterTerminated()
+
+		return
+	}
+
+	c.Log.Tracef("Forwarding signal to process: %s", sig)
+
+	if err := c.Command.Process.Signal(sig); err != nil {
+		c.Log.Tracef("Termination error: %s > %s", c.GetFormattedCommand(), err.Error())
+	}
+
+	if c.onTerminatorFn != nil {
+		c.task.SendError(c.onTerminatorFn(c))
+	}
+
+	c.Plumber.RegisterTerminated()
+}
+
 func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
-	go func() {
-		signal := <-c.task.Plumber.Terminator.ShouldTerminate
-
-		if c.IsDisabled() {
-			c.Log.Tracef("Sending terminated directly because the command is already not available: %s", c.GetFormattedCommand())
-
-			c.task.Plumber.SendTerminated()
-
-			return
-		}
-
-		c.Log.Debugf("Forwarding signal to process: %s", signal)
-
-		if err := c.Command.Process.Signal(signal); err != nil {
-			c.Log.Tracef("Termination error: %s > %s", c.GetFormattedCommand(), err.Error())
-		}
-
-		if c.onTerminatorFn != nil {
-			c.task.SendError(c.onTerminatorFn(c))
-		}
-
-		c.task.Plumber.SendTerminated()
-	}()
-
 	c.Log.Tracef("Registered terminator: %s", c.GetFormattedCommand())
-	c.task.Plumber.RegisterTerminator()
+	c.Plumber.RegisterTerminator()
+
+	go c.handleTerminator()
 
 	return c
 }
 
 func (c *Command[Pipe]) SetOnTerminator(fn CommandFn[Pipe]) *Command[Pipe] {
 	c.onTerminatorFn = fn
+
+	return c
+}
+
+func (c *Command[Pipe]) EnsureIsAlive() *Command[Pipe] {
+	c.ensureIsAlive = true
 
 	return c
 }
@@ -336,6 +353,7 @@ func (c *Command[Pipe]) pipe() error {
 	go c.handleStream(c.stdout, c.stdoutLevel)
 	go c.handleStream(c.stderr, c.stderrLevel)
 
+	//nolint: nestif
 	if err := c.Command.Wait(); err != nil {
 		//nolint:errorlint
 		if exiterr, ok := err.(*exec.ExitError); ok {
@@ -348,6 +366,8 @@ func (c *Command[Pipe]) pipe() error {
 		if !c.ignoreError {
 			return err
 		}
+	} else if c.ensureIsAlive {
+		return fmt.Errorf("Process not running anymore: %s", c.GetFormattedCommand())
 	}
 
 	return nil

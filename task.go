@@ -2,6 +2,7 @@ package plumber
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -95,29 +96,35 @@ func (t *Task[Pipe]) Set(fn TaskFn[Pipe]) *Task[Pipe] {
 	return t
 }
 
+func (t *Task[Pipe]) handleTerminator() {
+	ch := make(chan os.Signal, 1)
+
+	t.Plumber.Terminator.ShouldTerminate.Register(ch)
+
+	sig := <-ch
+
+	if t.IsDisabled() || t.IsSkipped() {
+		t.Log.Traceln("Sending terminated directly because the task is already not available.")
+
+		t.Plumber.RegisterTerminated()
+
+		return
+	}
+
+	t.Log.Tracef("Forwarding signal to task: %s", sig)
+
+	if t.onTerminatorFn != nil {
+		t.SendError(t.onTerminatorFn(t))
+	}
+
+	t.Plumber.RegisterTerminated()
+}
+
 func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
-	go func() {
-		signal := <-t.Plumber.Terminator.ShouldTerminate
-
-		if t.IsDisabled() || t.IsSkipped() {
-			t.Log.Traceln("Sending terminated directly because the task is already not available.")
-
-			t.Plumber.SendTerminated()
-
-			return
-		}
-
-		t.Log.Tracef("Forwarding signal to task: %s", signal)
-
-		if t.onTerminatorFn != nil {
-			t.SendError(t.onTerminatorFn(t))
-		}
-
-		t.Plumber.SendTerminated()
-	}()
-
 	t.Log.Tracef("Registered terminator.")
 	t.Plumber.RegisterTerminator()
+
+	go t.handleTerminator()
 
 	return t
 }
