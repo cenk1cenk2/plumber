@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/joho/godotenv"
@@ -40,6 +41,7 @@ type Terminator struct {
 	Enabled         bool
 	ShouldTerminate *broadcaster.Broadcaster[os.Signal]
 	Terminated      *broadcaster.Broadcaster[bool]
+	Lock            *sync.RWMutex
 	terminated      uint
 	registered      uint
 	initiated       bool
@@ -169,6 +171,7 @@ func (p *Plumber) SetOnTerminate(fn onTerminateFn) *Plumber {
 func (p *Plumber) EnableTerminator() *Plumber {
 	p.Terminator = Terminator{
 		Enabled:         true,
+		Lock:            &sync.RWMutex{},
 		ShouldTerminate: broadcaster.NewBroadcaster[os.Signal](1),
 		Terminated:      broadcaster.NewBroadcaster[bool](1),
 	}
@@ -230,7 +233,9 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 	}
 
 	if p.Terminator.registered > 0 {
+		p.Terminator.Lock.Lock()
 		p.Terminator.terminated++
+		p.Terminator.Lock.Unlock()
 		p.Log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.terminated, p.Terminator.registered)
 
 		if p.Terminator.terminated < p.Terminator.registered {
@@ -252,7 +257,9 @@ func (p *Plumber) RegisterTerminator() *Plumber {
 		return p
 	}
 
+	p.Terminator.Lock.Lock()
 	p.Terminator.registered++
+	p.Terminator.Lock.Unlock()
 
 	return p
 }
@@ -388,7 +395,9 @@ func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 
 		p.Terminator.ShouldTerminate.Submit(sig)
 
+		p.Terminator.Lock.Lock()
 		p.Terminator.initiated = true
+		p.Terminator.Lock.Unlock()
 	}
 
 	p.Terminate(code)
@@ -467,11 +476,11 @@ func (p *Plumber) registerExitHandler() {
 		p.Terminator.Terminated.Close()
 	}
 
+	close(p.Channel.Interrupt)
 	close(p.Channel.Err)
 	close(p.Channel.CustomErr)
 	close(p.Channel.Fatal)
 	close(p.Channel.CustomFatal)
-	close(p.Channel.Interrupt)
 
 	os.Exit(code)
 }
