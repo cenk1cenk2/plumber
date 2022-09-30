@@ -40,6 +40,8 @@
     {{- if $v.Usage }}
 
 `{{ $v.Usage }}`
+    {{- else }}
+`{{ .App.Name }} {{ $v.Name }} [GLOBAL FLAGS] [FLAGS]`
     {{- end }}
 
     {{- if $v.Flags }}
