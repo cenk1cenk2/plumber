@@ -1,3 +1,10 @@
+# [4.6.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.5.1...v4.6.0) (2022-09-30)
+
+
+### Features
+
+* floc cancel while terminating ([648782c](https://gitlab.kilic.dev/libraries/plumber/commit/648782c1f7cdcb5745fdf00a0bf04f9a32a666a5))
+
 ## [4.5.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.5.0...v4.5.1) (2022-09-30)
 
 
