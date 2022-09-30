@@ -32,7 +32,7 @@
 ## Commands
   {{- range $v := .Commands }}
 
-### `{{ $v.Name }}` {{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
+### `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
     {{- if $v.Description }}
 
 {{ $v.Description }}
@@ -41,6 +41,7 @@
 
 `{{ $v.Usage }}`
     {{- else }}
+
 `{{ .App.Name }} {{ $v.Name }} [GLOBAL FLAGS] [FLAGS]`
     {{- end }}
 
