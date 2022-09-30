@@ -1,3 +1,10 @@
+# [4.7.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.6.1...v4.7.0) (2022-09-30)
+
+
+### Features
+
+* fix issue terminator without terminator ([a92a97c](https://gitlab.kilic.dev/libraries/plumber/commit/a92a97cbeeb84cea91a0bb122108018bd25fa7e9))
+
 ## [4.6.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.6.0...v4.6.1) (2022-09-30)
 
 
