@@ -1,3 +1,10 @@
+## [4.5.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.5.0...v4.5.1) (2022-09-30)
+
+
+### Bug Fixes
+
+* add mutext for terminator ([410765b](https://gitlab.kilic.dev/libraries/plumber/commit/410765b80863d5475ce5a61a749bd456d120d61b))
+
 # [4.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.4.8...v4.5.0) (2022-09-30)
 
 
