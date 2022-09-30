@@ -211,8 +211,9 @@ func (t *TaskList[Pipe]) registerTerminateHandler() {
 	ch := make(chan os.Signal, 1)
 
 	t.Plumber.Terminator.ShouldTerminate.Register(ch)
+	defer t.Plumber.Terminator.ShouldTerminate.Unregister(ch)
 
 	<-ch
 
-	// t.Control.Cancel(fmt.Errorf("Trying to terminate..."))
+	t.Control.Cancel(fmt.Errorf("Trying to terminate..."))
 }

@@ -23,7 +23,7 @@ type Plumber struct {
 	Channel     AppChannel
 	Terminator
 
-	onTerminateFn
+	PlumberOnTerminateFn
 	secrets []string
 
 	DocsFile                        string
@@ -63,7 +63,7 @@ type AppChannel struct {
 }
 
 type (
-	onTerminateFn          func() error
+	PlumberOnTerminateFn   func() error
 	ErrorChannelWithLogger struct {
 		Log *logrus.Entry
 		Err error
@@ -162,8 +162,8 @@ func (p *Plumber) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 }
 
 // Cli.SetOnTerminate Sets the action that would be executed on terminate.
-func (p *Plumber) SetOnTerminate(fn onTerminateFn) *Plumber {
-	p.onTerminateFn = fn
+func (p *Plumber) SetOnTerminate(fn PlumberOnTerminateFn) *Plumber {
+	p.PlumberOnTerminateFn = fn
 
 	return p
 }
@@ -417,9 +417,8 @@ func (p *Plumber) registerErrorHandler() {
 	for {
 		select {
 		case err := <-p.Channel.Err:
-
 			if err == nil {
-				return
+				continue
 			}
 
 			if p.Log != nil {
@@ -429,7 +428,7 @@ func (p *Plumber) registerErrorHandler() {
 			}
 		case err := <-p.Channel.CustomErr:
 			if err.Err == nil {
-				return
+				continue
 			}
 
 			err.Log.Errorln(err.Err)
@@ -443,7 +442,7 @@ func (p *Plumber) registerFatalErrorHandler() {
 		select {
 		case err := <-p.Channel.Fatal:
 			if err == nil {
-				return
+				continue
 			}
 
 			if p.Log != nil {
@@ -453,7 +452,7 @@ func (p *Plumber) registerFatalErrorHandler() {
 			}
 		case err := <-p.Channel.CustomFatal:
 			if err.Err == nil {
-				return
+				continue
 			}
 
 			err.Log.Fatalln(err.Err)
@@ -508,8 +507,8 @@ func (p *Plumber) Terminate(code int) {
 		}
 	}
 
-	if p.onTerminateFn != nil {
-		p.SendError(p.onTerminateFn())
+	if p.PlumberOnTerminateFn != nil {
+		p.SendError(p.PlumberOnTerminateFn())
 	}
 
 	p.SendExit(code)

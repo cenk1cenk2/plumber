@@ -117,6 +117,7 @@ func (t *Task[Pipe]) handleTerminator() {
 		t.SendError(t.onTerminatorFn(t))
 	}
 
+	t.Log.Tracef("Registered as terminated.")
 	t.Plumber.RegisterTerminated()
 }
 

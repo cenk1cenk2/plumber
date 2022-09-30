@@ -16,8 +16,8 @@ type (
 	Result       = floc.Result
 	ResultMask   = floc.ResultMask
 
-	taskListPredicateFn[Pipe TaskListData] func(*TaskList[Pipe]) bool
-	guardHandlerFn[Pipe TaskListData]      func(*TaskList[Pipe])
+	TaskListPredicateFn[Pipe TaskListData] func(*TaskList[Pipe]) bool
+	GuardHandlerFn[Pipe TaskListData]      func(*TaskList[Pipe])
 )
 
 const (
@@ -28,7 +28,7 @@ const (
 )
 
 // TaskList.Predicate Creates a new floc predicate out of the given conditions.
-func (t *TaskList[Pipe]) Predicate(fn taskListPredicateFn[Pipe]) JobPredicate {
+func (t *TaskList[Pipe]) Predicate(fn TaskListPredicateFn[Pipe]) JobPredicate {
 	return func(ctx floc.Context) bool {
 		return fn(t)
 	}
@@ -389,7 +389,7 @@ func (t *TaskList[Pipe]) GuardTimeout(job Job, timeout time.Duration) Job {
 // until the job finished or time went out or the flow is finished.
 func (t *TaskList[Pipe]) GuardOnTimeout(
 	job Job,
-	fn guardHandlerFn[Pipe],
+	fn GuardHandlerFn[Pipe],
 	timeout time.Duration,
 ) Job {
 	return guard.OnTimeout(
@@ -421,7 +421,7 @@ func (t *TaskList[Pipe]) GuardIgnorePanic(job Job) Job {
 // takes PanicTrigger func which is called in case of panic. Guarding the job
 // from falling into panic is effective only if the job runs in the current
 // goroutine.
-func (t *TaskList[Pipe]) GuardOnPanic(job Job, fn guardHandlerFn[Pipe]) Job {
+func (t *TaskList[Pipe]) GuardOnPanic(job Job, fn GuardHandlerFn[Pipe]) Job {
 	return guard.OnPanic(
 		job,
 		func(ctx floc.Context, ctrl floc.Control, id interface{}) {

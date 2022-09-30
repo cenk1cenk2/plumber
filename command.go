@@ -283,6 +283,8 @@ func (c *Command[Pipe]) handleTerminator() {
 		c.task.SendError(c.onTerminatorFn(c))
 	}
 
+	c.Log.Tracef("Registered as terminated: %s", c.GetFormattedCommand())
+
 	c.Plumber.RegisterTerminated()
 }
 
