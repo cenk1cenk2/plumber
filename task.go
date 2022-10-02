@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/workanator/go-floc/v3"
 	"gitlab.kilic.dev/libraries/go-utils/utils"
+	"golang.org/x/exp/slices"
 )
 
 type Task[Pipe TaskListData] struct {
@@ -35,6 +36,7 @@ type Task[Pipe TaskListData] struct {
 	runAfterFn     TaskFn[Pipe]
 	onTerminatorFn TaskFn[Pipe]
 	jobWrapperFn   JobWrapperFn
+	marks          []string
 }
 
 type TaskOptions[Pipe TaskListData] struct {
@@ -49,8 +51,14 @@ type (
 )
 
 const (
-	task_disabled = "DISABLE"
-	task_skipped  = "SKIP"
+	// task state.
+
+	task_disabled string = "DISABLE"
+	task_skipped  string = "SKIP"
+
+	// marks.
+
+	MARK_ROUTINE string = "MARK_ROUTINE"
 )
 
 func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] {
@@ -86,6 +94,7 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] 
 
 	t.Pipe = &tl.Pipe
 	t.Control = tl.Control
+	t.marks = []string{}
 
 	return t
 }
@@ -373,21 +382,24 @@ func (t *Task[Pipe]) Run() error {
 	if t.runBeforeFn != nil {
 		if err := t.runBeforeFn(t); err != nil {
 			t.Log.Errorln(err)
-			return err
+
+			return t.handleErrors(err)
 		}
 	}
 
 	if t.fn != nil {
 		if err := t.fn(t); err != nil {
 			t.Log.Errorln(err)
-			return err
+
+			return t.handleErrors(err)
 		}
 	}
 
 	if t.runAfterFn != nil {
 		if err := t.runAfterFn(t); err != nil {
 			t.Log.Errorln(err)
-			return err
+
+			return t.handleErrors(err)
 		}
 	}
 
@@ -408,6 +420,26 @@ func (t *Task[Pipe]) handleStopCases() bool {
 	}
 
 	return false
+}
+
+func (t *Task[Pipe]) SetMarks(marks ...string) *Task[Pipe] {
+	t.marks = marks
+
+	return t
+}
+
+func (t *Task[Pipe]) IsMarkedAsRoutine() bool {
+	return slices.Contains(t.marks, MARK_ROUTINE)
+}
+
+func (t *Task[Pipe]) handleErrors(err error) error {
+	if t.IsMarkedAsRoutine() {
+		t.SendFatal(err)
+
+		return nil
+	}
+
+	return err
 }
 
 func (t *Task[Pipe]) Job() Job {

@@ -51,11 +51,11 @@ type AppChannel struct {
 	// to communicate the errors while not blocking
 	Err chan error
 	// to communicate the errors while not blocking
-	CustomErr chan ErrorChannelWithLogger
+	CustomErr chan ErrorWithLogger
 	// Fatal errors
 	Fatal chan error
 	// to communicate the errors while not blocking
-	CustomFatal chan ErrorChannelWithLogger
+	CustomFatal chan ErrorWithLogger
 	// terminate channel
 	Interrupt chan os.Signal
 	// exit channel
@@ -63,8 +63,8 @@ type AppChannel struct {
 }
 
 type (
-	PlumberOnTerminateFn   func() error
-	ErrorChannelWithLogger struct {
+	PlumberOnTerminateFn func() error
+	ErrorWithLogger      struct {
 		Log *logrus.Entry
 		Err error
 	}
@@ -105,9 +105,9 @@ func (p *Plumber) New(
 	// create error channels
 	p.Channel = AppChannel{
 		Err:         make(chan error),
-		CustomErr:   make(chan ErrorChannelWithLogger),
+		CustomErr:   make(chan ErrorWithLogger),
 		Fatal:       make(chan error),
-		CustomFatal: make(chan ErrorChannelWithLogger),
+		CustomFatal: make(chan ErrorWithLogger),
 		Interrupt:   make(chan os.Signal),
 		Exit:        broadcaster.NewBroadcaster[int](0),
 	}
@@ -194,7 +194,7 @@ func (p *Plumber) SendError(err error) *Plumber {
 }
 
 func (p *Plumber) SendCustomError(log *logrus.Entry, err error) *Plumber {
-	p.Channel.CustomErr <- ErrorChannelWithLogger{
+	p.Channel.CustomErr <- ErrorWithLogger{
 		Err: err,
 		Log: log,
 	}
@@ -209,7 +209,7 @@ func (p *Plumber) SendFatal(err error) *Plumber {
 }
 
 func (p *Plumber) SendCustomFatal(log *logrus.Entry, err error) *Plumber {
-	p.Channel.CustomFatal <- ErrorChannelWithLogger{
+	p.Channel.CustomFatal <- ErrorWithLogger{
 		Err: err,
 		Log: log,
 	}

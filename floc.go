@@ -21,10 +21,10 @@ type (
 )
 
 const (
-	TASK_ANY       = floc.None
-	TASK_COMPLETED = floc.Completed
-	TASK_CANCELLED = floc.Canceled
-	TASK_FAILED    = floc.Failed
+	TASK_ANY       Result = floc.None
+	TASK_COMPLETED Result = floc.Completed
+	TASK_CANCELLED Result = floc.Canceled
+	TASK_FAILED    Result = floc.Failed
 )
 
 // TaskList.Predicate Creates a new floc predicate out of the given conditions.
