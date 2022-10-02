@@ -1,3 +1,10 @@
+# [4.8.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.7.2...v4.8.0) (2022-10-02)
+
+
+### Features
+
+* add task marks api ([3387ccc](https://gitlab.kilic.dev/libraries/plumber/commit/3387ccc2e711392fdad3ada1005936cc8ca201ce))
+
 ## [4.7.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.7.1...v4.7.2) (2022-10-01)
 
 
