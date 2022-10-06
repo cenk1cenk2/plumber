@@ -1,3 +1,10 @@
+## [4.8.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.8.1...v4.8.2) (2022-10-06)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 316c755 ([e304d1c](https://gitlab.kilic.dev/libraries/plumber/commit/e304d1c974bf97a03e8ddcd3223003c8c8abbbb7))
+
 ## [4.8.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.8.0...v4.8.1) (2022-10-04)
 
 
