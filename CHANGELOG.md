@@ -1,3 +1,10 @@
+## [4.8.6](https://gitlab.kilic.dev/libraries/plumber/compare/v4.8.5...v4.8.6) (2022-10-10)
+
+
+### Bug Fixes
+
+* **deps:** update module gitlab.kilic.dev/libraries/go-utils to v1.3.4 ([1c4d491](https://gitlab.kilic.dev/libraries/plumber/commit/1c4d491acc89874d2a20f9176f9de164a6270886))
+
 ## [4.8.5](https://gitlab.kilic.dev/libraries/plumber/compare/v4.8.4...v4.8.5) (2022-10-10)
 
 
