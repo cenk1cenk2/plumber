@@ -1,3 +1,10 @@
+## [4.8.5](https://gitlab.kilic.dev/libraries/plumber/compare/v4.8.4...v4.8.5) (2022-10-10)
+
+
+### Bug Fixes
+
+* **deps:** update all minor dependency updates ([ad22a16](https://gitlab.kilic.dev/libraries/plumber/commit/ad22a161e62051b6aa4b2e6c9b74f1445e8566e8))
+
 ## [4.8.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.8.3...v4.8.4) (2022-10-09)
 
 
