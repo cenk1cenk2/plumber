@@ -10,7 +10,7 @@ require (
 	github.com/workanator/go-floc/v3 v3.0.1
 	gitlab.kilic.dev/libraries/go-broadcaster v1.1.1
 	gitlab.kilic.dev/libraries/go-utils v1.3.4
-	golang.org/x/exp v0.0.0-20221010202428-3a778c567f61
+	golang.org/x/exp v0.0.0-20221011201855-a3968a42eed6
 )
 
 require (
