@@ -1,3 +1,10 @@
+# [4.9.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.8.16...v4.9.0) (2022-10-29)
+
+
+### Features
+
+* add deprecation notice handler ([67b80b9](https://gitlab.kilic.dev/libraries/plumber/commit/67b80b9d48a8d47b093029d4c83007255758d32b))
+
 ## [4.8.16](https://gitlab.kilic.dev/libraries/plumber/compare/v4.8.15...v4.8.16) (2022-10-25)
 
 
