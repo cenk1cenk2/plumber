@@ -30,6 +30,8 @@ type Plumber struct {
 	DocsExcludeFlags                bool
 	DocsExcludeEnvironmentVariables bool
 	DocsExcludeHelpCommand          bool
+
+	DeprecationNotices []DeprecationNotice
 }
 
 type AppEnvironment struct {
@@ -60,6 +62,13 @@ type AppChannel struct {
 	Interrupt chan os.Signal
 	// exit channel
 	Exit *broadcaster.Broadcaster[int]
+}
+
+type DeprecationNotice struct {
+	Message     string
+	Environment string
+	Flag        string
+	Level       LogLevel
 }
 
 type (
@@ -138,6 +147,8 @@ func (p *Plumber) Run() {
 
 		os.Exit(0)
 	}
+
+	p.deprecationNoticeHandler()
 
 	if err := p.Cli.Run(os.Args); err != nil {
 		p.SendFatal(err)
@@ -277,6 +288,30 @@ func (p *Plumber) greet() {
 	fmt.Println(name)
 	fmt.Println(strings.Repeat("-", len(name)))
 	//revive:enable:unhandled-error
+}
+
+func (p *Plumber) deprecationNoticeHandler() {
+	if len(p.DeprecationNotices) == 0 {
+		return
+	}
+
+	for _, notice := range p.DeprecationNotices {
+		if notice.Level == LOG_LEVEL_DEFAULT {
+			notice.Level = LOG_LEVEL_WARN
+		}
+
+		if notice.Message == "" {
+			notice.Message = `"%s" (%s) is deprecated and will be removed in a latter release.`
+		}
+
+		if notice.Environment != "" && os.Getenv(notice.Environment) != "" {
+			p.Log.Log(notice.Level, notice.Message, notice.Environment, "environment variable")
+		}
+
+		if notice.Flag != "" && slices.Contains(os.Args, notice.Flag) {
+			p.Log.Log(notice.Level, notice.Message, notice.Flag, "flag")
+		}
+	}
 }
 
 func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
