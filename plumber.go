@@ -295,9 +295,13 @@ func (p *Plumber) deprecationNoticeHandler() {
 		return
 	}
 
+	exit := false
+
 	for _, notice := range p.DeprecationNotices {
 		if notice.Level == LOG_LEVEL_DEFAULT {
 			notice.Level = LOG_LEVEL_WARN
+		} else if notice.Level == LOG_LEVEL_ERROR {
+			exit = true
 		}
 
 		if notice.Message == "" {
@@ -311,6 +315,10 @@ func (p *Plumber) deprecationNoticeHandler() {
 		if notice.Flag != "" && slices.Contains(os.Args, notice.Flag) {
 			p.Log.Log(notice.Level, notice.Message, notice.Flag, "flag")
 		}
+	}
+
+	if exit {
+		p.SendExit(112)
 	}
 }
 
