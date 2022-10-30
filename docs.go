@@ -97,11 +97,15 @@ func (p *Plumber) toMarkdown() (string, error) {
 		return "", err
 	}
 
-	err = t.ExecuteTemplate(&w, name, &markdownTemplateInput{
+	input := &markdownTemplateInput{
 		App:         p.Cli,
 		Commands:    p.toMarkdownCommand(p.Cli.Commands),
 		GlobalFlags: p.toMarkdownFlags(p.Cli.VisibleFlags()),
-	})
+	}
+
+	p.Log.Tracef("Executing the template: %+v", input)
+
+	err = t.ExecuteTemplate(&w, name, input)
 
 	return w.String(), err
 }
@@ -188,7 +192,7 @@ func (p *Plumber) toMarkdownFlags(
 			Description: description,
 			Type:        strings.ReplaceAll(strings.ReplaceAll(reflect.TypeOf(f).String(), "*cli.", ""), "Flag", ""),
 			Format:      format,
-			Default:     current.GetValue(),
+			Default:     current.GetDefaultText(),
 			Required:    current.(cli.RequiredFlag).IsRequired(),
 			Category:    current.(cli.CategorizableFlag).GetCategory(),
 		}
