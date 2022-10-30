@@ -1,12 +1,12 @@
-# {{ .App.Name }}
+# {{ $.App.Name }}
 
-{{ .App.Description }}
-{{- if .App.UsageText }}
+{{ $.App.Description }}
+{{- if $.App.UsageText }}
 
-`{{ .App.UsageText }}`
+`{{ $.App.UsageText }}`
 {{- else }}
 
-`{{ .App.Name }}{{ if .Commands }} [GLOBAL FLAGS] [COMMAND]{{ end }} [FLAGS]`
+`{{ $.App.Name }}{{ if .Commands }} [GLOBAL FLAGS] [COMMAND]{{ end }} [FLAGS]`
 {{- end }}
 {{- if .GlobalFlags }}
 {{- if .Commands }}
@@ -42,7 +42,7 @@
 `{{ $v.Usage }}`
     {{- else }}
 
-`{{ $v.Name }} [GLOBAL FLAGS] [FLAGS]`
+`{{ $.App.Name }} {{ $v.Name }} [GLOBAL FLAGS] [FLAGS]`
     {{- end }}
 
     {{- if $v.Flags }}
