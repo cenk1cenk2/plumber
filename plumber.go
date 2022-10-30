@@ -346,11 +346,13 @@ func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
 // Cli.loadEnvironment Loads the given environment file to the application.
 func (p *Plumber) loadEnvironment() error {
 	if env := os.Getenv("ENV_FILE"); env != "" {
-		if err := godotenv.Load(env); err != nil {
+		files := strings.Split(env, ",")
+
+		if err := godotenv.Load(files...); err != nil {
 			return err
 		}
 
-		p.Log.Traceln("Environment file loaded.")
+		p.Log.Tracef("Environment files are loaded: %v", files)
 	}
 
 	return nil
