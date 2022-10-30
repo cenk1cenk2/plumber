@@ -296,6 +296,7 @@ func (p *Plumber) deprecationNoticeHandler() {
 	}
 
 	exit := false
+	log := p.Log.WithField(LOG_FIELD_CONTEXT, "parser")
 
 	for _, notice := range p.DeprecationNotices {
 		if notice.Level == LOG_LEVEL_DEFAULT {
@@ -303,12 +304,12 @@ func (p *Plumber) deprecationNoticeHandler() {
 		}
 
 		if notice.Message == "" {
-			notice.Message = `"%s" (%s) is deprecated and will be removed in a upcoming release.`
+			notice.Message = `"%s" is deprecated and will be removed in a upcoming release.`
 		}
 
 		for _, environment := range notice.Environment {
 			if os.Getenv(environment) != "" {
-				p.Log.Logf(notice.Level, notice.Message, environment, "environment variable")
+				log.Logf(notice.Level, notice.Message, fmt.Sprintf("$%s", environment))
 
 				if notice.Level <= LOG_LEVEL_ERROR {
 					exit = true
@@ -318,7 +319,7 @@ func (p *Plumber) deprecationNoticeHandler() {
 
 		for _, flag := range notice.Flag {
 			if slices.Contains(os.Args, flag) {
-				p.Log.Logf(notice.Level, notice.Message, flag, "flag")
+				log.Log(notice.Level, notice.Message, flag)
 
 				if notice.Level <= LOG_LEVEL_ERROR {
 					exit = true
@@ -328,7 +329,7 @@ func (p *Plumber) deprecationNoticeHandler() {
 	}
 
 	if exit {
-		p.Log.Errorln("Quitting since deprecation notices can cause unintended behavior.")
+		log.Errorln("Quitting since deprecation notices can cause unintended behavior.")
 
 		p.SendExit(112)
 	}
