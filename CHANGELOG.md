@@ -1,3 +1,10 @@
+## [4.10.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.3...v4.10.4) (2022-10-30)
+
+
+### Bug Fixes
+
+* template and error exit handler ([2614e3d](https://gitlab.kilic.dev/libraries/plumber/commit/2614e3dcb0b0fbf158f6686a360b0a0216296f0b))
+
 ## [4.10.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.2...v4.10.3) (2022-10-30)
 
 
