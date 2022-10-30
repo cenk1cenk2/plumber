@@ -1,3 +1,10 @@
+## [4.10.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.1...v4.10.2) (2022-10-30)
+
+
+### Bug Fixes
+
+* update templating ([6a82e84](https://gitlab.kilic.dev/libraries/plumber/commit/6a82e84bcfb2a78d6ceff8f803b1b64e8560451d))
+
 ## [4.10.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.0...v4.10.1) (2022-10-30)
 
 
