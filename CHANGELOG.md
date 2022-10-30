@@ -1,3 +1,10 @@
+# [4.10.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.9.4...v4.10.0) (2022-10-30)
+
+
+### Features
+
+* update environment file loading to be multiple ([f3103cf](https://gitlab.kilic.dev/libraries/plumber/commit/f3103cf366f5523fb2673cc2c59b85977f4e32e4))
+
 ## [4.9.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.9.3...v4.9.4) (2022-10-30)
 
 
