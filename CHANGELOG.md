@@ -1,3 +1,10 @@
+## [4.11.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.11.0...v4.11.1) (2022-10-30)
+
+
+### Bug Fixes
+
+* pass environment arguments in any case ([b4a42de](https://gitlab.kilic.dev/libraries/plumber/commit/b4a42deb7f1a7501e9d582c40635de7a3f17cc05))
+
 # [4.11.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.6...v4.11.0) (2022-10-30)
 
 
