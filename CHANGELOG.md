@@ -1,3 +1,10 @@
+## [4.10.5](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.4...v4.10.5) (2022-10-30)
+
+
+### Bug Fixes
+
+* update plumber dep notice ([4bd050d](https://gitlab.kilic.dev/libraries/plumber/commit/4bd050d5523a13f70d959f8baa9c4da8cb41157f))
+
 ## [4.10.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.3...v4.10.4) (2022-10-30)
 
 
