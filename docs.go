@@ -177,7 +177,7 @@ func (p *Plumber) toMarkdownFlags(
 
 		description := current.GetUsage()
 
-		re := regexp.MustCompile("((format|dynamic|enum).*)$")
+		re := regexp.MustCompile("((format|json|Template|RegExp|dynamic|enum).*)$")
 
 		format := re.FindString(description)
 
