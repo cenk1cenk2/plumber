@@ -310,7 +310,7 @@ func (p *Plumber) deprecationNoticeHandler() {
 			if os.Getenv(environment) != "" {
 				p.Log.Logf(notice.Level, notice.Message, environment, "environment variable")
 
-				if notice.Level >= p.Log.Level {
+				if notice.Level <= LOG_LEVEL_ERROR {
 					exit = true
 				}
 			}
@@ -320,7 +320,7 @@ func (p *Plumber) deprecationNoticeHandler() {
 			if slices.Contains(os.Args, flag) {
 				p.Log.Logf(notice.Level, notice.Message, flag, "flag")
 
-				if notice.Level >= p.Log.Level {
+				if notice.Level <= LOG_LEVEL_ERROR {
 					exit = true
 				}
 			}
