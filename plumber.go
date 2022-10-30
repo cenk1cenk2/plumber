@@ -154,10 +154,10 @@ func (p *Plumber) Run() {
 
 	if err := p.Cli.Run(os.Args); err != nil {
 		p.SendFatal(err)
-	}
 
-	for {
-		<-ch
+		for {
+			<-ch
+		}
 	}
 }
 

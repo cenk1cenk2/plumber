@@ -6,20 +6,22 @@
 `{{ $.App.UsageText }}`
 {{- else }}
 
-`{{ $.App.Name }}{{ if .Commands }} [GLOBAL FLAGS] [COMMAND]{{ end }} [FLAGS]`
+`{{ $.App.Name }}{{ if $.Commands }} [GLOBAL FLAGS] [COMMAND]{{ end }} [FLAGS]`
 {{- end }}
-{{- if .GlobalFlags }}
-{{- if .Commands }}
+{{- if $.GlobalFlags }}
+{{- if $.Commands }}
 
 ## Global Flags
 {{- else }}
 
 ## Flags
 {{- end }}
-  {{- if .GlobalFlags.EMPTY }}
-    {{- template "flags" .GlobalFlags.EMPTY }}
+  {{- range $category, $flags := $.GlobalFlags }}
+      {{- if eq $category "EMPTY" }}
+        {{- template "flags" $flags }}
+      {{- end }}
   {{- end }}
-  {{- range $category, $flags := .GlobalFlags }}
+  {{- range $category, $flags := $.GlobalFlags }}
     {{- if ne $category "EMPTY" }}
 
 ### {{ $category }}
@@ -27,10 +29,10 @@
     {{- end }}
   {{- end }}
 {{- end }}
-{{- if .Commands }}
+{{- if $.Commands }}
 
 ## Commands
-  {{- range $v := .Commands }}
+  {{- range $v := $.Commands }}
 
 ### `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
     {{- if $v.Description }}
@@ -48,8 +50,10 @@
     {{- if $v.Flags }}
 
 #### Flags
-      {{- if $v.Flags.EMPTY }}
-        {{- template "flags" $v.Flags.Empty }}
+      {{- range $category, $flags := $v.Flags }}
+        {{- if eq $category "EMPTY" }}
+          {{- template "flags" $flags }}
+        {{- end }}
       {{- end }}
       {{- range $category, $flags := $v.Flags }}
         {{- if ne $category "EMPTY" }}
