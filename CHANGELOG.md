@@ -1,3 +1,10 @@
+## [4.9.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.9.1...v4.9.2) (2022-10-30)
+
+
+### Bug Fixes
+
+* update how deprecation notices are handled ([1197095](https://gitlab.kilic.dev/libraries/plumber/commit/1197095beef55a534f8928cb36eca15e4c97f6df))
+
 ## [4.9.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.9.0...v4.9.1) (2022-10-29)
 
 
