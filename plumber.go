@@ -135,6 +135,8 @@ func (p *Plumber) Run() {
 	p.greet()
 
 	go p.registerHandlers()
+	ch := make(chan int, 1)
+	p.Channel.Exit.Register(ch)
 
 	if slices.Contains(os.Args, "MARKDOWN_DOC") {
 		p.setupLogger(LOG_LEVEL_TRACE)
@@ -145,19 +147,17 @@ func (p *Plumber) Run() {
 			p.Log.Fatalln(err)
 		}
 
-		os.Exit(0)
+		return
 	}
 
 	p.deprecationNoticeHandler()
 
 	if err := p.Cli.Run(os.Args); err != nil {
 		p.SendFatal(err)
+	}
 
-		ch := make(chan int, 1)
-		p.Channel.Exit.Register(ch)
-		for {
-			<-ch
-		}
+	for {
+		<-ch
 	}
 }
 
@@ -330,7 +330,7 @@ func (p *Plumber) deprecationNoticeHandler() {
 	if exit {
 		p.Log.Errorln("Quitting since deprecation notices can cause unintended behavior.")
 
-		os.Exit(112)
+		p.SendExit(112)
 	}
 }
 
