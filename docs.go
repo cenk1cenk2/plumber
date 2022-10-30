@@ -188,7 +188,7 @@ func (p *Plumber) toMarkdownFlags(
 			Description: description,
 			Type:        strings.ReplaceAll(strings.ReplaceAll(reflect.TypeOf(f).String(), "*cli.", ""), "Flag", ""),
 			Format:      format,
-			Default:     current.GetDefaultText(),
+			Default:     current.GetValue(),
 			Required:    current.(cli.RequiredFlag).IsRequired(),
 			Category:    current.(cli.CategorizableFlag).GetCategory(),
 		}
