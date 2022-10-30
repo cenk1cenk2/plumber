@@ -1,3 +1,10 @@
+## [4.10.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.2...v4.10.3) (2022-10-30)
+
+
+### Bug Fixes
+
+* update tempalting ([9c10bdc](https://gitlab.kilic.dev/libraries/plumber/commit/9c10bdcd369f653a0c6d672b62cd29f86e3f55d7))
+
 ## [4.10.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.1...v4.10.2) (2022-10-30)
 
 
