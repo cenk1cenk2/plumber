@@ -1,3 +1,10 @@
+# [4.11.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.6...v4.11.0) (2022-10-30)
+
+
+### Features
+
+* update logger levels for plumber ([3b19644](https://gitlab.kilic.dev/libraries/plumber/commit/3b196446e79d7c9c504fb27ca2a76050f493c074))
+
 ## [4.10.6](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.5...v4.10.6) (2022-10-30)
 
 
