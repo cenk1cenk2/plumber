@@ -1,3 +1,11 @@
+## [4.10.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.0...v4.10.1) (2022-10-30)
+
+
+### Bug Fixes
+
+* update default value for the flags ([a79b4bd](https://gitlab.kilic.dev/libraries/plumber/commit/a79b4bdbf4a0761816081d65bd5c9ce8ae7d9e11))
+* update template handling ([17f0053](https://gitlab.kilic.dev/libraries/plumber/commit/17f0053980b92a4683072aa84a19982d93d42452))
+
 # [4.10.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.9.4...v4.10.0) (2022-10-30)
 
 
