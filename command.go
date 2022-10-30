@@ -14,25 +14,26 @@ import (
 )
 
 type Command[Pipe TaskListData] struct {
-	Command        *exec.Cmd
-	Plumber        *Plumber
-	stdoutLevel    LogLevel
-	stderrLevel    LogLevel
-	lifetimeLevel  LogLevel
-	stdout         output
-	stderr         output
-	stdoutStream   []string
-	stderrStream   []string
-	combinedStream []string
-	recordStream   bool
-	ignoreError    bool
-	ensureIsAlive  bool
-	task           *Task[Pipe]
-	Log            *logrus.Entry
-	setFn          CommandFn[Pipe]
-	runAfterFn     CommandFn[Pipe]
-	options        CommandOptions[Pipe]
-	onTerminatorFn CommandFn[Pipe]
+	Command           *exec.Cmd
+	Plumber           *Plumber
+	stdoutLevel       LogLevel
+	stderrLevel       LogLevel
+	lifetimeLevel     LogLevel
+	stdout            output
+	stderr            output
+	stdoutStream      []string
+	stderrStream      []string
+	combinedStream    []string
+	recordStream      bool
+	ignoreError       bool
+	ensureIsAlive     bool
+	maskOsEnvironment bool
+	task              *Task[Pipe]
+	Log               *logrus.Entry
+	setFn             CommandFn[Pipe]
+	runAfterFn        CommandFn[Pipe]
+	options           CommandOptions[Pipe]
+	onTerminatorFn    CommandFn[Pipe]
 }
 
 type CommandOptions[Pipe TaskListData] struct {
@@ -124,6 +125,12 @@ func (c *Command[Pipe]) SetIgnoreError() *Command[Pipe] {
 	return c
 }
 
+func (c *Command[Pipe]) SetMaskOsEnvironment() *Command[Pipe] {
+	c.maskOsEnvironment = true
+
+	return c
+}
+
 func (c *Command[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Command[Pipe] {
 	c.options.Disable = fn
 
@@ -207,6 +214,10 @@ func (c *Command[Pipe]) Run() error {
 		Logf(c.lifetimeLevel, c.GetFormattedCommand())
 
 	c.Command.Args = utils.DeleteEmptyStringsFromSlice(c.Command.Args)
+
+	if !c.maskOsEnvironment {
+		c.Command.Env = append(c.Command.Env, os.Environ()...)
+	}
 
 	if err := c.pipe(); err != nil {
 		c.Log.WithField(LOG_FIELD_STATUS, command_failed).

@@ -157,7 +157,13 @@ func (p *Plumber) Run() {
 		return
 	}
 
-	p.deprecationNoticeHandler()
+	if err := p.deprecationNoticeHandler(); err != nil {
+		p.SendError(err)
+
+		p.SendExit(112)
+
+		return
+	}
 
 	if err := p.Cli.Run(os.Args); err != nil {
 		p.SendFatal(err)
@@ -299,9 +305,9 @@ func (p *Plumber) greet() {
 	//revive:enable:unhandled-error
 }
 
-func (p *Plumber) deprecationNoticeHandler() {
+func (p *Plumber) deprecationNoticeHandler() error {
 	if len(p.DeprecationNotices) == 0 {
-		return
+		return nil
 	}
 
 	exit := false
@@ -338,10 +344,10 @@ func (p *Plumber) deprecationNoticeHandler() {
 	}
 
 	if exit {
-		log.Errorln("Quitting since deprecation notices can cause unintended behavior.")
-
-		p.SendExit(112)
+		return fmt.Errorf("Quitting since deprecation notices can cause unintended behavior.")
 	}
+
+	return nil
 }
 
 func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
