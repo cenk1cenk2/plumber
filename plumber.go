@@ -79,6 +79,13 @@ type (
 	}
 )
 
+const (
+	context_terminator  = "terminator"
+	context_parser      = "parser"
+	context_environment = "environment"
+	context_setup       = "setup"
+)
+
 // Cli.New Creates a new plumber for pipes.
 func (p *Plumber) New(
 	fn func(a *Plumber) *cli.App,
@@ -187,7 +194,7 @@ func (p *Plumber) EnableTerminator() *Plumber {
 		Terminated:      broadcaster.NewBroadcaster[bool](1),
 	}
 
-	p.Log.Traceln("Terminator enabled.")
+	p.Log.WithField(LOG_FIELD_CONTEXT, context_terminator).Traceln("Terminator enabled.")
 
 	return p
 }
@@ -244,16 +251,18 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 	}
 
 	if p.Terminator.registered > 0 {
+		log := p.Log.WithField(LOG_FIELD_CONTEXT, context_terminator)
+
 		p.Terminator.Lock.Lock()
 		p.Terminator.terminated++
 		p.Terminator.Lock.Unlock()
-		p.Log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.terminated, p.Terminator.registered)
+		log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.terminated, p.Terminator.registered)
 
 		if p.Terminator.terminated < p.Terminator.registered {
 			return p
 		}
 
-		p.Log.Tracef("Enough votes received for termination.")
+		log.Tracef("Enough votes received for termination.")
 	}
 
 	p.Terminator.Terminated.Submit(true)
@@ -296,7 +305,7 @@ func (p *Plumber) deprecationNoticeHandler() {
 	}
 
 	exit := false
-	log := p.Log.WithField(LOG_FIELD_CONTEXT, "parser")
+	log := p.Log.WithField(LOG_FIELD_CONTEXT, context_parser)
 
 	for _, notice := range p.DeprecationNotices {
 		if notice.Level == LOG_LEVEL_DEFAULT {
@@ -353,7 +362,7 @@ func (p *Plumber) loadEnvironment() error {
 			return err
 		}
 
-		p.Log.Tracef("Environment files are loaded: %v", files)
+		p.Log.WithField(LOG_FIELD_CONTEXT, context_environment).Tracef("Environment files are loaded: %v", files)
 	}
 
 	return nil
@@ -415,7 +424,7 @@ func (p *Plumber) setupLogger(level LogLevel) {
 
 	p.Log.ExitFunc = p.Terminate
 
-	p.Log.Traceln("Logger setup.")
+	p.Log.WithField(LOG_FIELD_CONTEXT, context_setup).Traceln("Logger setup.")
 }
 
 func (p *Plumber) defaultAction() cli.ActionFunc {
@@ -443,13 +452,15 @@ func (p *Plumber) registerInterruptHandler() {
 
 func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 	if p.Terminator.Enabled {
+		log := p.Log.WithField(LOG_FIELD_CONTEXT, context_terminator)
+
 		if p.Terminator.initiated {
-			p.Log.Tracef("Termination process already started, ignoring: %s", sig)
+			log.Tracef("Termination process already started, ignoring: %s", sig)
 
 			return
 		}
 
-		p.Log.Tracef("Sending should terminate through terminator: %s", sig)
+		log.Tracef("Sending should terminate through terminator: %s", sig)
 
 		p.Terminator.ShouldTerminate.Submit(sig)
 
@@ -467,7 +478,7 @@ func (p *Plumber) registerHandlers() {
 	go p.registerInterruptHandler()
 	go p.registerExitHandler()
 
-	p.Log.Traceln("Registered handlers.")
+	p.Log.WithField(LOG_FIELD_CONTEXT, context_setup).Traceln("Registered handlers.")
 }
 
 // App.registerErrorHandler Registers the error handlers for the runtime errors, this will not terminate application.
@@ -546,13 +557,15 @@ func (p *Plumber) registerExitHandler() {
 func (p *Plumber) Terminate(code int) {
 	if p.Terminator.Enabled {
 		if p.Terminator.registered > 0 {
+			log := p.Log.WithField(LOG_FIELD_CONTEXT, context_terminator)
+
 			if !p.Terminator.initiated {
 				p.SendTerminate(syscall.SIGSTOP, 1)
 
 				return
 			}
 
-			p.Log.Traceln("Waiting for result through terminator...")
+			log.Traceln("Waiting for result through terminator...")
 
 			ch := make(chan bool, 1)
 
@@ -561,7 +574,7 @@ func (p *Plumber) Terminate(code int) {
 
 			<-ch
 
-			p.Log.Traceln("Gracefully terminated through terminator.")
+			log.Traceln("Gracefully terminated through terminator.")
 		}
 	}
 
