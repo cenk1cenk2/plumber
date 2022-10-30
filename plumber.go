@@ -66,8 +66,8 @@ type AppChannel struct {
 
 type DeprecationNotice struct {
 	Message     string
-	Environment string
-	Flag        string
+	Environment []string
+	Flag        []string
 	Level       LogLevel
 }
 
@@ -305,19 +305,27 @@ func (p *Plumber) deprecationNoticeHandler() {
 		}
 
 		if notice.Message == "" {
-			notice.Message = `"%s" (%s) is deprecated and will be removed in a latter release.`
+			notice.Message = `"%s" (%s) is deprecated and will be removed in a upcoming release.`
 		}
 
-		if notice.Environment != "" && os.Getenv(notice.Environment) != "" {
-			p.Log.Log(notice.Level, notice.Message, notice.Environment, "environment variable")
+		for _, environment := range notice.Environment {
+			if os.Getenv(environment) != "" {
+				p.Log.Logf(notice.Level, notice.Message, environment, "environment variable")
+			}
 		}
 
-		if notice.Flag != "" && slices.Contains(os.Args, notice.Flag) {
-			p.Log.Log(notice.Level, notice.Message, notice.Flag, "flag")
+		for _, flag := range notice.Flag {
+			if slices.Contains(os.Args, flag) {
+				p.Log.Logf(notice.Level, notice.Message, flag, "flag")
+			}
 		}
+
+		p.Log.Log(notice.Level, notice.Message)
 	}
 
 	if exit {
+		p.Log.Errorln("Quitting since deprecation notices can cause unintended behavior.")
+
 		p.SendExit(112)
 	}
 }
