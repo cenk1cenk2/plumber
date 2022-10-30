@@ -1,3 +1,10 @@
+## [4.11.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.11.2...v4.11.3) (2022-10-30)
+
+
+### Bug Fixes
+
+* update regular expression for catching descriptions ([ab5f390](https://gitlab.kilic.dev/libraries/plumber/commit/ab5f3903607d85b5aa0b35c3c32a869d296e5921))
+
 ## [4.11.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.11.1...v4.11.2) (2022-10-30)
 
 
