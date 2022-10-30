@@ -152,6 +152,10 @@ func (p *Plumber) Run() {
 
 		if err := p.generateMarkdownDocumentation(); err != nil {
 			p.Log.Fatalln(err)
+
+			for {
+				<-ch
+			}
 		}
 
 		return
@@ -162,7 +166,9 @@ func (p *Plumber) Run() {
 
 		p.SendExit(112)
 
-		return
+		for {
+			<-ch
+		}
 	}
 
 	if err := p.Cli.Run(os.Args); err != nil {
