@@ -1,3 +1,10 @@
+## [4.10.6](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.5...v4.10.6) (2022-10-30)
+
+
+### Bug Fixes
+
+* update logging mechanism for parser ([3180918](https://gitlab.kilic.dev/libraries/plumber/commit/31809180b97aa32ea01efe3def1e7725ecf1bbd2))
+
 ## [4.10.5](https://gitlab.kilic.dev/libraries/plumber/compare/v4.10.4...v4.10.5) (2022-10-30)
 
 
