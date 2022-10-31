@@ -9,7 +9,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/workanator/go-floc/v3 v3.0.1
 	gitlab.kilic.dev/libraries/go-broadcaster v1.1.1
-	gitlab.kilic.dev/libraries/go-utils v1.3.6
+	gitlab.kilic.dev/libraries/go-utils v1.3.7
 	golang.org/x/exp v0.0.0-20221028150844-83b7d23a625f
 )
 
