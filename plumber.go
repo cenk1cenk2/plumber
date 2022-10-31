@@ -324,8 +324,10 @@ func (p *Plumber) deprecationNoticeHandler() error {
 			notice.Level = LOG_LEVEL_WARN
 		}
 
-		if notice.Message == "" {
-			notice.Message = `"%s" is deprecated and will be removed in a upcoming release.`
+		if notice.Message == "" && notice.Level <= LOG_LEVEL_ERROR {
+			notice.Message = `"%s" is deprecated and is not valid anymore.`
+		} else if notice.Message == "" {
+			notice.Message = `"%s" is deprecated and will be removed in a later release.`
 		}
 
 		for _, environment := range notice.Environment {
