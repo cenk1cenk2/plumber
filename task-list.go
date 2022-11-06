@@ -142,8 +142,8 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 }
 
 func (t *TaskList[Pipe]) Run() error {
-	if err := t.Validate(&t.Pipe); err != nil {
-		return err
+	if t.Tasks == nil {
+		return fmt.Errorf("Task list is empty.")
 	}
 
 	if t.runBefore != nil {
@@ -152,8 +152,8 @@ func (t *TaskList[Pipe]) Run() error {
 		}
 	}
 
-	if t.Tasks == nil {
-		return fmt.Errorf("Task list is empty.")
+	if err := t.Validate(&t.Pipe); err != nil {
+		return err
 	}
 
 	result, data, err := floc.RunWith(t.flocContext, t.Control, t.Tasks)
