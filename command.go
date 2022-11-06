@@ -143,7 +143,9 @@ func (c *Command[Pipe]) IsDisabled() bool {
 
 // Command.AppendArgs Appends arguments to the command.
 func (c *Command[Pipe]) AppendArgs(args ...string) *Command[Pipe] {
-	c.Command.Args = append(c.Command.Args, args...)
+	for _, a := range args {
+		c.Command.Args = append(c.Command.Args, utils.DeleteEmptyStringsFromSlice(strings.Split(a, " "))...)
+	}
 
 	return c
 }

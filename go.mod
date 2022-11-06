@@ -10,7 +10,7 @@ require (
 	github.com/workanator/go-floc/v3 v3.0.1
 	gitlab.kilic.dev/libraries/go-broadcaster v1.1.1
 	gitlab.kilic.dev/libraries/go-utils v1.3.8
-	golang.org/x/exp v0.0.0-20221028150844-83b7d23a625f
+	golang.org/x/exp v0.0.0-20221106115401-f9659909a136
 )
 
 require (
@@ -25,6 +25,6 @@ require (
 )
 
 require (
-	github.com/urfave/cli/v2 v2.23.2
+	github.com/urfave/cli/v2 v2.23.4
 	golang.org/x/sys v0.1.0 // indirect
 )
