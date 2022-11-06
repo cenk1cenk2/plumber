@@ -171,7 +171,7 @@ func (p *Plumber) Run() {
 		}
 	}
 
-	if err := p.Cli.Run(os.Args); err != nil {
+	if err := p.Cli.Run(append(os.Args, strings.Split(os.Getenv("CLI_FLAGS"), " ")...)); err != nil {
 		p.SendFatal(err)
 
 		for {
