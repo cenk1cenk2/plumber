@@ -1,3 +1,10 @@
+## [4.15.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.15.0...v4.15.1) (2022-11-06)
+
+
+### Bug Fixes
+
+* remove unnessary args ([63b7920](https://gitlab.kilic.dev/libraries/plumber/commit/63b7920769fe87352b3cea6a3e9a81b6f7e1875e))
+
 # [4.15.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.14.0...v4.15.0) (2022-11-06)
 
 
