@@ -1,3 +1,10 @@
+# [4.12.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.11.8...v4.12.0) (2022-11-06)
+
+
+### Features
+
+* update how arguments are passsed in to a command ([2a957ae](https://gitlab.kilic.dev/libraries/plumber/commit/2a957ae56d623003d9e5d5885c084419bab96a43))
+
 ## [4.11.8](https://gitlab.kilic.dev/libraries/plumber/compare/v4.11.7...v4.11.8) (2022-11-04)
 
 
