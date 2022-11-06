@@ -1,3 +1,10 @@
+# [4.14.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.13.0...v4.14.0) (2022-11-06)
+
+
+### Features
+
+* add a way to pass arguments through environment variable ([8a169ee](https://gitlab.kilic.dev/libraries/plumber/commit/8a169ee14f7ebeb260bf3685e897202a74415bc6))
+
 # [4.12.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.11.8...v4.12.0) (2022-11-06)
 
 
