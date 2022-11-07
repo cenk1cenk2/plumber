@@ -1,3 +1,10 @@
+## [4.15.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.15.1...v4.15.2) (2022-11-07)
+
+
+### Bug Fixes
+
+* wait for all channels to register ([97e1034](https://gitlab.kilic.dev/libraries/plumber/commit/97e1034195ffcb7986f6ae0107e066210cf05b27))
+
 ## [4.15.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.15.0...v4.15.1) (2022-11-06)
 
 
