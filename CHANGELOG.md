@@ -1,3 +1,10 @@
+# [4.16.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.15.5...v4.16.0) (2022-11-07)
+
+
+### Features
+
+* update handling of errors in before funcs ([03b2de5](https://gitlab.kilic.dev/libraries/plumber/commit/03b2de52d9543d54bc70722c3b93fd3780b404f0))
+
 ## [4.15.5](https://gitlab.kilic.dev/libraries/plumber/compare/v4.15.4...v4.15.5) (2022-11-07)
 
 
