@@ -141,18 +141,16 @@ func (p *Plumber) Run() {
 
 	p.greet()
 
-	p.registerHandlers()
-
 	ch := make(chan int, 1)
 	p.Channel.Exit.Register(ch)
 
 	if slices.Contains(os.Args, "MARKDOWN_DOC") {
-		p.setupLogger(LOG_LEVEL_TRACE)
+		p.setup(nil)
 
 		p.Log.Traceln("Only running the documentation generation without the CLI.")
 
 		if err := p.generateMarkdownDocumentation(); err != nil {
-			p.Log.Fatalln(err)
+			p.SendFatal(err)
 
 			for {
 				<-ch
@@ -160,16 +158,6 @@ func (p *Plumber) Run() {
 		}
 
 		return
-	}
-
-	if err := p.deprecationNoticeHandler(); err != nil {
-		p.SendError(err)
-
-		p.SendExit(112)
-
-		for {
-			<-ch
-		}
 	}
 
 	if err := p.Cli.Run(append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
@@ -414,7 +402,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			}
 		}
 
-		return nil
+		return p.registerHandlers()
 	}
 }
 
@@ -453,8 +441,8 @@ func (p *Plumber) defaultAction() cli.ActionFunc {
 }
 
 // App.registerInterruptHandler Registers the os.Signal listener for the application.
-func (p *Plumber) registerInterruptHandler(registered chan bool) {
-	registered <- true
+func (p *Plumber) registerInterruptHandler(registered chan string) {
+	registered <- "interrupt"
 
 	signal.Notify(p.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
@@ -489,8 +477,8 @@ func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 	p.Terminate(code)
 }
 
-func (p *Plumber) registerHandlers() {
-	registered := make(chan bool, 4)
+func (p *Plumber) registerHandlers() error {
+	registered := make(chan string, 4)
 	count := 0
 
 	go p.registerErrorHandler(registered)
@@ -498,27 +486,24 @@ func (p *Plumber) registerHandlers() {
 	go p.registerInterruptHandler(registered)
 	go p.registerExitHandler(registered)
 
-out:
 	for {
-		r := <-registered
+		<-registered
+		count++
 
-		if r {
-			count++
-
-			if count >= 4 {
-				break out
-			}
+		if count >= 4 {
+			break
 		}
 	}
 
+	p.Log.WithField(LOG_FIELD_CONTEXT, context_setup).Traceln("Registered handlers.")
 	close(registered)
 
-	p.Log.WithField(LOG_FIELD_CONTEXT, context_setup).Traceln("Registered handlers.")
+	return p.deprecationNoticeHandler()
 }
 
 // App.registerErrorHandler Registers the error handlers for the runtime errors, this will not terminate application.
-func (p *Plumber) registerErrorHandler(registered chan bool) {
-	registered <- true
+func (p *Plumber) registerErrorHandler(registered chan string) {
+	registered <- "error-handler"
 
 	for {
 		select {
@@ -543,8 +528,8 @@ func (p *Plumber) registerErrorHandler(registered chan bool) {
 }
 
 // App.registerFatalErrorHandler Registers the error handler for fatal errors, this will terminate the application.
-func (p *Plumber) registerFatalErrorHandler(registered chan bool) {
-	registered <- true
+func (p *Plumber) registerFatalErrorHandler(registered chan string) {
+	registered <- "fatal-error-handler"
 
 	for {
 		select {
@@ -568,8 +553,8 @@ func (p *Plumber) registerFatalErrorHandler(registered chan bool) {
 	}
 }
 
-func (p *Plumber) registerExitHandler(registered chan bool) {
-	registered <- true
+func (p *Plumber) registerExitHandler(registered chan string) {
+	registered <- "exit"
 
 	ch := make(chan int, 1)
 
