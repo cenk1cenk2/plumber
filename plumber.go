@@ -80,10 +80,10 @@ type (
 )
 
 const (
-	context_terminator  = "terminator"
-	context_parser      = "parser"
-	context_environment = "environment"
-	context_setup       = "setup"
+	context_terminator  = "plumber:terminator"
+	context_parser      = "plumber:parser"
+	context_environment = "plumber:environment"
+	context_setup       = "plumber:setup"
 )
 
 // Cli.New Creates a new plumber for pipes.
