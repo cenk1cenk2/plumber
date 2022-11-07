@@ -141,7 +141,8 @@ func (p *Plumber) Run() {
 
 	p.greet()
 
-	go p.registerHandlers()
+	p.registerHandlers()
+
 	ch := make(chan int, 1)
 	p.Channel.Exit.Register(ch)
 
@@ -452,7 +453,9 @@ func (p *Plumber) defaultAction() cli.ActionFunc {
 }
 
 // App.registerInterruptHandler Registers the os.Signal listener for the application.
-func (p *Plumber) registerInterruptHandler() {
+func (p *Plumber) registerInterruptHandler(registered chan bool) {
+	registered <- true
+
 	signal.Notify(p.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	interrupt := <-p.Channel.Interrupt
@@ -487,16 +490,30 @@ func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 }
 
 func (p *Plumber) registerHandlers() {
-	go p.registerErrorHandler()
-	go p.registerFatalErrorHandler()
-	go p.registerInterruptHandler()
-	go p.registerExitHandler()
+	registered := make(chan bool, 4)
+	count := 0
+
+	go p.registerErrorHandler(registered)
+	go p.registerFatalErrorHandler(registered)
+	go p.registerInterruptHandler(registered)
+	go p.registerExitHandler(registered)
+
+	for {
+		<-registered
+		count++
+
+		if count == 4 {
+			break
+		}
+	}
 
 	p.Log.WithField(LOG_FIELD_CONTEXT, context_setup).Traceln("Registered handlers.")
 }
 
 // App.registerErrorHandler Registers the error handlers for the runtime errors, this will not terminate application.
-func (p *Plumber) registerErrorHandler() {
+func (p *Plumber) registerErrorHandler(registered chan bool) {
+	registered <- true
+
 	for {
 		select {
 		case err := <-p.Channel.Err:
@@ -520,7 +537,9 @@ func (p *Plumber) registerErrorHandler() {
 }
 
 // App.registerFatalErrorHandler Registers the error handler for fatal errors, this will terminate the application.
-func (p *Plumber) registerFatalErrorHandler() {
+func (p *Plumber) registerFatalErrorHandler(registered chan bool) {
+	registered <- true
+
 	for {
 		select {
 		case err := <-p.Channel.Fatal:
@@ -543,7 +562,9 @@ func (p *Plumber) registerFatalErrorHandler() {
 	}
 }
 
-func (p *Plumber) registerExitHandler() {
+func (p *Plumber) registerExitHandler(registered chan bool) {
+	registered <- true
+
 	ch := make(chan int, 1)
 
 	p.Channel.Exit.Register(ch)
