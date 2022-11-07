@@ -498,14 +498,20 @@ func (p *Plumber) registerHandlers() {
 	go p.registerInterruptHandler(registered)
 	go p.registerExitHandler(registered)
 
+out:
 	for {
-		<-registered
-		count++
+		r := <-registered
 
-		if count == 4 {
-			break
+		if r {
+			count++
+
+			if count >= 4 {
+				break out
+			}
 		}
 	}
+
+	close(registered)
 
 	p.Log.WithField(LOG_FIELD_CONTEXT, context_setup).Traceln("Registered handlers.")
 }
