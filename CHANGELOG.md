@@ -1,3 +1,10 @@
+## [4.15.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.15.2...v4.15.3) (2022-11-07)
+
+
+### Bug Fixes
+
+* update with label ([cbd7edd](https://gitlab.kilic.dev/libraries/plumber/commit/cbd7eddb6c3c16172568bcffb43dd562935dfd7e))
+
 ## [4.15.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.15.1...v4.15.2) (2022-11-07)
 
 
