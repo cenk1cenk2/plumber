@@ -82,8 +82,7 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 }
 
 func (t *TaskList[Pipe]) SetName(names ...string) *TaskList[Pipe] {
-	name := append([]string{"TL"}, utils.DeleteEmptyStringsFromSlice(names)...)
-	t.Name = strings.Join(name, t.delimiter)
+	t.Name = fmt.Sprintf("TL -> %s", strings.Join(utils.DeleteEmptyStringsFromSlice(names), t.delimiter))
 
 	return t
 }
