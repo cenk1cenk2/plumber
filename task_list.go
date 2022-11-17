@@ -55,8 +55,8 @@ type TaskListOptions[Pipe TaskListData] struct {
 const (
 	// task list state.
 
-	task_list_disabled string = "TL:DISABLE"
-	task_list_skipped  string = "TL:SKIP"
+	task_list_disabled string = "DISABLE"
+	task_list_skipped  string = "SKIPPED"
 )
 
 func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {

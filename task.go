@@ -54,7 +54,7 @@ const (
 	// task state.
 
 	task_disabled string = "DISABLE"
-	task_skipped  string = "SKIP"
+	task_skipped  string = "SKIPPED"
 
 	// marks.
 
