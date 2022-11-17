@@ -1,3 +1,10 @@
+## [4.17.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.17.0...v4.17.1) (2022-11-17)
+
+
+### Bug Fixes
+
+* update empty memory pointer for fn ([10fa0b7](https://gitlab.kilic.dev/libraries/plumber/commit/10fa0b706f6fb343ff7290c3d2e36a1bc673bf6e))
+
 # [4.17.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.16.6...v4.17.0) (2022-11-17)
 
 
