@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
-	"html/template"
 	"os"
 	"reflect"
 	"regexp"
 	"strings"
+	"text/template"
 
 	"github.com/urfave/cli/v2"
 )
@@ -91,7 +91,9 @@ func (p *Plumber) toMarkdown() (string, error) {
 		return "", err
 	}
 
-	t, err := template.New(name).Funcs(template.FuncMap{"StringsJoin": strings.Join}).Parse(string(tmpl))
+	t, err := template.New(name).
+		Funcs(template.FuncMap{"StringsJoin": strings.Join, "StringsReplaceAll": strings.ReplaceAll}).
+		Parse(string(tmpl))
 
 	if err != nil {
 		return "", err
