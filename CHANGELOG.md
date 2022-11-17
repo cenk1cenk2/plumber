@@ -1,3 +1,10 @@
+## [4.16.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.16.3...v4.16.4) (2022-11-17)
+
+
+### Bug Fixes
+
+* issue with generating default values for pipes ([b1291d2](https://gitlab.kilic.dev/libraries/plumber/commit/b1291d288342fa54d9bcc426d70f45d7fb00f234))
+
 ## [4.16.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.16.2...v4.16.3) (2022-11-13)
 
 
