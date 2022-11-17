@@ -1,3 +1,10 @@
+## [4.16.5](https://gitlab.kilic.dev/libraries/plumber/compare/v4.16.4...v4.16.5) (2022-11-17)
+
+
+### Bug Fixes
+
+* issue with documentation genneration ([62fd381](https://gitlab.kilic.dev/libraries/plumber/commit/62fd381dd056095a8a4b29c515fc11dcf36b19dd))
+
 ## [4.16.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.16.3...v4.16.4) (2022-11-17)
 
 
