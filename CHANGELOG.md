@@ -1,3 +1,10 @@
+## [4.16.6](https://gitlab.kilic.dev/libraries/plumber/compare/v4.16.5...v4.16.6) (2022-11-17)
+
+
+### Bug Fixes
+
+* upload templating for document generation ([11d173f](https://gitlab.kilic.dev/libraries/plumber/commit/11d173f92f06453aa5133d56ade5a477f40f6e95))
+
 ## [4.16.5](https://gitlab.kilic.dev/libraries/plumber/compare/v4.16.4...v4.16.5) (2022-11-17)
 
 
