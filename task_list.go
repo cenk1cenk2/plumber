@@ -52,12 +52,27 @@ type TaskListOptions[Pipe TaskListData] struct {
 	Disable TaskListPredicateFn[Pipe]
 }
 
+const (
+	// task list state.
+
+	task_list_disabled string = "TL:DISABLE"
+	task_list_skipped  string = "TL:SKIP"
+)
+
 func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	t.Lock = &sync.RWMutex{}
 	t.Plumber = p
 	t.Log = p.Log
 	t.Channel = &p.Channel
 	t.delimiter = ":"
+	t.options = TaskListOptions[Pipe]{
+		Skip: func(t *TaskList[Pipe]) bool {
+			return false
+		},
+		Disable: func(t *TaskList[Pipe]) bool {
+			return false
+		},
+	}
 
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
@@ -204,12 +219,12 @@ func (t *TaskList[Pipe]) IsSkipped() bool {
 
 func (t *TaskList[Pipe]) handleStopCases() bool {
 	if result := t.IsDisabled(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, task_disabled).
+		t.Log.WithField(LOG_FIELD_CONTEXT, task_list_disabled).
 			Debugf("%s", t.Name)
 
 		return true
 	} else if result := t.IsSkipped(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, task_skipped).
+		t.Log.WithField(LOG_FIELD_CONTEXT, task_list_skipped).
 			Warnf("%s", t.Name)
 
 		return true
