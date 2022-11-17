@@ -16,8 +16,7 @@ type (
 	Result       = floc.Result
 	ResultMask   = floc.ResultMask
 
-	TaskListPredicateFn[Pipe TaskListData] func(*TaskList[Pipe]) bool
-	GuardHandlerFn[Pipe TaskListData]      func(*TaskList[Pipe])
+	GuardHandlerFn[Pipe TaskListData] func(*TaskList[Pipe])
 )
 
 const (

@@ -145,7 +145,11 @@ func (p *Plumber) Run() {
 	p.Channel.Exit.Register(ch)
 
 	if slices.Contains(os.Args, "MARKDOWN_DOC") {
-		p.setupBasic()
+		err := p.setupBasic()
+
+		if err != nil {
+			panic(err)
+		}
 
 		p.Log.Traceln("Only running the documentation generation without the CLI.")
 

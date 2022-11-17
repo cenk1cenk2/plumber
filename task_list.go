@@ -2,11 +2,13 @@ package plumber
 
 import (
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"github.com/workanator/go-floc/v3"
+	"gitlab.kilic.dev/libraries/go-utils/utils"
 
 	"fmt"
 
@@ -19,6 +21,8 @@ type TaskListData interface {
 }
 
 type TaskList[Pipe TaskListData] struct {
+	Name string
+
 	Tasks Job
 
 	Plumber *Plumber
@@ -34,12 +38,19 @@ type TaskList[Pipe TaskListData] struct {
 	flocContext floc.Context
 	runBefore   TaskListFn[Pipe]
 	runAfter    TaskListFn[Pipe]
+	options     TaskListOptions[Pipe]
 }
 
 type (
-	TaskListFn[Pipe TaskListData]    func(*TaskList[Pipe]) error
-	TaskListJobFn[Pipe TaskListData] func(*TaskList[Pipe]) Job
+	TaskListFn[Pipe TaskListData]          func(*TaskList[Pipe]) error
+	TaskListJobFn[Pipe TaskListData]       func(*TaskList[Pipe]) Job
+	TaskListPredicateFn[Pipe TaskListData] func(*TaskList[Pipe]) bool
 )
+
+type TaskListOptions[Pipe TaskListData] struct {
+	Skip    TaskListPredicateFn[Pipe]
+	Disable TaskListPredicateFn[Pipe]
+}
 
 func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	t.Lock = &sync.RWMutex{}
@@ -51,6 +62,13 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
 	go t.registerTerminateHandler()
+
+	return t
+}
+
+func (t *TaskList[Pipe]) SetName(names ...string) *TaskList[Pipe] {
+	name := append([]string{"TL"}, utils.DeleteEmptyStringsFromSlice(names)...)
+	t.Name = strings.Join(name, t.delimiter)
 
 	return t
 }
@@ -141,9 +159,72 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 	return nil
 }
 
+func (t *TaskList[Pipe]) RunJobs(job Job) error {
+	if job == nil {
+		return nil
+	}
+
+	result, data, err := floc.RunWith(t.flocContext, t.Control, job)
+
+	if err != nil {
+		return err
+	}
+
+	return t.handleFloc(result, data)
+}
+
+func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error {
+	switch {
+	case result.IsCanceled() && data != nil:
+		t.Log.Debugf("Tasks are cancelled: %s", data)
+	}
+
+	return nil
+}
+
+func (t *TaskList[Pipe]) ShouldDisable(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
+	t.options.Disable = fn
+
+	return t
+}
+
+func (t *TaskList[Pipe]) IsDisabled() bool {
+	return t.options.Disable(t)
+}
+
+func (t *TaskList[Pipe]) ShouldSkip(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
+	t.options.Skip = fn
+
+	return t
+}
+
+func (t *TaskList[Pipe]) IsSkipped() bool {
+	return t.options.Skip(t)
+}
+
+func (t *TaskList[Pipe]) handleStopCases() bool {
+	if result := t.IsDisabled(); result {
+		t.Log.WithField(LOG_FIELD_CONTEXT, task_disabled).
+			Debugf("%s", t.Name)
+
+		return true
+	} else if result := t.IsSkipped(); result {
+		t.Log.WithField(LOG_FIELD_CONTEXT, task_skipped).
+			Warnf("%s", t.Name)
+
+		return true
+	}
+
+	return false
+}
+
 func (t *TaskList[Pipe]) Run() error {
 	if t.Tasks == nil {
 		return fmt.Errorf("Task list is empty.")
+	}
+
+	if stop := t.handleStopCases(); stop {
+		return nil
 	}
 
 	if t.runBefore != nil {
@@ -170,29 +251,6 @@ func (t *TaskList[Pipe]) Run() error {
 		if err := t.runAfter(t); err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-func (t *TaskList[Pipe]) RunJobs(job Job) error {
-	if job == nil {
-		return nil
-	}
-
-	result, data, err := floc.RunWith(t.flocContext, t.Control, job)
-
-	if err != nil {
-		return err
-	}
-
-	return t.handleFloc(result, data)
-}
-
-func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error {
-	switch {
-	case result.IsCanceled() && data != nil:
-		t.Log.Debugf("Tasks are cancelled: %s", data)
 	}
 
 	return nil
