@@ -188,7 +188,7 @@ func (p *Plumber) toMarkdownFlags(
 		description = re.ReplaceAllString(description, "")
 
 		text := current.GetDefaultText()
-		if text != "" {
+		if text == "" {
 			text = current.GetValue()
 		}
 
