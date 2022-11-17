@@ -76,7 +76,7 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	}
 
 	_, file, _, _ := runtime.Caller(1)
-	t.Name = fmt.Sprintf("TL -> %s", file)
+	t.Name = file
 
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
@@ -86,7 +86,7 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 }
 
 func (t *TaskList[Pipe]) SetName(names ...string) *TaskList[Pipe] {
-	t.Name = fmt.Sprintf("TL -> %s", strings.Join(utils.DeleteEmptyStringsFromSlice(names), t.delimiter))
+	t.Name = strings.Join(utils.DeleteEmptyStringsFromSlice(names), t.delimiter)
 
 	return t
 }
