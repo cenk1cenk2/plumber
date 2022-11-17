@@ -187,12 +187,17 @@ func (p *Plumber) toMarkdownFlags(
 
 		description = re.ReplaceAllString(description, "")
 
+		text := current.GetDefaultText()
+		if text != "" {
+			text = current.GetValue()
+		}
+
 		parsed := &templateFlag{
 			Name:        names,
 			Description: description,
 			Type:        strings.ReplaceAll(strings.ReplaceAll(reflect.TypeOf(f).String(), "*cli.", ""), "Flag", ""),
 			Format:      format,
-			Default:     current.GetDefaultText(),
+			Default:     text,
 			Required:    current.(cli.RequiredFlag).IsRequired(),
 			Category:    current.(cli.CategorizableFlag).GetCategory(),
 		}
