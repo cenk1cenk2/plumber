@@ -390,15 +390,23 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		if ctx.Bool("debug") {
 			level = logrus.DebugLevel
+		}
+
+		p.setupLogger(level)
+
+		log := p.Log.WithField(LOG_FIELD_CONTEXT, context_setup)
+
+		if ctx.Bool("debug") || level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE {
+			log.Traceln("Running in debug mode.")
 
 			p.Environment.Debug = true
 		}
 
 		if ctx.Bool("ci") {
+			log.Traceln("Running inside CI.")
+
 			p.Environment.CI = true
 		}
-
-		p.setupLogger(level)
 
 		if before != nil {
 			if err := before(ctx); err != nil {

@@ -26,17 +26,16 @@ var CliDefaultFlags = []cli.Flag{
 
 	&cli.StringFlag{
 		Category: CLI_FLAGS_CATEGORY,
-		Name:     "env-file",
-		Usage:    "Environment files to inject.",
-		EnvVars:  []string{"ENV_FILE"},
-		Hidden:   true,
-	},
-
-	&cli.StringFlag{
-		Category: CLI_FLAGS_CATEGORY,
 		Name:     "log-level",
 		Usage:    `Define the log level for the application. enum("PANIC", "FATAL", "WARNING", "INFO", "DEBUG", "TRACE")`,
 		EnvVars:  []string{"LOG_LEVEL"},
 		Value:    logrus.InfoLevel.String(),
+	},
+
+	&cli.StringFlag{
+		Category: CLI_FLAGS_CATEGORY,
+		Name:     "env-file",
+		Usage:    "Environment files to inject.",
+		EnvVars:  []string{"ENV_FILE"},
 	},
 }
