@@ -2,6 +2,7 @@ package plumber
 
 import (
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -73,6 +74,9 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 			return false
 		},
 	}
+
+	_, file, _, _ := runtime.Caller(1)
+	t.Name = fmt.Sprintf("TL -> %s", file)
 
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
