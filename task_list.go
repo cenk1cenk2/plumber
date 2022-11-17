@@ -3,13 +3,11 @@ package plumber
 import (
 	"os"
 	"runtime"
-	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"github.com/workanator/go-floc/v3"
-	"gitlab.kilic.dev/libraries/go-utils/utils"
 
 	"fmt"
 
@@ -81,12 +79,6 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
 	go t.registerTerminateHandler()
-
-	return t
-}
-
-func (t *TaskList[Pipe]) SetName(names ...string) *TaskList[Pipe] {
-	t.Name = strings.Join(utils.DeleteEmptyStringsFromSlice(names), t.delimiter)
 
 	return t
 }
