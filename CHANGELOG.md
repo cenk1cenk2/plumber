@@ -1,3 +1,10 @@
+## [4.18.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.18.0...v4.18.1) (2022-11-17)
+
+
+### Bug Fixes
+
+* update injection of env-file ([1bbb30a](https://gitlab.kilic.dev/libraries/plumber/commit/1bbb30adce904390e0274a48aedb669f5e7eed98))
+
 # [4.18.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.17.3...v4.18.0) (2022-11-17)
 
 
