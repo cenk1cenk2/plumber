@@ -1,3 +1,10 @@
+## [4.19.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.19.1...v4.19.2) (2022-11-17)
+
+
+### Bug Fixes
+
+* simplify logging for traces ([ed332ba](https://gitlab.kilic.dev/libraries/plumber/commit/ed332ba419a7fca000072182c9c165e1e2b97ca9))
+
 ## [4.19.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.19.0...v4.19.1) (2022-11-17)
 
 
