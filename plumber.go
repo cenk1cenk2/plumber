@@ -145,7 +145,7 @@ func (p *Plumber) Run() {
 	p.Channel.Exit.Register(ch)
 
 	if slices.Contains(os.Args, "MARKDOWN_DOC") {
-		p.setup(nil)
+		p.setupBasic()
 
 		p.Log.Traceln("Only running the documentation generation without the CLI.")
 
@@ -404,6 +404,22 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		return p.registerHandlers()
 	}
+}
+
+func (p *Plumber) setupBasic() error {
+	if err := p.loadEnvironment(); err != nil {
+		return err
+	}
+
+	level, err := logrus.ParseLevel(os.Getenv("LOG_LEVEL"))
+
+	if err != nil {
+		level = logrus.InfoLevel
+	}
+
+	p.setupLogger(level)
+
+	return p.registerHandlers()
 }
 
 func (p *Plumber) setupLogger(level LogLevel) {
