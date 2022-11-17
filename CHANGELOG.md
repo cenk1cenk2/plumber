@@ -1,3 +1,10 @@
+# [4.19.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.18.2...v4.19.0) (2022-11-17)
+
+
+### Features
+
+* add trace logs for where the tasks are comming from ([ef8ec4f](https://gitlab.kilic.dev/libraries/plumber/commit/ef8ec4f79255ddc17434515cab0b9ada5b9f5794))
+
 ## [4.18.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.18.1...v4.18.2) (2022-11-17)
 
 
