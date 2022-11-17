@@ -1,3 +1,15 @@
+# [4.17.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.16.6...v4.17.0) (2022-11-17)
+
+
+### Bug Fixes
+
+* update documentation generation ([681fe91](https://gitlab.kilic.dev/libraries/plumber/commit/681fe9183b02cdb1c734a52968b9fdff4be597e7))
+
+
+### Features
+
+* add disabling to task lists ([d7ee52a](https://gitlab.kilic.dev/libraries/plumber/commit/d7ee52a5d70fbc25c5ff931fb2d98c767c6ebc00))
+
 ## [4.16.6](https://gitlab.kilic.dev/libraries/plumber/compare/v4.16.5...v4.16.6) (2022-11-17)
 
 
