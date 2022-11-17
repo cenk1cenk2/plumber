@@ -1,3 +1,10 @@
+## [4.18.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.18.1...v4.18.2) (2022-11-17)
+
+
+### Bug Fixes
+
+* set task list default name ([ccd30a6](https://gitlab.kilic.dev/libraries/plumber/commit/ccd30a6cb7dafc116f719419b04e6b4abf733cea))
+
 ## [4.18.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.18.0...v4.18.1) (2022-11-17)
 
 
