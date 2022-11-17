@@ -32,7 +32,7 @@ var CliDefaultFlags = []cli.Flag{
 		Value:    logrus.InfoLevel.String(),
 	},
 
-	&cli.StringFlag{
+	&cli.StringSliceFlag{
 		Category: CLI_FLAGS_CATEGORY,
 		Name:     "env-file",
 		Usage:    "Environment files to inject.",

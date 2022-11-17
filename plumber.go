@@ -355,15 +355,13 @@ func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
 }
 
 // Cli.loadEnvironment Loads the given environment file to the application.
-func (p *Plumber) loadEnvironment() error {
-	if env := os.Getenv("ENV_FILE"); env != "" {
-		files := strings.Split(env, ",")
-
-		if err := godotenv.Load(files...); err != nil {
+func (p *Plumber) loadEnvironment(ctx *cli.Context) error {
+	if env := ctx.StringSlice("env-file"); len(env) != 0 {
+		if err := godotenv.Load(env...); err != nil {
 			return err
 		}
 
-		p.Log.WithField(LOG_FIELD_CONTEXT, context_environment).Tracef("Environment files are loaded: %v", files)
+		p.Log.WithField(LOG_FIELD_CONTEXT, context_environment).Tracef("Environment files are loaded: %v", env)
 	}
 
 	return nil
@@ -372,7 +370,7 @@ func (p *Plumber) loadEnvironment() error {
 // Cli.setup Before function for the CLI that gets executed setup the action.
 func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	return func(ctx *cli.Context) error {
-		if err := p.loadEnvironment(); err != nil {
+		if err := p.loadEnvironment(ctx); err != nil {
 			return err
 		}
 
@@ -413,10 +411,6 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 }
 
 func (p *Plumber) setupBasic() error {
-	if err := p.loadEnvironment(); err != nil {
-		return err
-	}
-
 	level, err := logrus.ParseLevel(os.Getenv("LOG_LEVEL"))
 
 	if err != nil {
