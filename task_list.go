@@ -245,7 +245,10 @@ func (t *TaskList[Pipe]) Run() error {
 		return nil
 	}
 
+	t.Log.Tracef("Starting task-list: %s", t.Name)
+
 	if t.runBefore != nil {
+		t.Log.Tracef("Running before the task-list operations: %s", t.Name)
 		if err := t.runBefore(t); err != nil {
 			return err
 		}
@@ -255,6 +258,7 @@ func (t *TaskList[Pipe]) Run() error {
 		return err
 	}
 
+	t.Log.Tracef("Running task-list: %s", t.Name)
 	result, data, err := floc.RunWith(t.flocContext, t.Control, t.Tasks)
 
 	if err != nil {
@@ -266,10 +270,13 @@ func (t *TaskList[Pipe]) Run() error {
 	}
 
 	if t.runAfter != nil {
+		t.Log.Tracef("Running after the task-list operations: %s", t.Name)
 		if err := t.runAfter(t); err != nil {
 			return err
 		}
 	}
+
+	t.Log.Tracef("Finished task-list: %s", t.Name)
 
 	return nil
 }

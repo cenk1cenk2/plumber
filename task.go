@@ -379,7 +379,10 @@ func (t *Task[Pipe]) Run() error {
 		return nil
 	}
 
+	t.Log.Tracef("Starting task: %s", t.Name)
+
 	if t.runBeforeFn != nil {
+		t.Log.Tracef("Running before the task operations: %s", t.Name)
 		if err := t.runBeforeFn(t); err != nil {
 			t.Log.Errorln(err)
 
@@ -388,6 +391,7 @@ func (t *Task[Pipe]) Run() error {
 	}
 
 	if t.fn != nil {
+		t.Log.Tracef("Running task: %s", t.Name)
 		if err := t.fn(t); err != nil {
 			t.Log.Errorln(err)
 
@@ -396,12 +400,15 @@ func (t *Task[Pipe]) Run() error {
 	}
 
 	if t.runAfterFn != nil {
+		t.Log.Tracef("Running after the task operations: %s", t.Name)
 		if err := t.runAfterFn(t); err != nil {
 			t.Log.Errorln(err)
 
 			return t.handleErrors(err)
 		}
 	}
+
+	t.Log.Tracef("Finished task: %s", t.Name)
 
 	return nil
 }
