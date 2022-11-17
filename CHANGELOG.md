@@ -1,3 +1,15 @@
+# [4.18.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.17.3...v4.18.0) (2022-11-17)
+
+
+### Bug Fixes
+
+* add more makes sense log for logger setup ([c99db9b](https://gitlab.kilic.dev/libraries/plumber/commit/c99db9b7ae05e00588ae64fc1918167f191e2f0c))
+
+
+### Features
+
+* more trace logs ([372e577](https://gitlab.kilic.dev/libraries/plumber/commit/372e57743a238f187b41d583c20d39dcda3cadd4))
+
 ## [4.17.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.17.2...v4.17.3) (2022-11-17)
 
 
