@@ -110,12 +110,6 @@ func (p *Plumber) New(
 		p.DocsFile = "README.md"
 	}
 
-	// if len(p.Cli.Commands) > 0 {
-	// 	for i, v := range p.Cli.Commands {
-	// 		p.Cli.Commands[i].Flags = p.appendDefaultFlags(v.Flags)
-	// 	}
-	// }
-
 	p.Environment = AppEnvironment{}
 
 	// create error channels
@@ -455,7 +449,7 @@ func (p *Plumber) setupLogger(level LogLevel) {
 
 	p.Log.ExitFunc = p.Terminate
 
-	p.Log.WithField(LOG_FIELD_CONTEXT, context_setup).Traceln("Logger setup.")
+	p.Log.WithField(LOG_FIELD_CONTEXT, context_setup).Tracef("Logger has been setup with level: %d", level)
 }
 
 func (p *Plumber) defaultAction() cli.ActionFunc {
