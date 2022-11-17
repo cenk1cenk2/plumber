@@ -1,3 +1,10 @@
+## [4.17.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.17.2...v4.17.3) (2022-11-17)
+
+
+### Bug Fixes
+
+* wording ([0823056](https://gitlab.kilic.dev/libraries/plumber/commit/0823056dd480fd56cd5a1908d5660898a9d4887a))
+
 ## [4.17.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.17.1...v4.17.2) (2022-11-17)
 
 
