@@ -29,7 +29,7 @@ type TaskList[Pipe TaskListData] struct {
 	CliContext *cli.Context
 	Pipe       Pipe
 	Lock       *sync.RWMutex
-	Log        *logrus.Logger
+	Log        *logrus.Entry
 	Channel    *AppChannel
 	Control    floc.Control
 
@@ -61,7 +61,6 @@ const (
 func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	t.Lock = &sync.RWMutex{}
 	t.Plumber = p
-	t.Log = p.Log
 	t.Channel = &p.Channel
 	t.delimiter = ":"
 	t.options = TaskListOptions[Pipe]{
@@ -73,8 +72,14 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 		},
 	}
 
-	_, file, _, _ := runtime.Caller(1)
-	t.Name = file
+	_, file, _, ok := runtime.Caller(1)
+	if ok {
+		t.Name = file
+		t.Log = p.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
+	} else {
+		t.Log = p.Log.WithField(LOG_FIELD_CONTEXT, "TL")
+		t.Log.Traceln("Runtime caller has failed using default.")
+	}
 
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
@@ -237,10 +242,10 @@ func (t *TaskList[Pipe]) Run() error {
 		return nil
 	}
 
-	t.Log.Tracef("Starting task-list: %s", t.Name)
+	t.Log.Traceln("Started task-list.")
 
 	if t.runBefore != nil {
-		t.Log.Tracef("Running before the task-list operations: %s", t.Name)
+		t.Log.Traceln("Running before the task-list operations.")
 		if err := t.runBefore(t); err != nil {
 			return err
 		}
@@ -250,7 +255,7 @@ func (t *TaskList[Pipe]) Run() error {
 		return err
 	}
 
-	t.Log.Tracef("Running task-list: %s", t.Name)
+	t.Log.Traceln("Running task-list.")
 	result, data, err := floc.RunWith(t.flocContext, t.Control, t.Tasks)
 
 	if err != nil {
@@ -262,13 +267,13 @@ func (t *TaskList[Pipe]) Run() error {
 	}
 
 	if t.runAfter != nil {
-		t.Log.Tracef("Running after the task-list operations: %s", t.Name)
+		t.Log.Traceln("Running after the task-list operations.")
 		if err := t.runAfter(t); err != nil {
 			return err
 		}
 	}
 
-	t.Log.Tracef("Finished task-list: %s", t.Name)
+	t.Log.Traceln("Finished task-list.")
 
 	return nil
 }
