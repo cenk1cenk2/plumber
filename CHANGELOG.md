@@ -1,3 +1,11 @@
+## [4.19.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.19.0...v4.19.1) (2022-11-17)
+
+
+### Bug Fixes
+
+* remove unnecassary indication ([7e41643](https://gitlab.kilic.dev/libraries/plumber/commit/7e41643338d33653a01520d026a780d145f81531))
+* remove unnessary name setting ([0a7a272](https://gitlab.kilic.dev/libraries/plumber/commit/0a7a272e486dbfed41fd41295bf65009c59732ab))
+
 # [4.19.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.18.2...v4.19.0) (2022-11-17)
 
 
