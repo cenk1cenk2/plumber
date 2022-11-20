@@ -26,7 +26,7 @@ const (
 	TASK_FAILED    Result = floc.Failed
 )
 
-// TaskList.Predicate Creates a new floc predicate out of the given conditions.
+// Creates a new floc predicate out of the given conditions.
 func (t *TaskList[Pipe]) Predicate(fn TaskListPredicateFn[Pipe]) JobPredicate {
 	return func(ctx floc.Context) bool {
 		return fn(t)

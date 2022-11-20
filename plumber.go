@@ -138,9 +138,12 @@ func (p *Plumber) New(
 	return p
 }
 
-// Enables terminator globally for the current application.
-// If terminator functions are going to be used inside task lists, tasks and commands, terminator should be globally enabled.
-// The terminate information will be propagated through the channels to the subcomponents.
+/*
+Enables terminator globally for the current application.
+
+If terminator functions are going to be used inside task lists, tasks and commands, terminator should be globally enabled.
+The terminate information will be propagated through the channels to the subcomponents.
+*/
 func (p *Plumber) EnableTerminator() *Plumber {
 	p.Terminator = Terminator{
 		Enabled:         true,
@@ -245,8 +248,11 @@ func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 	p.Terminate(code)
 }
 
-// Sends a terminate request through the application.
-// This will gracefully try to stop the application components that are registered and listening for the terminator.
+/*
+Sends a terminate request through the application.
+
+This will gracefully try to stop the application components that are registered and listening for the terminator.
+*/
 func (p *Plumber) Terminate(code int) {
 	if p.Terminator.Enabled {
 		if p.Terminator.registered > 0 {
