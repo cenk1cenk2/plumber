@@ -18,3 +18,15 @@ const (
 	LOG_FIELD_CONTEXT string   = "context"
 	LOG_FIELD_STATUS  string   = "status"
 )
+
+const (
+	log_context_disable string = "DISABLE"
+	log_context_skipped string = "SKIPPED"
+
+	log_status_start  string = "START"
+	log_status_finish string = "FINISH"
+	log_status_fail   string = "FAIL"
+	log_status_exit   string = "EXIT"
+	log_status_run    string = "RUN"
+	log_status_end    string = "END"
+)

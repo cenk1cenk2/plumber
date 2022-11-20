@@ -13,35 +13,33 @@ import (
 )
 
 type Task[Pipe TaskListData] struct {
-	Name    string
-	options TaskOptions[Pipe]
-
 	Plumber  *Plumber
+	taskList *TaskList[Pipe]
 	Log      *logrus.Entry
 	Channel  *AppChannel
 	Lock     *sync.RWMutex
 	taskLock *sync.RWMutex
+	Pipe     *Pipe
+	Control  floc.Control
 
-	Pipe    *Pipe
-	Control floc.Control
+	Name    string
+	options TaskOptions[Pipe]
 
-	taskList *TaskList[Pipe]
-
-	subtask        Job
-	emptyJob       Job
-	parent         *Task[Pipe]
-	commands       []*Command[Pipe]
-	fn             TaskFn[Pipe]
-	runBeforeFn    TaskFn[Pipe]
-	runAfterFn     TaskFn[Pipe]
-	onTerminatorFn TaskFn[Pipe]
-	jobWrapperFn   JobWrapperFn
-	marks          []string
+	commands          []*Command[Pipe]
+	parent            *Task[Pipe]
+	subtask           Job
+	emptyJob          Job
+	fn                TaskFn[Pipe]
+	shouldRunBeforeFn TaskFn[Pipe]
+	shouldRunAfterFn  TaskFn[Pipe]
+	onTerminatorFn    TaskFn[Pipe]
+	jobWrapperFn      JobWrapperFn
 }
 
 type TaskOptions[Pipe TaskListData] struct {
 	Skip    TaskPredicateFn[Pipe]
 	Disable TaskPredicateFn[Pipe]
+	marks   []string
 }
 
 type (
@@ -51,37 +49,25 @@ type (
 )
 
 const (
-	// task state.
-
-	task_disabled string = "DISABLE"
-	task_skipped  string = "SKIPPED"
-
 	// marks.
 
 	MARK_ROUTINE string = "MARK_ROUTINE"
 )
 
+// NewTask Creates a new task to be run as a job.
 func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] {
-	t := &Task[Pipe]{}
-
-	t.Name = strings.Join(utils.DeleteEmptyStringsFromSlice(name), tl.delimiter)
-	t.options = TaskOptions[Pipe]{
-		Skip: func(t *Task[Pipe]) bool {
-			return false
-		},
-		Disable: func(t *Task[Pipe]) bool {
-			return false
-		},
+	t := &Task[Pipe]{
+		Name:     strings.Join(utils.DeleteEmptyStringsFromSlice(name), tl.Plumber.options.delimiter),
+		taskList: tl,
+		Plumber:  tl.Plumber,
+		Lock:     tl.Lock,
+		taskLock: &sync.RWMutex{},
+		Channel:  tl.Channel,
+		Pipe:     &tl.Pipe,
+		Control:  tl.Control,
 	}
-	t.commands = []*Command[Pipe]{}
 
-	t.taskList = tl
-
-	t.Plumber = tl.Plumber
 	t.Log = tl.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
-	t.Lock = tl.Lock
-	t.taskLock = &sync.RWMutex{}
-	t.Channel = tl.Channel
 
 	t.emptyJob = tl.JobIf(tl.Predicate(func(tl *TaskList[Pipe]) bool {
 		return false
@@ -92,19 +78,216 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] 
 	)
 	t.subtask = t.emptyJob
 
-	t.Pipe = &tl.Pipe
-	t.Control = tl.Control
-	t.marks = []string{}
+	return t
+}
+
+// Task.ShouldRunBefore Sets the function that should run before the task.
+func (t *Task[Pipe]) ShouldRunBefore(fn TaskFn[Pipe]) *Task[Pipe] {
+	t.shouldRunBeforeFn = fn
 
 	return t
 }
 
+// Task.Set Sets the function that should run as task.
 func (t *Task[Pipe]) Set(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.fn = fn
 
 	return t
 }
 
+// Task.ShouldRunAfter Sets the function that should run after the task.
+func (t *Task[Pipe]) ShouldRunAfter(fn TaskFn[Pipe]) *Task[Pipe] {
+	t.shouldRunAfterFn = fn
+
+	return t
+}
+
+// Task.ShouldDisable Sets the predicate that should conditionally disable the task depending on the pipe variables.
+func (t *Task[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
+	t.options.Disable = fn
+
+	return t
+}
+
+// Task.IsDisabled Checks whether the current task is disabled or not.
+func (t *Task[Pipe]) IsDisabled() bool {
+	if t.options.Disable == nil {
+		return false
+	}
+
+	return t.options.Disable(t)
+}
+
+// Task.ShouldSkip Sets the predicate that should conditionally skip the task depending on the pipe variables.
+func (t *Task[Pipe]) ShouldSkip(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
+	t.options.Skip = fn
+
+	return t
+}
+
+// Task.IsDisabled Checks whether the current task is skipped or not.
+func (t *Task[Pipe]) IsSkipped() bool {
+	if t.options.Skip == nil {
+		return false
+	}
+
+	return t.options.Skip(t)
+}
+
+// Task.EnableTerminator Enables global plumber terminator on this task.
+func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
+	t.Log.Tracef("Registered terminator.")
+	t.Plumber.RegisterTerminator()
+
+	go t.handleTerminator()
+
+	return t
+}
+
+// Task.SetOnTerminator Sets the function that should fire whenever the application is globally terminated.
+func (t *Task[Pipe]) SetOnTerminator(fn TaskFn[Pipe]) *Task[Pipe] {
+	t.onTerminatorFn = fn
+
+	return t
+}
+
+// Task.SetMarks Sets marks to change the behavior of the task.
+func (t *Task[Pipe]) SetMarks(marks ...string) *Task[Pipe] {
+	t.options.marks = marks
+
+	return t
+}
+
+// Task.IsMarkedAsRoutine Checks whether current task is marked as a routine that is mostly working as a async manner.
+func (t *Task[Pipe]) IsMarkedAsRoutine() bool {
+	return slices.Contains(t.options.marks, MARK_ROUTINE)
+}
+
+// Task.SetJobWrapper Extend the job of the current task.
+func (t *Task[Pipe]) SetJobWrapper(fn JobWrapperFn) *Task[Pipe] {
+	t.jobWrapperFn = fn
+
+	return t
+}
+
+// Task.Run Runs the current task.
+func (t *Task[Pipe]) Run() error {
+	if stop := t.handleStopCases(); stop {
+		return nil
+	}
+
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_start).Traceln("$")
+
+	if t.shouldRunBeforeFn != nil {
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.ShouldRunBefore")
+		if err := t.shouldRunBeforeFn(t); err != nil {
+			t.Log.Errorln(err)
+
+			return t.handleErrors(err)
+		}
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.ShouldRunBefore")
+	}
+
+	if t.fn != nil {
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.Task")
+		if err := t.fn(t); err != nil {
+			t.Log.Errorln(err)
+
+			return t.handleErrors(err)
+		}
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.Task")
+	}
+
+	if t.shouldRunAfterFn != nil {
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.ShouldRunAfter")
+		if err := t.shouldRunAfterFn(t); err != nil {
+			t.Log.Errorln(err)
+
+			return t.handleErrors(err)
+		}
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.ShouldRunAfter")
+	}
+
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_finish).Traceln("$")
+
+	return nil
+}
+
+// Task.Job Runs the current task as a job.
+func (t *Task[Pipe]) Job() Job {
+	return t.taskList.JobIfNot(
+		t.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
+			return t.IsDisabled() || t.IsSkipped()
+		}),
+		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
+			if t.jobWrapperFn != nil {
+				return tl.RunJobs(t.jobWrapperFn(
+					tl.CreateBasicJob(t.Run),
+				))
+			}
+
+			return t.Run()
+		}),
+		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
+			t.handleStopCases()
+
+			return nil
+		}),
+	)
+}
+
+// Task.SendError Send the error message to plumber while running inside a routine.
+func (t *Task[Pipe]) SendError(err error) *Task[Pipe] {
+	t.Plumber.SendCustomError(t.Log, err)
+
+	return t
+}
+
+// Task.SendError Send the fatal error message to plumber while running inside a routine.
+func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
+	t.Control.Cancel(err)
+	t.Plumber.SendCustomFatal(t.Log, err)
+
+	return t
+}
+
+// Task.SendExit Trigger the exit protocol of plumber.
+func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
+	t.Control.Cancel(fmt.Sprintf("Will exit with code: %d", code))
+	t.Plumber.SendExit(code)
+
+	return t
+}
+
+// Task.handleStopCases Handles the stop cases of the task.
+func (t *Task[Pipe]) handleStopCases() bool {
+	if result := t.IsDisabled(); result {
+		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
+			Debugf("%s", t.Name)
+
+		return true
+	} else if result := t.IsSkipped(); result {
+		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_skipped).
+			Warnf("%s", t.Name)
+
+		return true
+	}
+
+	return false
+}
+
+// Task.handleErrors Handles the errors from the current task.
+func (t *Task[Pipe]) handleErrors(err error) error {
+	if t.IsMarkedAsRoutine() {
+		t.SendFatal(err)
+
+		return nil
+	}
+
+	return err
+}
+
+// Task.handleTerminator Handles the plumber terminator when terminator is triggered.
 func (t *Task[Pipe]) handleTerminator() {
 	ch := make(chan os.Signal, 1)
 
@@ -128,345 +311,4 @@ func (t *Task[Pipe]) handleTerminator() {
 
 	t.Log.Tracef("Registered as terminated.")
 	t.Plumber.RegisterTerminated()
-}
-
-func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
-	t.Log.Tracef("Registered terminator.")
-	t.Plumber.RegisterTerminator()
-
-	go t.handleTerminator()
-
-	return t
-}
-
-func (t *Task[Pipe]) SetOnTerminator(fn TaskFn[Pipe]) *Task[Pipe] {
-	t.onTerminatorFn = fn
-
-	return t
-}
-
-func (t *Task[Pipe]) CreateSubtask(name ...string) *Task[Pipe] {
-	parsed := append([]string{t.Name}, name...)
-
-	st := NewTask(t.taskList, parsed...)
-
-	st.parent = t
-	st.Lock = t.Lock
-
-	return st
-}
-
-func (t *Task[Pipe]) ToParent(
-	parent *Task[Pipe],
-	fn func(pt *Task[Pipe], st *Task[Pipe]),
-) *Task[Pipe] {
-	t.parent.taskLock.Lock()
-	fn(parent, t)
-	t.parent.taskLock.Unlock()
-
-	return t
-}
-
-func (t *Task[Pipe]) HasParent() bool {
-	return t.parent != nil
-}
-
-func (t *Task[Pipe]) AddSelfToTheParent(
-	fn func(pt *Task[Pipe], st *Task[Pipe]),
-) *Task[Pipe] {
-	if !t.HasParent() {
-		t.SendFatal(fmt.Errorf("Task has no parent value set."))
-
-		return t
-	}
-
-	t.parent.Lock.Lock()
-	fn(t.parent, t)
-	t.parent.Lock.Unlock()
-
-	return t
-}
-
-func (t *Task[Pipe]) AddSelfToTheParentAsParallel() *Task[Pipe] {
-	if !t.HasParent() {
-		t.SendFatal(fmt.Errorf("Task has no parent value set."))
-
-		return t
-	}
-
-	t.parent.Lock.Lock()
-	t.parent.ExtendSubtask(func(job Job) Job {
-		return t.taskList.JobParallel(job, t.Job())
-	})
-	t.parent.Lock.Unlock()
-
-	return t
-}
-
-func (t *Task[Pipe]) AddSelfToTheParentAsSequence() *Task[Pipe] {
-	if !t.HasParent() {
-		t.SendFatal(fmt.Errorf("Task has no parent value set."))
-
-		return t
-	}
-
-	t.parent.Lock.Lock()
-	t.parent.ExtendSubtask(func(job Job) Job {
-		return t.taskList.JobSequence(job, t.Job())
-	})
-	t.parent.Lock.Unlock()
-
-	return t
-}
-
-func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
-	t.taskLock.Lock()
-	t.subtask = job
-	t.taskLock.Unlock()
-
-	return t
-}
-
-func (t *Task[Pipe]) ExtendSubtask(fn JobWrapperFn) *Task[Pipe] {
-	t.taskLock.Lock()
-	t.subtask = fn(t.subtask)
-	t.taskLock.Unlock()
-
-	return t
-}
-
-func (t *Task[Pipe]) GetSubtasks() Job {
-	return t.subtask
-}
-
-func (t *Task[Pipe]) RunSubtasks() error {
-	err := t.taskList.RunJobs(t.subtask)
-
-	if err == nil {
-		t.SetSubtask(t.emptyJob)
-	}
-
-	return err
-}
-
-func (t *Task[Pipe]) RunSubtasksWithExtension(fn func(job Job) Job) error {
-	t.subtask = fn(t.subtask)
-
-	return t.RunSubtasks()
-}
-
-func (t *Task[Pipe]) SetJobWrapper(fn JobWrapperFn) *Task[Pipe] {
-	t.jobWrapperFn = fn
-
-	return t
-}
-
-func (t *Task[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
-	t.options.Disable = fn
-
-	return t
-}
-
-func (t *Task[Pipe]) IsDisabled() bool {
-	return t.options.Disable(t)
-}
-
-func (t *Task[Pipe]) ShouldSkip(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
-	t.options.Skip = fn
-
-	return t
-}
-
-func (t *Task[Pipe]) IsSkipped() bool {
-	return t.options.Skip(t)
-}
-
-func (t *Task[Pipe]) ShouldRunBefore(fn TaskFn[Pipe]) *Task[Pipe] {
-	t.runBeforeFn = fn
-
-	return t
-}
-
-func (t *Task[Pipe]) ShouldRunAfter(fn TaskFn[Pipe]) *Task[Pipe] {
-	t.runAfterFn = fn
-
-	return t
-}
-
-func (t *Task[Pipe]) SendError(err error) *Task[Pipe] {
-	t.Plumber.SendCustomError(t.Log, err)
-
-	return t
-}
-
-func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
-	t.Control.Cancel(err)
-	t.Plumber.SendCustomFatal(t.Log, err)
-
-	return t
-}
-
-func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
-	t.Control.Cancel(fmt.Sprintf("Will exit with code: %d", code))
-	t.Plumber.SendExit(code)
-
-	return t
-}
-
-func (t *Task[Pipe]) CreateCommand(command string, args ...string) *Command[Pipe] {
-	return NewCommand(t, command, args...)
-}
-
-func (t *Task[Pipe]) AddCommands(commands ...*Command[Pipe]) *Task[Pipe] {
-	t.taskLock.Lock()
-	t.commands = append(t.commands, commands...)
-	t.taskLock.Unlock()
-
-	return t
-}
-
-func (t *Task[Pipe]) GetCommands() []*Command[Pipe] {
-	return t.commands
-}
-
-func (t *Task[Pipe]) GetCommandJobs() []Job {
-	j := []Job{}
-	for _, c := range t.commands {
-		j = append(j, c.Job())
-	}
-
-	return j
-}
-
-func (t *Task[Pipe]) GetCommandJobAsJobSequence() Job {
-	j := t.GetCommandJobs()
-
-	if len(j) == 0 {
-		return nil
-	}
-
-	return t.taskList.JobSequence(j...)
-}
-
-func (t *Task[Pipe]) GetCommandJobAsJobParallel() Job {
-	j := t.GetCommandJobs()
-
-	if len(j) == 0 {
-		return nil
-	}
-
-	return t.taskList.JobParallel(j...)
-}
-
-func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
-	return t.taskList.RunJobs(t.GetCommandJobAsJobSequence())
-}
-
-func (t *Task[Pipe]) RunCommandJobAsJobSequenceWithExtension(fn JobWrapperFn) error {
-	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobSequence()))
-}
-
-func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {
-	return t.taskList.RunJobs(t.GetCommandJobAsJobParallel())
-}
-
-func (t *Task[Pipe]) RunCommandJobAsJobParallelWithExtension(fn JobWrapperFn) error {
-	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobParallel()))
-}
-
-func (t *Task[Pipe]) Run() error {
-	if stop := t.handleStopCases(); stop {
-		return nil
-	}
-
-	t.Log.Traceln("Started task.")
-
-	if t.runBeforeFn != nil {
-		t.Log.Traceln("Running before the task operations.")
-		if err := t.runBeforeFn(t); err != nil {
-			t.Log.Errorln(err)
-
-			return t.handleErrors(err)
-		}
-	}
-
-	if t.fn != nil {
-		t.Log.Traceln("Running task.")
-		if err := t.fn(t); err != nil {
-			t.Log.Errorln(err)
-
-			return t.handleErrors(err)
-		}
-	}
-
-	if t.runAfterFn != nil {
-		t.Log.Traceln("Running after the task operations.")
-		if err := t.runAfterFn(t); err != nil {
-			t.Log.Errorln(err)
-
-			return t.handleErrors(err)
-		}
-	}
-
-	t.Log.Traceln("Finished task.")
-
-	return nil
-}
-
-func (t *Task[Pipe]) handleStopCases() bool {
-	if result := t.IsDisabled(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, task_disabled).
-			Debugf("%s", t.Name)
-
-		return true
-	} else if result := t.IsSkipped(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, task_skipped).
-			Warnf("%s", t.Name)
-
-		return true
-	}
-
-	return false
-}
-
-func (t *Task[Pipe]) SetMarks(marks ...string) *Task[Pipe] {
-	t.marks = marks
-
-	return t
-}
-
-func (t *Task[Pipe]) IsMarkedAsRoutine() bool {
-	return slices.Contains(t.marks, MARK_ROUTINE)
-}
-
-func (t *Task[Pipe]) handleErrors(err error) error {
-	if t.IsMarkedAsRoutine() {
-		t.SendFatal(err)
-
-		return nil
-	}
-
-	return err
-}
-
-func (t *Task[Pipe]) Job() Job {
-	return t.taskList.JobIfNot(
-		t.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
-			return t.IsDisabled() || t.IsSkipped()
-		}),
-		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
-			if t.jobWrapperFn != nil {
-				return tl.RunJobs(t.jobWrapperFn(
-					tl.CreateBasicJob(t.Run),
-				))
-			}
-
-			return t.Run()
-		}),
-		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
-			t.handleStopCases()
-
-			return nil
-		}),
-	)
 }

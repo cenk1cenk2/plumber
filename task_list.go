@@ -3,6 +3,7 @@ package plumber
 import (
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -20,24 +21,21 @@ type TaskListData interface {
 }
 
 type TaskList[Pipe TaskListData] struct {
-	Name string
-
-	Tasks Job
-
-	Plumber *Plumber
-
+	Plumber    *Plumber
 	CliContext *cli.Context
 	Pipe       Pipe
-	Lock       *sync.RWMutex
-	Log        *logrus.Entry
 	Channel    *AppChannel
 	Control    floc.Control
 
-	delimiter   string
-	flocContext floc.Context
-	runBefore   TaskListFn[Pipe]
-	runAfter    TaskListFn[Pipe]
-	options     TaskListOptions[Pipe]
+	Name    string
+	options TaskListOptions[Pipe]
+	Lock    *sync.RWMutex
+	Log     *logrus.Entry
+
+	flocContext       floc.Context
+	tasks             Job
+	shouldRunBeforeFn TaskListFn[Pipe]
+	shouldRunAfterFn  TaskListFn[Pipe]
 }
 
 type (
@@ -47,39 +45,19 @@ type (
 )
 
 type TaskListOptions[Pipe TaskListData] struct {
-	Skip    TaskListPredicateFn[Pipe]
-	Disable TaskListPredicateFn[Pipe]
+	Skip         TaskListPredicateFn[Pipe]
+	Disable      TaskListPredicateFn[Pipe]
+	runtimeDepth int
 }
 
-const (
-	// task list state.
-
-	task_list_disabled string = "DISABLE"
-	task_list_skipped  string = "SKIPPED"
-)
-
+// Creates a new task list.
 func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	t.Lock = &sync.RWMutex{}
 	t.Plumber = p
 	t.Channel = &p.Channel
-	t.delimiter = ":"
-	t.options = TaskListOptions[Pipe]{
-		Skip: func(t *TaskList[Pipe]) bool {
-			return false
-		},
-		Disable: func(t *TaskList[Pipe]) bool {
-			return false
-		},
-	}
+	t.options.runtimeDepth = 3
 
-	_, file, _, ok := runtime.Caller(1)
-	if ok {
-		t.Name = file
-		t.Log = p.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
-	} else {
-		t.Log = p.Log.WithField(LOG_FIELD_CONTEXT, "TL")
-		t.Log.Traceln("Runtime caller has failed using default.")
-	}
+	t.setupLogger()
 
 	t.flocContext = floc.NewContext()
 	t.Control = floc.NewControl(t.flocContext)
@@ -88,6 +66,85 @@ func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	return t
 }
 
+// Sets the function that should run before the task list.
+func (t *TaskList[Pipe]) ShouldRunBefore(fn TaskListFn[Pipe]) *TaskList[Pipe] {
+	t.Lock.Lock()
+	t.shouldRunBeforeFn = fn
+	t.Lock.Unlock()
+
+	return t
+}
+
+// Returns the current tasks inside the task list as job.
+func (t *TaskList[Pipe]) GetTasks() Job {
+	return t.tasks
+}
+
+// Sets the tasks of the task list.
+func (t *TaskList[Pipe]) Set(fn TaskListJobFn[Pipe]) *TaskList[Pipe] {
+	t.Lock.Lock()
+	t.tasks = fn(t)
+	t.Lock.Unlock()
+
+	return t
+}
+
+// Sets the tasks of the task list with wrapper.
+func (t *TaskList[Pipe]) SetTasks(tasks Job) *TaskList[Pipe] {
+	t.Lock.Lock()
+	t.tasks = tasks
+	t.Lock.Unlock()
+
+	return t
+}
+
+// Sets the function that should run after the task list.
+func (t *TaskList[Pipe]) ShouldRunAfter(fn TaskListFn[Pipe]) *TaskList[Pipe] {
+	t.Lock.Lock()
+	t.shouldRunAfterFn = fn
+	t.Lock.Unlock()
+
+	return t
+}
+
+// Sets the predicate that should conditionally disable the task list depending on the pipe variables.
+func (t *TaskList[Pipe]) ShouldDisable(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
+	t.options.Disable = fn
+
+	return t
+}
+
+// Checks whether the current task is disabled or not.
+func (t *TaskList[Pipe]) IsDisabled() bool {
+	if t.options.Disable == nil {
+		return false
+	}
+
+	return t.options.Disable(t)
+}
+
+// Sets the predicate that should conditionally skip the task list depending on the pipe variables.
+func (t *TaskList[Pipe]) ShouldSkip(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
+	t.options.Skip = fn
+
+	return t
+}
+
+// Checks whether the current task is skipped or not.
+func (t *TaskList[Pipe]) IsSkipped() bool {
+	if t.options.Skip == nil {
+		return false
+	}
+
+	return t.options.Skip(t)
+}
+
+// Creates a new task.
+func (t *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
+	return NewTask(t, name...)
+}
+
+// Sets the CLI context for urfave/cli that is coming from the action function.
 func (t *TaskList[Pipe]) SetCliContext(ctx *cli.Context) *TaskList[Pipe] {
 	t.Lock.Lock()
 	t.CliContext = ctx
@@ -96,52 +153,15 @@ func (t *TaskList[Pipe]) SetCliContext(ctx *cli.Context) *TaskList[Pipe] {
 	return t
 }
 
-func (t *TaskList[Pipe]) SetDelimiter(delimiter string) *TaskList[Pipe] {
-	t.delimiter = delimiter
+// Sets the runtime depth for the logger.
+func (t *TaskList[Pipe]) SetRuntimeDepth(depth int) *TaskList[Pipe] {
+	t.options.runtimeDepth = depth
+	t.setupLogger()
 
 	return t
 }
 
-func (t *TaskList[Pipe]) GetTasks() Job {
-	return t.Tasks
-}
-
-func (t *TaskList[Pipe]) Set(fn TaskListJobFn[Pipe]) *TaskList[Pipe] {
-	t.Lock.Lock()
-	t.Tasks = fn(t)
-	t.Lock.Unlock()
-
-	return t
-}
-
-func (t *TaskList[Pipe]) SetTasks(tasks Job) *TaskList[Pipe] {
-	t.Lock.Lock()
-	t.Tasks = tasks
-	t.Lock.Unlock()
-
-	return t
-}
-
-func (t *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
-	return NewTask(t, name...)
-}
-
-func (t *TaskList[Pipe]) ShouldRunBefore(fn TaskListFn[Pipe]) *TaskList[Pipe] {
-	t.Lock.Lock()
-	t.runBefore = fn
-	t.Lock.Unlock()
-
-	return t
-}
-
-func (t *TaskList[Pipe]) ShouldRunAfter(fn TaskListFn[Pipe]) *TaskList[Pipe] {
-	t.Lock.Lock()
-	t.runAfter = fn
-	t.Lock.Unlock()
-
-	return t
-}
-
+// Validates the current pipe of the task list.
 func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 	if err := defaults.Set(data); err != nil {
 		return fmt.Errorf("Can not set defaults: %w", err)
@@ -174,6 +194,7 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 	return nil
 }
 
+// Runs a the provided job.
 func (t *TaskList[Pipe]) RunJobs(job Job) error {
 	if job == nil {
 		return nil
@@ -188,53 +209,9 @@ func (t *TaskList[Pipe]) RunJobs(job Job) error {
 	return t.handleFloc(result, data)
 }
 
-func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error {
-	switch {
-	case result.IsCanceled() && data != nil:
-		t.Log.Debugf("Tasks are cancelled: %s", data)
-	}
-
-	return nil
-}
-
-func (t *TaskList[Pipe]) ShouldDisable(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
-	t.options.Disable = fn
-
-	return t
-}
-
-func (t *TaskList[Pipe]) IsDisabled() bool {
-	return t.options.Disable(t)
-}
-
-func (t *TaskList[Pipe]) ShouldSkip(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
-	t.options.Skip = fn
-
-	return t
-}
-
-func (t *TaskList[Pipe]) IsSkipped() bool {
-	return t.options.Skip(t)
-}
-
-func (t *TaskList[Pipe]) handleStopCases() bool {
-	if result := t.IsDisabled(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, task_list_disabled).
-			Debugf("%s", t.Name)
-
-		return true
-	} else if result := t.IsSkipped(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, task_list_skipped).
-			Warnf("%s", t.Name)
-
-		return true
-	}
-
-	return false
-}
-
+// Runs the current task list.
 func (t *TaskList[Pipe]) Run() error {
-	if t.Tasks == nil {
+	if t.tasks == nil {
 		return fmt.Errorf("Task list is empty.")
 	}
 
@@ -242,21 +219,22 @@ func (t *TaskList[Pipe]) Run() error {
 		return nil
 	}
 
-	t.Log.Traceln("Started task-list.")
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_start).Traceln("$")
 
-	if t.runBefore != nil {
-		t.Log.Traceln("Running before the task-list operations.")
-		if err := t.runBefore(t); err != nil {
+	if t.shouldRunBeforeFn != nil {
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.ShouldRunBefore")
+		if err := t.shouldRunBeforeFn(t); err != nil {
 			return err
 		}
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.ShouldRunBefore")
 	}
 
 	if err := t.Validate(&t.Pipe); err != nil {
 		return err
 	}
 
-	t.Log.Traceln("Running task-list.")
-	result, data, err := floc.RunWith(t.flocContext, t.Control, t.Tasks)
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.Tasks")
+	result, data, err := floc.RunWith(t.flocContext, t.Control, t.tasks)
 
 	if err != nil {
 		return err
@@ -265,19 +243,22 @@ func (t *TaskList[Pipe]) Run() error {
 	if err := t.handleFloc(result, data); err != nil {
 		return err
 	}
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.Tasks")
 
-	if t.runAfter != nil {
-		t.Log.Traceln("Running after the task-list operations.")
-		if err := t.runAfter(t); err != nil {
+	if t.shouldRunAfterFn != nil {
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_start).Traceln("$.ShouldRunAfter")
+		if err := t.shouldRunAfterFn(t); err != nil {
 			return err
 		}
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.ShouldRunAfter")
 	}
 
-	t.Log.Traceln("Finished task-list.")
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_finish).Traceln("$")
 
 	return nil
 }
 
+// Returns this task list as a job.
 func (t *TaskList[Pipe]) Job() Job {
 	return func(fctx floc.Context, ctrl floc.Control) error {
 		t.flocContext = fctx
@@ -287,6 +268,34 @@ func (t *TaskList[Pipe]) Job() Job {
 	}
 }
 
+// Handles the cases where the task list should not be executed.
+func (t *TaskList[Pipe]) handleStopCases() bool {
+	if result := t.IsDisabled(); result {
+		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
+			Debugf("%s", t.Name)
+
+		return true
+	} else if result := t.IsSkipped(); result {
+		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_skipped).
+			Warnf("%s", t.Name)
+
+		return true
+	}
+
+	return false
+}
+
+// Handles output coming from floc.
+func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error {
+	switch {
+	case result.IsCanceled() && data != nil:
+		t.Log.Debugf("Tasks are cancelled: %s", data)
+	}
+
+	return nil
+}
+
+// Registers the termitor to the current task list.
 func (t *TaskList[Pipe]) registerTerminateHandler() {
 	if t.Plumber.Enabled {
 		ch := make(chan os.Signal, 1)
@@ -297,5 +306,20 @@ func (t *TaskList[Pipe]) registerTerminateHandler() {
 		<-ch
 
 		t.Control.Cancel(fmt.Errorf("Trying to terminate..."))
+	}
+}
+
+// Sets up logger depending on the depth of the code.
+func (t *TaskList[Pipe]) setupLogger() {
+	_, file, _, ok := runtime.Caller(1)
+	f := strings.Split(file, "/")
+
+	if ok && t.options.runtimeDepth >= len(f) {
+		t.Name = strings.Join(f[:len(f)-t.options.runtimeDepth], "/")
+
+		t.Log = t.Plumber.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
+	} else {
+		t.Log = t.Plumber.Log.WithField(LOG_FIELD_CONTEXT, "TL")
+		t.Log.Traceln("Runtime caller has failed using default.")
 	}
 }

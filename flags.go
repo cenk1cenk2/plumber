@@ -7,6 +7,7 @@ import (
 
 const CLI_FLAGS_CATEGORY = "CLI"
 
+// flags for a Plumber application.
 var CliDefaultFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Category: CLI_FLAGS_CATEGORY,
