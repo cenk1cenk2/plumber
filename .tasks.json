@@ -13,8 +13,16 @@
       "cmd": "make tidy"
     },
     {
+      "name": "format",
+      "cmd": "make format"
+    },
+    {
       "name": "lint",
       "cmd": "make lint"
+    },
+    {
+      "name": "lint:check",
+      "cmd": "make lint-check"
     }
   ]
 }
