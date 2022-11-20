@@ -262,7 +262,7 @@ func (c *Command[Pipe]) Run() error {
 		return nil
 	}
 
-	start := time.Now()
+	started := time.Now()
 	if c.fn != nil {
 		if err := c.fn(c); err != nil {
 			return err
@@ -291,7 +291,7 @@ func (c *Command[Pipe]) Run() error {
 		}
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).Logf(c.lifetimeLevel, fmt.Sprintf("%s -> %s", c.GetFormattedCommand(), time.Since(start).String()))
+	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).Logf(c.lifetimeLevel, fmt.Sprintf("%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String()))
 
 	return nil
 }

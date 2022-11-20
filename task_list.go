@@ -237,7 +237,7 @@ func (t *TaskList[Pipe]) Run() error {
 		if err := t.shouldRunBeforeFn(t); err != nil {
 			return err
 		}
-		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.ShouldRunBefore -> %s", time.Since(started).String())
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.ShouldRunBefore -> %s", time.Since(started).Round(time.Millisecond).String())
 	}
 
 	{
@@ -256,7 +256,7 @@ func (t *TaskList[Pipe]) Run() error {
 		if err := t.handleFloc(result, data); err != nil {
 			return err
 		}
-		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.Tasks -> %s", time.Since(started).String())
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.Tasks -> %s", time.Since(started).Round(time.Millisecond).String())
 	}
 
 	if t.shouldRunAfterFn != nil {
@@ -266,10 +266,10 @@ func (t *TaskList[Pipe]) Run() error {
 			return err
 		}
 		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.ShouldRunAfter")
-		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.ShouldRunAfter -> %s", time.Since(started).String())
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.ShouldRunAfter -> %s", time.Since(started).Round(time.Millisecond).String())
 	}
 
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_finish).Tracef("$ -> %s", time.Since(started).String())
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_finish).Tracef("$ -> %s", time.Since(started).Round(time.Millisecond).String())
 
 	return nil
 }
