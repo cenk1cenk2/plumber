@@ -50,6 +50,13 @@ type TaskListOptions[Pipe TaskListData] struct {
 	runtimeDepth int
 }
 
+// Creates a new task list and initiates it.
+func NewTaskList[Pipe TaskListData](p *Plumber) *TaskList[Pipe] {
+	t := &TaskList[Pipe]{}
+
+	return t.New(p)
+}
+
 // Creates a new task list.
 func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	t.Lock = &sync.RWMutex{}
@@ -320,6 +327,6 @@ func (t *TaskList[Pipe]) setupLogger() {
 		t.Log = t.Plumber.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
 	} else {
 		t.Log = t.Plumber.Log.WithField(LOG_FIELD_CONTEXT, "TL")
-		t.Log.Traceln("Runtime caller has failed using default.")
+		t.Log.Tracef("Runtime caller has failed using default: %s", file)
 	}
 }

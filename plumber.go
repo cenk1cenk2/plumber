@@ -83,6 +83,7 @@ type DeprecationNotice struct {
 
 type (
 	PlumberOnTerminateFn func() error
+	PlumberNewFn         func(a *Plumber) *cli.App
 )
 
 const (
@@ -93,9 +94,16 @@ const (
 	log_context_plumber_setup       string = "setup"
 )
 
-// Plumber.New Creates a new plumber.
+// Creates a new Plumber instance and initiates it.
+func NewPlumber(fn PlumberNewFn) *Plumber {
+	p := &Plumber{}
+
+	return p.New(fn)
+}
+
+// Creates a new plumber.
 func (p *Plumber) New(
-	fn func(a *Plumber) *cli.App,
+	fn PlumberNewFn,
 ) *Plumber {
 	p.Cli = fn(p)
 
