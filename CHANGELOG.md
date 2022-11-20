@@ -1,3 +1,10 @@
+# [4.21.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.20.0...v4.21.0) (2022-11-20)
+
+
+### Features
+
+* initiate protocols and trace log for caller ([9391d6e](https://gitlab.kilic.dev/libraries/plumber/commit/9391d6ec24da36ae9e2ecec1592fdc79f7d4837a))
+
 # [4.20.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.19.2...v4.20.0) (2022-11-20)
 
 
