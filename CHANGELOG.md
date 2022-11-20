@@ -1,3 +1,10 @@
+# [4.22.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.21.0...v4.22.0) (2022-11-20)
+
+
+### Features
+
+* add profiling ([30e246d](https://gitlab.kilic.dev/libraries/plumber/commit/30e246d8efed54467fc4c400ab235b4e55d14443))
+
 # [4.21.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.20.0...v4.21.0) (2022-11-20)
 
 
