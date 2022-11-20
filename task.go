@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/workanator/go-floc/v3"
@@ -176,39 +177,43 @@ func (t *Task[Pipe]) Run() error {
 		return nil
 	}
 
+	started := time.Now()
 	t.Log.WithField(LOG_FIELD_STATUS, log_status_start).Traceln("$")
 
 	if t.shouldRunBeforeFn != nil {
+		started := time.Now()
 		t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.ShouldRunBefore")
 		if err := t.shouldRunBeforeFn(t); err != nil {
 			t.Log.Errorln(err)
 
 			return t.handleErrors(err)
 		}
-		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.ShouldRunBefore")
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.ShouldRunBefore -> %s", time.Since(started).String())
 	}
 
 	if t.fn != nil {
+		started := time.Now()
 		t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.Task")
 		if err := t.fn(t); err != nil {
 			t.Log.Errorln(err)
 
 			return t.handleErrors(err)
 		}
-		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.Task")
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.Task -> %s", time.Since(started).String())
 	}
 
 	if t.shouldRunAfterFn != nil {
+		started := time.Now()
 		t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.ShouldRunAfter")
 		if err := t.shouldRunAfterFn(t); err != nil {
 			t.Log.Errorln(err)
 
 			return t.handleErrors(err)
 		}
-		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.ShouldRunAfter")
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.ShouldRunAfter -> %s", time.Since(started).String())
 	}
 
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_finish).Traceln("$")
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_finish).Tracef("$ -> %s", time.Since(started).String())
 
 	return nil
 }

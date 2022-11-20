@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"gitlab.kilic.dev/libraries/go-utils/utils"
@@ -261,6 +262,7 @@ func (c *Command[Pipe]) Run() error {
 		return nil
 	}
 
+	start := time.Now()
 	if c.fn != nil {
 		if err := c.fn(c); err != nil {
 			return err
@@ -289,7 +291,7 @@ func (c *Command[Pipe]) Run() error {
 		}
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).Logf(c.lifetimeLevel, c.GetFormattedCommand())
+	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).Logf(c.lifetimeLevel, fmt.Sprintf("%s -> %s", c.GetFormattedCommand(), time.Since(start).String()))
 
 	return nil
 }

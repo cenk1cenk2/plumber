@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -226,41 +227,49 @@ func (t *TaskList[Pipe]) Run() error {
 		return nil
 	}
 
+	started := time.Now()
+
 	t.Log.WithField(LOG_FIELD_STATUS, log_status_start).Traceln("$")
 
 	if t.shouldRunBeforeFn != nil {
+		started := time.Now()
 		t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.ShouldRunBefore")
 		if err := t.shouldRunBeforeFn(t); err != nil {
 			return err
 		}
-		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.ShouldRunBefore")
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.ShouldRunBefore -> %s", time.Since(started).String())
 	}
 
-	if err := t.Validate(&t.Pipe); err != nil {
-		return err
-	}
+	{
+		started := time.Now()
+		if err := t.Validate(&t.Pipe); err != nil {
+			return err
+		}
 
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.Tasks")
-	result, data, err := floc.RunWith(t.flocContext, t.Control, t.tasks)
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln("$.Tasks")
+		result, data, err := floc.RunWith(t.flocContext, t.Control, t.tasks)
 
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	if err := t.handleFloc(result, data); err != nil {
-		return err
+		if err := t.handleFloc(result, data); err != nil {
+			return err
+		}
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.Tasks -> %s", time.Since(started).String())
 	}
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.Tasks")
 
 	if t.shouldRunAfterFn != nil {
+		started := time.Now()
 		t.Log.WithField(LOG_FIELD_STATUS, log_status_start).Traceln("$.ShouldRunAfter")
 		if err := t.shouldRunAfterFn(t); err != nil {
 			return err
 		}
 		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Traceln("$.ShouldRunAfter")
+		t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("$.ShouldRunAfter -> %s", time.Since(started).String())
 	}
 
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_finish).Traceln("$")
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_finish).Tracef("$ -> %s", time.Since(started).String())
 
 	return nil
 }
@@ -318,11 +327,12 @@ func (t *TaskList[Pipe]) registerTerminateHandler() {
 
 // Sets up logger depending on the depth of the code.
 func (t *TaskList[Pipe]) setupLogger() {
-	_, file, _, ok := runtime.Caller(1)
-	f := strings.Split(file, "/")
+	_, file, _, ok := runtime.Caller(2)
 
-	if ok && t.options.runtimeDepth >= len(f) {
-		t.Name = strings.Join(f[:len(f)-t.options.runtimeDepth], "/")
+	if ok {
+		f := strings.Split(file, "/")
+
+		t.Name = strings.Join(f[len(f)-t.options.runtimeDepth:], "/")
 
 		t.Log = t.Plumber.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
 	} else {
