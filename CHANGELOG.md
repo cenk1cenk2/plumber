@@ -1,3 +1,11 @@
+## [4.22.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.22.0...v4.22.1) (2022-11-20)
+
+
+### Bug Fixes
+
+* add rounding to the times ([0559566](https://gitlab.kilic.dev/libraries/plumber/commit/0559566f70ffb50e355d631e8dac0cc37ccca40d))
+* update formatting ([352d401](https://gitlab.kilic.dev/libraries/plumber/commit/352d401176bc18db7d94cbe20ed5a87cdbbd682d))
+
 # [4.22.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.21.0...v4.22.0) (2022-11-20)
 
 
