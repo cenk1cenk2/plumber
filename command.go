@@ -79,21 +79,21 @@ func NewCommand[Pipe TaskListData](
 	return c
 }
 
-// Command.Set Sets the function that should manipulate the command depending on the pipe variables.
+// Sets the function that should manipulate the command depending on the pipe variables.
 func (c *Command[Pipe]) Set(fn CommandFn[Pipe]) *Command[Pipe] {
 	c.fn = fn
 
 	return c
 }
 
-// Command.ShouldRunAfter Sets a function that should run after the main command has exited successfully.
+// Sets a function that should run after the main command has exited successfully.
 func (c *Command[Pipe]) ShouldRunAfter(fn CommandFn[Pipe]) *Command[Pipe] {
 	c.shouldRunAfterFn = fn
 
 	return c
 }
 
-// Command.IsDisabled Checks whether current command is disabled.
+// Checks whether current command is disabled.
 func (c *Command[Pipe]) IsDisabled() bool {
 	if c.options.Disable == nil {
 		return false
@@ -102,14 +102,14 @@ func (c *Command[Pipe]) IsDisabled() bool {
 	return c.options.Disable(c.task)
 }
 
-// Command.ShouldDisable Adds a predicate to check whether this command should be disabled depending on the pipe variables.
+// Adds a predicate to check whether this command should be disabled depending on the pipe variables.
 func (c *Command[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Command[Pipe] {
 	c.options.Disable = fn
 
 	return c
 }
 
-// Command.EnableTerminator Enables global plumber terminator on this command to terminate the current command when the application is terminated.
+// Enables global plumber terminator on this command to terminate the current command when the application is terminated.
 func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
 	c.Log.Tracef("Registered terminator: %s", c.GetFormattedCommand())
 	c.Plumber.RegisterTerminator()
@@ -119,14 +119,14 @@ func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
 	return c
 }
 
-// Command.SetOnTerminator Sets a function that fires on when the application is globally terminated through plumber.
+// Sets a function that fires on when the application is globally terminated through plumber.
 func (c *Command[Pipe]) SetOnTerminator(fn CommandFn[Pipe]) *Command[Pipe] {
 	c.onTerminatorFn = fn
 
 	return c
 }
 
-// Command.AppendArgs Appends arguments to the command.
+// Appends arguments to the command.
 func (c *Command[Pipe]) AppendArgs(args ...string) *Command[Pipe] {
 	for _, a := range args {
 		c.Command.Args = append(c.Command.Args, utils.DeleteEmptyStringsFromSlice(strings.Split(a, " "))...)
@@ -135,7 +135,7 @@ func (c *Command[Pipe]) AppendArgs(args ...string) *Command[Pipe] {
 	return c
 }
 
-// Command.AppendEnvironment Appends environment variables to command as map.
+// Appends environment variables to command as map.
 func (c *Command[Pipe]) AppendEnvironment(environment map[string]string) *Command[Pipe] {
 	for k, v := range environment {
 		c.AppendDirectEnvironment(fmt.Sprintf("%s=%s", k, v))
@@ -144,14 +144,14 @@ func (c *Command[Pipe]) AppendEnvironment(environment map[string]string) *Comman
 	return c
 }
 
-// Command.AppendDirectEnvironment Appends environment variables to command directly.
+// Appends environment variables to command directly.
 func (c *Command[Pipe]) AppendDirectEnvironment(environment ...string) *Command[Pipe] {
 	c.Command.Env = append(c.Command.Env, environment...)
 
 	return c
 }
 
-// Command.SetLogLevel Sets the log level specific to this command.
+// Sets the log level specific to this command.
 func (c *Command[Pipe]) SetLogLevel(
 	stdout LogLevel,
 	stderr LogLevel,
@@ -178,49 +178,49 @@ func (c *Command[Pipe]) SetLogLevel(
 	return c
 }
 
-// Command.SetDir Sets the current directory where the command will be executed.
+// Sets the current directory where the command will be executed.
 func (c *Command[Pipe]) SetDir(dir string) *Command[Pipe] {
 	c.Command.Dir = dir
 
 	return c
 }
 
-// Command.SetPath Sets the current directory where the command will be executed.
+// Sets the current directory where the command will be executed.
 func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
 	c.Command.Path = dir
 
 	return c
 }
 
-// Command.SetIgnoreError Sets the option to ignore errors raised by this command therefore a failing command will not fail the application.
+// Sets the option to ignore errors raised by this command therefore a failing command will not fail the application.
 func (c *Command[Pipe]) SetIgnoreError() *Command[Pipe] {
 	c.options.ignoreError = true
 
 	return c
 }
 
-// Command.SetMaskOsEnvironment Sets the option where underlying environment variables are not passed to the command.
+// Sets the option where underlying environment variables are not passed to the command.
 func (c *Command[Pipe]) SetMaskOsEnvironment() *Command[Pipe] {
 	c.options.maskOsEnvironment = true
 
 	return c
 }
 
-// Command.EnableStreamRecording Sets the option where this command will save its output to be later accessed in the shouldRunAfterFn.
+// Sets the option where this command will save its output to be later accessed in the shouldRunAfterFn.
 func (c *Command[Pipe]) EnableStreamRecording() *Command[Pipe] {
 	c.options.recordStream = true
 
 	return c
 }
 
-// Command.EnsureIsAlive Sets the option where it will raise an error if the underlying command stops.
+// Sets the option where it will raise an error if the underlying command stops.
 func (c *Command[Pipe]) EnsureIsAlive() *Command[Pipe] {
 	c.options.ensureIsAlive = true
 
 	return c
 }
 
-// Command.GetStdoutStream Fetches the saved stdout stream that is recorded.
+// Fetches the saved stdout stream that is recorded.
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetStdoutStream() []string {
 	if !c.options.recordStream {
@@ -230,7 +230,7 @@ func (c *Command[Pipe]) GetStdoutStream() []string {
 	return c.stdoutStream
 }
 
-// Command.GetStderrStream Fetches the saved stderr stream that is recorded.
+// Fetches the saved stderr stream that is recorded.
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetStderrStream() []string {
 	if !c.options.recordStream {
@@ -240,7 +240,7 @@ func (c *Command[Pipe]) GetStderrStream() []string {
 	return c.stderrStream
 }
 
-// Command.GetCombinedStream Fetches the saved streams that is recorded.
+// Fetches the saved streams that is recorded.
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetCombinedStream() []string {
 	if !c.options.recordStream {
@@ -250,12 +250,12 @@ func (c *Command[Pipe]) GetCombinedStream() []string {
 	return c.combinedStream
 }
 
-// Command.GetFormattedCommand Fetches the name of this command, that is formatted for the logger.
+// Fetches the name of this command, that is formatted for the logger.
 func (c *Command[Pipe]) GetFormattedCommand() string {
 	return fmt.Sprintf("$ %s", strings.Join(c.Command.Args, " "))
 }
 
-// Command.Run Run the command as defined.
+// Run the command as defined.
 func (c *Command[Pipe]) Run() error {
 	if stop := c.handleStopCases(); stop {
 		return nil
@@ -294,7 +294,7 @@ func (c *Command[Pipe]) Run() error {
 	return nil
 }
 
-// Command.Job Convert Command.Run to a floc job.
+// Convert Command.Run to a floc job.
 func (c *Command[Pipe]) Job() Job {
 	return c.task.taskList.JobIfNot(
 		c.task.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
@@ -311,21 +311,21 @@ func (c *Command[Pipe]) Job() Job {
 	)
 }
 
-// Command.AddSelfToTheTask Adds the current command to the parent task.
+// Adds the current command to the parent task.
 func (c *Command[Pipe]) AddSelfToTheTask() *Command[Pipe] {
 	c.task.AddCommands(c)
 
 	return c
 }
 
-// Command.AddSelfToTheTask Adds the current command to the task with a wrapper.
+// Adds the current command to the task with a wrapper.
 func (c *Command[Pipe]) AddSelfToTheParentTask(pt *Task[Pipe]) *Command[Pipe] {
 	pt.AddCommands(c)
 
 	return c
 }
 
-// Command.pipe Executes the command and pipes the output through the logger.
+// Executes the command and pipes the output through the logger.
 func (c *Command[Pipe]) pipe() error {
 	if err := c.createReaders(); err != nil {
 		return err
@@ -361,7 +361,7 @@ func (c *Command[Pipe]) pipe() error {
 	return nil
 }
 
-// Command.createReaders Creates closers and readers for stdout and stderr.
+// Creates closers and readers for stdout and stderr.
 func (c *Command[Pipe]) createReaders() error {
 	closer, err := c.Command.StdoutPipe()
 
@@ -386,7 +386,7 @@ func (c *Command[Pipe]) createReaders() error {
 	return nil
 }
 
-// Command.handleStream Handles incoming data stream from a command.
+// Handles incoming data stream from a command.
 func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 	defer output.closer.Close()
 
@@ -414,7 +414,7 @@ func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 	}
 }
 
-// Command.handleStopCases Handles the stop cases for command.
+// Handles the stop cases for command.
 func (c *Command[Pipe]) handleStopCases() bool {
 	if result := c.IsDisabled(); result {
 		c.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
@@ -426,7 +426,7 @@ func (c *Command[Pipe]) handleStopCases() bool {
 	return false
 }
 
-// Command.handleTerminator Handles the global plumber terminator to stop execution of the command and forwards the terminate signal if running.
+// Handles the global plumber terminator to stop execution of the command and forwards the terminate signal if running.
 func (c *Command[Pipe]) handleTerminator() {
 	ch := make(chan os.Signal, 1)
 	c.Plumber.Terminator.ShouldTerminate.Register(ch)

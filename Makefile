@@ -13,7 +13,13 @@ GO_OPTION_C=0
 install:
 	$(GO_VENDOR)
 
+format:
+	goimports -w .
+
 lint:
+	CGO_ENABLED=$(GO_OPTION_C)	golangci-lint run --fix ./...
+
+lint-check:
 	CGO_ENABLED=$(GO_OPTION_C)	golangci-lint run ./...
 
 update:

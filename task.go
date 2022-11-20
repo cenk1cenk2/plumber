@@ -81,35 +81,35 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] 
 	return t
 }
 
-// Task.ShouldRunBefore Sets the function that should run before the task.
+// Sets the function that should run before the task.
 func (t *Task[Pipe]) ShouldRunBefore(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.shouldRunBeforeFn = fn
 
 	return t
 }
 
-// Task.Set Sets the function that should run as task.
+// Sets the function that should run as task.
 func (t *Task[Pipe]) Set(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.fn = fn
 
 	return t
 }
 
-// Task.ShouldRunAfter Sets the function that should run after the task.
+// Sets the function that should run after the task.
 func (t *Task[Pipe]) ShouldRunAfter(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.shouldRunAfterFn = fn
 
 	return t
 }
 
-// Task.ShouldDisable Sets the predicate that should conditionally disable the task depending on the pipe variables.
+// Sets the predicate that should conditionally disable the task depending on the pipe variables.
 func (t *Task[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
 	t.options.Disable = fn
 
 	return t
 }
 
-// Task.IsDisabled Checks whether the current task is disabled or not.
+// Checks whether the current task is disabled or not.
 func (t *Task[Pipe]) IsDisabled() bool {
 	if t.options.Disable == nil {
 		return false
@@ -118,14 +118,14 @@ func (t *Task[Pipe]) IsDisabled() bool {
 	return t.options.Disable(t)
 }
 
-// Task.ShouldSkip Sets the predicate that should conditionally skip the task depending on the pipe variables.
+// Sets the predicate that should conditionally skip the task depending on the pipe variables.
 func (t *Task[Pipe]) ShouldSkip(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
 	t.options.Skip = fn
 
 	return t
 }
 
-// Task.IsDisabled Checks whether the current task is skipped or not.
+// Checks whether the current task is skipped or not.
 func (t *Task[Pipe]) IsSkipped() bool {
 	if t.options.Skip == nil {
 		return false
@@ -134,7 +134,7 @@ func (t *Task[Pipe]) IsSkipped() bool {
 	return t.options.Skip(t)
 }
 
-// Task.EnableTerminator Enables global plumber terminator on this task.
+// Enables global plumber terminator on this task.
 func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
 	t.Log.Tracef("Registered terminator.")
 	t.Plumber.RegisterTerminator()
@@ -144,33 +144,33 @@ func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
 	return t
 }
 
-// Task.SetOnTerminator Sets the function that should fire whenever the application is globally terminated.
+// Sets the function that should fire whenever the application is globally terminated.
 func (t *Task[Pipe]) SetOnTerminator(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.onTerminatorFn = fn
 
 	return t
 }
 
-// Task.SetMarks Sets marks to change the behavior of the task.
+// Sets marks to change the behavior of the task.
 func (t *Task[Pipe]) SetMarks(marks ...string) *Task[Pipe] {
 	t.options.marks = marks
 
 	return t
 }
 
-// Task.IsMarkedAsRoutine Checks whether current task is marked as a routine that is mostly working as a async manner.
+// Checks whether current task is marked as a routine that is mostly working as a async manner.
 func (t *Task[Pipe]) IsMarkedAsRoutine() bool {
 	return slices.Contains(t.options.marks, MARK_ROUTINE)
 }
 
-// Task.SetJobWrapper Extend the job of the current task.
+// Extend the job of the current task.
 func (t *Task[Pipe]) SetJobWrapper(fn JobWrapperFn) *Task[Pipe] {
 	t.jobWrapperFn = fn
 
 	return t
 }
 
-// Task.Run Runs the current task.
+// Runs the current task.
 func (t *Task[Pipe]) Run() error {
 	if stop := t.handleStopCases(); stop {
 		return nil
@@ -213,7 +213,7 @@ func (t *Task[Pipe]) Run() error {
 	return nil
 }
 
-// Task.Job Runs the current task as a job.
+// Runs the current task as a job.
 func (t *Task[Pipe]) Job() Job {
 	return t.taskList.JobIfNot(
 		t.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
@@ -236,14 +236,14 @@ func (t *Task[Pipe]) Job() Job {
 	)
 }
 
-// Task.SendError Send the error message to plumber while running inside a routine.
+// Send the error message to plumber while running inside a routine.
 func (t *Task[Pipe]) SendError(err error) *Task[Pipe] {
 	t.Plumber.SendCustomError(t.Log, err)
 
 	return t
 }
 
-// Task.SendError Send the fatal error message to plumber while running inside a routine.
+// Send the fatal error message to plumber while running inside a routine.
 func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
 	t.Control.Cancel(err)
 	t.Plumber.SendCustomFatal(t.Log, err)
@@ -251,7 +251,7 @@ func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
 	return t
 }
 
-// Task.SendExit Trigger the exit protocol of plumber.
+// Trigger the exit protocol of plumber.
 func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
 	t.Control.Cancel(fmt.Sprintf("Will exit with code: %d", code))
 	t.Plumber.SendExit(code)
@@ -259,7 +259,7 @@ func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
 	return t
 }
 
-// Task.handleStopCases Handles the stop cases of the task.
+// Handles the stop cases of the task.
 func (t *Task[Pipe]) handleStopCases() bool {
 	if result := t.IsDisabled(); result {
 		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
@@ -276,7 +276,7 @@ func (t *Task[Pipe]) handleStopCases() bool {
 	return false
 }
 
-// Task.handleErrors Handles the errors from the current task.
+// Handles the errors from the current task.
 func (t *Task[Pipe]) handleErrors(err error) error {
 	if t.IsMarkedAsRoutine() {
 		t.SendFatal(err)
@@ -287,7 +287,7 @@ func (t *Task[Pipe]) handleErrors(err error) error {
 	return err
 }
 
-// Task.handleTerminator Handles the plumber terminator when terminator is triggered.
+// Handles the plumber terminator when terminator is triggered.
 func (t *Task[Pipe]) handleTerminator() {
 	ch := make(chan os.Signal, 1)
 

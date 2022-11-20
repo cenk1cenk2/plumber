@@ -154,14 +154,14 @@ func (p *Plumber) EnableTerminator() *Plumber {
 	return p
 }
 
-// Cli.SetOnTerminate Sets the action that would be executed on terminate.
+// Sets the action that would be executed on terminate.
 func (p *Plumber) SetOnTerminate(fn PlumberOnTerminateFn) *Plumber {
 	p.onTerminateFn = fn
 
 	return p
 }
 
-// Cli.AppendFlags Appends flags together.
+// Appends flags together.
 func (p *Plumber) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 	f := []cli.Flag{}
 
@@ -321,7 +321,7 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 	return p
 }
 
-// Cli.Run Starts the application.
+// Starts the application.
 func (p *Plumber) Run() {
 	p.Cli.Setup()
 
@@ -359,7 +359,7 @@ func (p *Plumber) Run() {
 	}
 }
 
-// Cli.greet Greet the user with the application name and version.
+// Greet the user with the application name and version.
 func (p *Plumber) greet() {
 	var version = p.Cli.Version
 
@@ -432,7 +432,7 @@ func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
 	return f
 }
 
-// Cli.loadEnvironment Loads the given environment file to the application.
+// Loads the given environment file to the application.
 func (p *Plumber) loadEnvironment(ctx *cli.Context) error {
 	if env := ctx.StringSlice("env-file"); len(env) != 0 {
 		if err := godotenv.Load(env...); err != nil {
@@ -446,7 +446,7 @@ func (p *Plumber) loadEnvironment(ctx *cli.Context) error {
 	return nil
 }
 
-// Cli.setup Before function for the CLI that gets executed setup the action.
+// Before function for the CLI that gets executed setup the action.
 func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	return func(ctx *cli.Context) error {
 		if err := p.loadEnvironment(ctx); err != nil {
@@ -539,7 +539,7 @@ func (p *Plumber) defaultAction() cli.ActionFunc {
 	}
 }
 
-// App.registerInterruptHandler Registers the os.Signal listener for the application.
+// Registers the os.Signal listener for the application.
 func (p *Plumber) registerInterruptHandler(registered chan string) {
 	registered <- "interrupt"
 
@@ -578,7 +578,7 @@ func (p *Plumber) registerHandlers() error {
 	return p.deprecationNoticeHandler()
 }
 
-// App.registerErrorHandler Registers the error handlers for the runtime errors, this will not terminate application.
+// Registers the error handlers for the runtime errors, this will not terminate application.
 func (p *Plumber) registerErrorHandler(registered chan string) {
 	registered <- "error-handler"
 
@@ -604,7 +604,7 @@ func (p *Plumber) registerErrorHandler(registered chan string) {
 	}
 }
 
-// App.registerFatalErrorHandler Registers the error handler for fatal errors, this will terminate the application.
+// Registers the error handler for fatal errors, this will terminate the application.
 func (p *Plumber) registerFatalErrorHandler(registered chan string) {
 	registered <- "fatal-error-handler"
 
