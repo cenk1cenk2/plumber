@@ -1,3 +1,10 @@
+# [4.20.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.19.2...v4.20.0) (2022-11-20)
+
+
+### Features
+
+* refactor the application and write down documentation ([156c710](https://gitlab.kilic.dev/libraries/plumber/commit/156c7107a2b213af71b58eb810f288daff80550d))
+
 ## [4.19.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.19.1...v4.19.2) (2022-11-17)
 
 
