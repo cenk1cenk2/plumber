@@ -3,9 +3,6 @@ stages:
   - build
   - publish
 
-variables:
-  GO_LINT_COMMAND: task lint
-
 include:
   - project: devops/pipes
     file: /templates/go-install.gitlab-ci.yml
