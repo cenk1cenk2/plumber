@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/workanator/go-floc/v3"
 	"gitlab.kilic.dev/libraries/go-utils/utils"
-	"golang.org/x/exp/slices"
 )
 
 type Task[Pipe TaskListData] struct {
@@ -40,19 +39,12 @@ type Task[Pipe TaskListData] struct {
 type TaskOptions[Pipe TaskListData] struct {
 	Skip    TaskPredicateFn[Pipe]
 	Disable TaskPredicateFn[Pipe]
-	marks   []string
 }
 
 type (
 	TaskFn[Pipe TaskListData]          func(t *Task[Pipe]) error
 	TaskPredicateFn[Pipe TaskListData] func(t *Task[Pipe]) bool
 	JobWrapperFn                       func(job Job) Job
-)
-
-const (
-	// marks.
-
-	MARK_ROUTINE string = "MARK_ROUTINE"
 )
 
 // NewTask Creates a new task to be run as a job.
@@ -150,18 +142,6 @@ func (t *Task[Pipe]) SetOnTerminator(fn TaskFn[Pipe]) *Task[Pipe] {
 	t.onTerminatorFn = fn
 
 	return t
-}
-
-// Sets marks to change the behavior of the task.
-func (t *Task[Pipe]) SetMarks(marks ...string) *Task[Pipe] {
-	t.options.marks = marks
-
-	return t
-}
-
-// Checks whether current task is marked as a routine that is mostly working as a async manner.
-func (t *Task[Pipe]) IsMarkedAsRoutine() bool {
-	return slices.Contains(t.options.marks, MARK_ROUTINE)
 }
 
 // Extend the job of the current task.
@@ -283,11 +263,7 @@ func (t *Task[Pipe]) handleStopCases() bool {
 
 // Handles the errors from the current task.
 func (t *Task[Pipe]) handleErrors(err error) error {
-	if t.IsMarkedAsRoutine() {
-		t.SendFatal(err)
-
-		return nil
-	}
+	t.SendFatal(err)
 
 	return err
 }
