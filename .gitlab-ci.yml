@@ -4,7 +4,7 @@ stages:
   - publish
 
 variables:
-  GO_LINT_COMMAND: make lint-check
+  GO_LINT_COMMAND: task lint
 
 include:
   - project: devops/pipes

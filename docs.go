@@ -91,27 +91,8 @@ func (p *Plumber) toMarkdown() (string, error) {
 		return "", err
 	}
 
-	newLine := regexp.MustCompile(`\n`)
-	replaceWithHtmlNewLine := func(data string) string {
-		return newLine.ReplaceAllString(data, "<br />")
-	}
-	spaces := regexp.MustCompile(`\s+`)
-	spacesReplaceAll := func(data string) string {
-		return spaces.ReplaceAllString(data, " ")
-	}
-	spacesAfterNewLine := regexp.MustCompile(`<br /> `)
-	spacesReplaceAfterNewLine := func(data string) string {
-		return spacesAfterNewLine.ReplaceAllString(data, "<br />")
-	}
-
 	t, err := template.New(name).
-		Funcs(template.FuncMap{
-			"StringsJoin":              strings.Join,
-			"StringsReplaceAll":        strings.ReplaceAll,
-			"ReplaceMultiSpace":        spacesReplaceAll,
-			"RemoveSpacesAfterNewLine": spacesReplaceAfterNewLine,
-			"HtmlNewLines":             replaceWithHtmlNewLine,
-		}).
+		Funcs(TemplateFuncMap()).
 		Parse(string(tmpl))
 
 	if err != nil {

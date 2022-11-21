@@ -1,0 +1,44 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  GO_VERSION: 1.19
+
+env:
+  CGO_ENABLED: 0
+
+tasks:
+  install:
+    desc: Installs the required dependencies on pull.
+    cmds:
+      - go mod vendor
+    sources:
+      - go.sum
+    generates:
+      - "vendor/**"
+
+  format:
+    desc: Formats the current code base.
+    cmds:
+      - goimports -w .
+      - golangci-lint run --fix .
+
+  lint:
+    desc: Lints the codebase with predefined rules.
+    cmds:
+      - golangci-lint run .
+    sources:
+      - "**/*.go"
+
+  update:
+    desc: Updates all the dependencies to their latest minor version.
+    cmds:
+      - go get -u all
+      - task: tidy
+
+  tidy:
+    desc: Tidies the go.mod file.
+    cmds:
+      - go mod tidy -compat={{ .GO_VERSION }}
+      - task: install
