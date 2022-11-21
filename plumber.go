@@ -479,6 +479,10 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		p.setupLogger(level)
 
+		if err := p.registerHandlers(); err != nil {
+			return err
+		}
+
 		log := p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_setup}, p.options.delimiter))
 
 		if ctx.Bool("debug") || level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE {
@@ -499,7 +503,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			}
 		}
 
-		return p.registerHandlers()
+		return nil
 	}
 }
 
