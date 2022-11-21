@@ -1,3 +1,18 @@
+## [4.22.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.22.1...v4.22.2) (2022-11-20)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 8509921 ([2b26c3e](https://gitlab.kilic.dev/libraries/plumber/commit/2b26c3e85ca758571e834dad0e23668b2c34190e))
+
+## [4.22.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.22.0...v4.22.1) (2022-11-20)
+
+
+### Bug Fixes
+
+* add rounding to the times ([0559566](https://gitlab.kilic.dev/libraries/plumber/commit/0559566f70ffb50e355d631e8dac0cc37ccca40d))
+* update formatting ([352d401](https://gitlab.kilic.dev/libraries/plumber/commit/352d401176bc18db7d94cbe20ed5a87cdbbd682d))
+
 # [4.22.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.21.0...v4.22.0) (2022-11-20)
 
 
