@@ -1,3 +1,4 @@
+---
 # https://taskfile.dev
 
 version: "3"
@@ -22,12 +23,12 @@ tasks:
     desc: Formats the current code base.
     cmds:
       - goimports -w .
-      - golangci-lint run --fix .
+      - golangci-lint run --fix
 
   lint:
     desc: Lints the codebase with predefined rules.
     cmds:
-      - golangci-lint run .
+      - golangci-lint run
     sources:
       - "**/*.go"
 
