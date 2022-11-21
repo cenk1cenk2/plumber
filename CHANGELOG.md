@@ -1,3 +1,10 @@
+## [4.23.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.23.0...v4.23.1) (2022-11-21)
+
+
+### Bug Fixes
+
+* register handlers earlier ([9afad00](https://gitlab.kilic.dev/libraries/plumber/commit/9afad005443913d67915c89048e8aab1b90b13a8))
+
 # [4.23.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.22.2...v4.23.0) (2022-11-21)
 
 
