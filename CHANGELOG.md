@@ -1,3 +1,18 @@
+# [4.23.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.22.2...v4.23.0) (2022-11-21)
+
+
+### Bug Fixes
+
+* remove makefile for taskfile ([29e1933](https://gitlab.kilic.dev/libraries/plumber/commit/29e193372305faee588fc566d9683cb0799a1357))
+* remove marks api ([d77298b](https://gitlab.kilic.dev/libraries/plumber/commit/d77298bc7d9e9a98f5e87c8be62abb74118506f9))
+* remvoe tasks file ([3723d6b](https://gitlab.kilic.dev/libraries/plumber/commit/3723d6bad4db933dbd00ad7609ef77403a361edc))
+* update templating for better templaet funcs ([10b0d30](https://gitlab.kilic.dev/libraries/plumber/commit/10b0d30d11fbde8ff2bff191987fac9a2c862dc8))
+
+
+### Features
+
+* use a common template engine ([f1ce79b](https://gitlab.kilic.dev/libraries/plumber/commit/f1ce79b95f41cb351ae06ddc73b6dae91d9e4487))
+
 ## [4.22.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.22.1...v4.22.2) (2022-11-20)
 
 
