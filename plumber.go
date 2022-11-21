@@ -341,15 +341,13 @@ func (p *Plumber) Run() {
 
 	p.greet()
 
+	p.registerHandlers()
+
 	ch := make(chan int, 1)
 	p.Channel.Exit.Register(ch)
 
 	if slices.Contains(os.Args, "MARKDOWN_DOC") {
-		err := p.setupBasic()
-
-		if err != nil {
-			panic(err)
-		}
+		p.setupBasic()
 
 		p.Log.Traceln("Only running the documentation generation without the CLI.")
 
@@ -479,7 +477,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		p.setupLogger(level)
 
-		if err := p.registerHandlers(); err != nil {
+		if err := p.deprecationNoticeHandler(); err != nil {
 			return err
 		}
 
@@ -508,7 +506,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 }
 
 // Setups the basic application to perform tasks outside of the CLI context.
-func (p *Plumber) setupBasic() error {
+func (p *Plumber) setupBasic() {
 	level, err := logrus.ParseLevel(os.Getenv("LOG_LEVEL"))
 
 	if err != nil {
@@ -516,8 +514,6 @@ func (p *Plumber) setupBasic() error {
 	}
 
 	p.setupLogger(level)
-
-	return p.registerHandlers()
 }
 
 // Sets up logger for the application.
@@ -572,7 +568,7 @@ func (p *Plumber) registerInterruptHandler(registered chan string) {
 	p.SendTerminate(interrupt, 127)
 }
 
-func (p *Plumber) registerHandlers() error {
+func (p *Plumber) registerHandlers() {
 	registered := make(chan string, 4)
 	count := 0
 
@@ -592,8 +588,6 @@ func (p *Plumber) registerHandlers() error {
 
 	p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_setup}, p.options.delimiter)).Traceln("Registered handlers.")
 	close(registered)
-
-	return p.deprecationNoticeHandler()
 }
 
 // Registers the error handlers for the runtime errors, this will not terminate application.
