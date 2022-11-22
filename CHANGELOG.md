@@ -1,3 +1,10 @@
+# [4.27.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.26.1...v4.27.0) (2022-11-22)
+
+
+### Features
+
+* add typecasting overwriting flags ([30b008a](https://gitlab.kilic.dev/libraries/plumber/commit/30b008a83dca865a8a1831262ffecc3ee818149c))
+
 ## [4.26.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.26.0...v4.26.1) (2022-11-22)
 
 
