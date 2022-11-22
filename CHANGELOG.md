@@ -1,3 +1,10 @@
+## [4.27.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.27.0...v4.27.1) (2022-11-22)
+
+
+### Bug Fixes
+
+* change overwriting flag mechanism ([ad1dee0](https://gitlab.kilic.dev/libraries/plumber/commit/ad1dee0d3c8ed87f854815327f444bbf2159aa49))
+
 # [4.27.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.26.1...v4.27.0) (2022-11-22)
 
 
