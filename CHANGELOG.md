@@ -1,3 +1,10 @@
+## [4.23.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.23.2...v4.23.3) (2022-11-22)
+
+
+### Bug Fixes
+
+* decrease verbosity internally ([58a2d44](https://gitlab.kilic.dev/libraries/plumber/commit/58a2d4408516872bcc1839c83871a0987453c957))
+
 ## [4.23.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.23.1...v4.23.2) (2022-11-21)
 
 
