@@ -169,6 +169,13 @@ func (p *Plumber) SetDelimiter(delimiter string) *Plumber {
 	return p
 }
 
+// Sets the deprecation notices for the application.
+func (p *Plumber) SetDeprecationNotices(notices []DeprecationNotice) *Plumber {
+	p.DeprecationNotices = notices
+
+	return p
+}
+
 /*
 Enables terminator globally for the current application.
 
