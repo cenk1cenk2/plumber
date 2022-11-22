@@ -19,4 +19,4 @@
 # Go.patch:
 /vendor/
 /Godeps/
-.task/
+/.task/
