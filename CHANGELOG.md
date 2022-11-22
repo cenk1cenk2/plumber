@@ -1,3 +1,10 @@
+## [4.25.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.25.0...v4.25.1) (2022-11-22)
+
+
+### Bug Fixes
+
+* use lower case less intimating ([b444297](https://gitlab.kilic.dev/libraries/plumber/commit/b444297613993e74023612f536f29d6d0e8c4738))
+
 # [4.25.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.24.1...v4.25.0) (2022-11-22)
 
 
