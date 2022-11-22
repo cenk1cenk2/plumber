@@ -1,3 +1,10 @@
+# [4.25.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.24.1...v4.25.0) (2022-11-22)
+
+
+### Features
+
+* use application name instead of plumber ([42e85e4](https://gitlab.kilic.dev/libraries/plumber/commit/42e85e49e4db4f44484b8f7f33992825f01dc1b3))
+
 ## [4.24.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.24.0...v4.24.1) (2022-11-22)
 
 
