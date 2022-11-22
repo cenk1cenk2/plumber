@@ -1,3 +1,10 @@
+## [4.26.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.26.0...v4.26.1) (2022-11-22)
+
+
+### Bug Fixes
+
+* move deprecation notices to be interna;l ([b65533f](https://gitlab.kilic.dev/libraries/plumber/commit/b65533f7e5d279d43197e4f49df3bb76800adf0c))
+
 # [4.26.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.25.1...v4.26.0) (2022-11-22)
 
 
