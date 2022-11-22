@@ -26,13 +26,12 @@ type Plumber struct {
 	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
 	options       PlumberOptions
-
-	DeprecationNotices []DeprecationNotice
 }
 
 type PlumberOptions struct {
-	delimiter     string
-	documentation DocumentationOptions
+	delimiter          string
+	documentation      DocumentationOptions
+	deprecationNotices []DeprecationNotice
 }
 
 type AppEnvironment struct {
@@ -170,8 +169,10 @@ func (p *Plumber) SetDelimiter(delimiter string) *Plumber {
 }
 
 // Sets the deprecation notices for the application.
-func (p *Plumber) SetDeprecationNotices(notices []DeprecationNotice) *Plumber {
-	p.DeprecationNotices = notices
+func (p *Plumber) SetDeprecationNotices(notices ...[]DeprecationNotice) *Plumber {
+	for _, notice := range notices {
+		p.options.deprecationNotices = append(p.options.deprecationNotices, notice...)
+	}
 
 	return p
 }
@@ -447,7 +448,7 @@ func (p *Plumber) greet() {
 
 // Prints out DeprecationNotices.
 func (p *Plumber) deprecationNoticeHandler() error {
-	if len(p.DeprecationNotices) == 0 {
+	if len(p.options.deprecationNotices) == 0 {
 		return nil
 	}
 
@@ -457,7 +458,7 @@ func (p *Plumber) deprecationNoticeHandler() error {
 		LOG_FIELD_STATUS:  log_status_plumber_parser,
 	})
 
-	for _, notice := range p.DeprecationNotices {
+	for _, notice := range p.options.deprecationNotices {
 		if notice.Level == LOG_LEVEL_DEFAULT {
 			notice.Level = LOG_LEVEL_WARN
 		}
