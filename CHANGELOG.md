@@ -1,3 +1,10 @@
+# [4.26.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.25.1...v4.26.0) (2022-11-22)
+
+
+### Features
+
+* add embeded template ([0fece78](https://gitlab.kilic.dev/libraries/plumber/commit/0fece7875e02f4b8a6fefa137752da8b7e6f02f0))
+
 ## [4.25.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.25.0...v4.25.1) (2022-11-22)
 
 
