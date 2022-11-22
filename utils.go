@@ -13,10 +13,16 @@ func TemplateFuncMap() template.FuncMap {
 	return sprig.FuncMap()
 }
 
-func OverwriteCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply func(f Flag) Flag) []cli.Flag {
+func EditCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply func(f Flag) Flag) []cli.Flag {
 	clone := slices.Clone(flags)
 
-	index := slices.IndexFunc(clone, func(flag cli.Flag) bool {
+	OverwriteCliFlag(clone, fn, apply)
+
+	return clone
+}
+
+func OverwriteCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply func(f Flag) Flag) {
+	index := slices.IndexFunc(flags, func(flag cli.Flag) bool {
 		converted, ok := flag.(Flag)
 
 		if !ok {
@@ -26,7 +32,7 @@ func OverwriteCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply fu
 		return fn(converted)
 	})
 
-	applied := apply(clone[index].(Flag))
+	applied := apply(flags[index].(Flag))
 
 	cast := (interface{})(applied)
 
@@ -36,7 +42,5 @@ func OverwriteCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply fu
 		panic(fmt.Errorf("Can not cast the type of the given flag."))
 	}
 
-	clone[index] = modified
-
-	return clone
+	flags[index] = modified
 }
