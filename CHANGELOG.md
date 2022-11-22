@@ -1,3 +1,11 @@
+# [4.24.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.23.4...v4.24.0) (2022-11-22)
+
+
+### Features
+
+* add jumper for setting deprecation notices ([134c2e5](https://gitlab.kilic.dev/libraries/plumber/commit/134c2e55d860ae9a6593f87655720c1c9a2f263f))
+* change documentation setup ([88c1f8a](https://gitlab.kilic.dev/libraries/plumber/commit/88c1f8a49f2df026d7dcb556b553633d9c0b3cac))
+
 ## [4.23.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.23.3...v4.23.4) (2022-11-22)
 
 
