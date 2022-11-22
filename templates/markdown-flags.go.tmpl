@@ -1,0 +1,65 @@
+{{- if $.GlobalFlags }}
+{{- if $.Commands }}
+
+## Global Flags
+{{- else }}
+
+## Flags
+{{- end }}
+  {{- range $category, $flags := $.GlobalFlags }}
+      {{- if eq $category "EMPTY" }}
+        {{- template "flags" $flags }}
+      {{- end }}
+  {{- end }}
+  {{- range $category, $flags := $.GlobalFlags }}
+    {{- if ne $category "EMPTY" }}
+
+### {{ $category }}
+      {{- template "flags" $flags }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $.Commands }}
+
+## Commands
+  {{- range $v := $.Commands }}
+
+### `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
+    {{- if $v.Description }}
+
+{{ $v.Description }}
+    {{- end }}
+    {{- if $v.Usage }}
+
+`{{ $v.Usage }}`
+    {{- else }}
+
+`{{ $.App.Name }} {{ $v.Name }} [GLOBAL FLAGS] [FLAGS]`
+    {{- end }}
+
+    {{- if $v.Flags }}
+
+#### Flags
+      {{- range $category, $flags := $v.Flags }}
+        {{- if eq $category "EMPTY" }}
+          {{- template "flags" $flags }}
+        {{- end }}
+      {{- end }}
+      {{- range $category, $flags := $v.Flags }}
+        {{- if ne $category "EMPTY" }}
+
+##### {{ $category }}
+          {{- template "flags" $flags }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- define "flags" }}
+
+| Flag / Environment |  Description   |  Type    | Required | Default |
+|---------------- | --------------- | --------------- |  --------------- |  --------------- |
+  {{- range $f := . }}
+| {{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ regexReplaceAll `\n` ($f.Description | trim) "<br />" }} | `{{ $f.Type }}`{{ if $f.Format }}<br/>`{{ $f.Format | trim }}`{{ end }} | `{{ $f.Required }}` | {{ regexReplaceAll `\s\s\s\s` (regexReplaceAll `\n` $f.Default "<br />") "  " }} |{{- end }}
+{{- end }}

@@ -72,6 +72,7 @@ type AppChannel struct {
 
 type DocumentationOptions struct {
 	MarkdownOutputFile          string
+	EmbeddedMarkdownOutputFile  string
 	ExcludeFlags                bool
 	ExcludeEnvironmentVariables bool
 	ExcludeHelpCommand          bool
@@ -393,9 +394,23 @@ func (p *Plumber) Run() {
 	if slices.Contains(os.Args, "MARKDOWN_DOC") {
 		p.setupBasic()
 
-		p.Log.Traceln("Only running the documentation generation without the CLI.")
+		p.Log.Infoln("Only running the documentation generation without the CLI.")
 
 		if err := p.generateMarkdownDocumentation(); err != nil {
+			p.SendFatal(err)
+
+			for {
+				<-ch
+			}
+		}
+
+		return
+	} else if slices.Contains(os.Args, "MARKDOWN_EMBED") {
+		p.setupBasic()
+
+		p.Log.Infoln("Only running the documentation generation to embed to file without the CLI.")
+
+		if err := p.embedMarkdownDocumentation(); err != nil {
 			p.SendFatal(err)
 
 			for {

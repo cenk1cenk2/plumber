@@ -47,33 +47,11 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 		p.options.documentation.MarkdownOutputFile = "README.md"
 	}
 
-	// const start = "<!-- clidocs -->"
-	// const end = "<!-- clidocsstop -->"
-	// expr := fmt.Sprintf(`(?s)%s(.*)%s`, start, end)
-	//
-	// p.Log.Debugf("Using expression: %s", expr)
-
 	data, err := p.toMarkdown()
 
 	if err != nil {
 		return err
 	}
-
-	// p.Log.Infof("Trying to read file: %s", p.readme)
-	//
-	// content, err := os.ReadFile(p.readme)
-	//
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// readme := string(content)
-	//
-	// r := regexp.MustCompile(expr)
-	//
-	// replace := strings.Join([]string{start, "", data, "", end}, "\n")
-	//
-	// result := r.ReplaceAllString(readme, replace)
 
 	err = os.WriteFile(p.options.documentation.MarkdownOutputFile, []byte(data), 0600)
 
@@ -84,6 +62,60 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 	p.Log.Infof("Wrote to file: %s", p.options.documentation.MarkdownOutputFile)
 
 	return nil
+}
+
+func (p *Plumber) embedMarkdownDocumentation() error {
+	if p.options.documentation.EmbeddedMarkdownOutputFile == "" {
+		p.options.documentation.EmbeddedMarkdownOutputFile = "README.md"
+	}
+
+	const start = "<!-- clidocs -->"
+	const end = "<!-- clidocsstop -->"
+	expr := fmt.Sprintf(`(?s)%s(.*)%s`, start, end)
+
+	p.Log.Debugf("Using expression: %s", expr)
+
+	data, err := p.toEmbededMarkdown()
+
+	if err != nil {
+		return err
+	}
+
+	p.Log.Infof("Trying to read file: %s", p.options.documentation.EmbeddedMarkdownOutputFile)
+
+	content, err := os.ReadFile(p.options.documentation.EmbeddedMarkdownOutputFile)
+
+	if err != nil {
+		return err
+	}
+
+	readme := string(content)
+
+	r := regexp.MustCompile(expr)
+
+	replace := strings.Join([]string{start, "", data, "", end}, "\n")
+
+	result := r.ReplaceAllString(readme, replace)
+
+	err = os.WriteFile(p.options.documentation.EmbeddedMarkdownOutputFile, []byte(result), 0600)
+
+	if err != nil {
+		return err
+	}
+
+	p.Log.Infof("Embedded into file: %s", p.options.documentation.EmbeddedMarkdownOutputFile)
+
+	return nil
+}
+
+func (p *Plumber) generateMarkdownTemplateCtx() *markdownTemplateInput {
+	input := &markdownTemplateInput{
+		App:         p.Cli,
+		Commands:    p.generateDocCommands(p.Cli.Commands),
+		GlobalFlags: p.generateDocFlags(p.Cli.VisibleFlags()),
+	}
+
+	return input
 }
 
 func (p *Plumber) toMarkdown() (string, error) {
@@ -103,11 +135,7 @@ func (p *Plumber) toMarkdown() (string, error) {
 		return "", err
 	}
 
-	input := &markdownTemplateInput{
-		App:         p.Cli,
-		Commands:    p.toMarkdownCommand(p.Cli.Commands),
-		GlobalFlags: p.toMarkdownFlags(p.Cli.VisibleFlags()),
-	}
+	input := p.generateMarkdownTemplateCtx()
 
 	p.Log.Tracef("Executing the template: %+v", input)
 
@@ -116,7 +144,33 @@ func (p *Plumber) toMarkdown() (string, error) {
 	return w.String(), err
 }
 
-func (p *Plumber) toMarkdownCommand(commands []*cli.Command) []*templateCommand {
+func (p *Plumber) toEmbededMarkdown() (string, error) {
+	var w bytes.Buffer
+	const name = "templates/markdown-flags.go.tmpl"
+	tmpl, err := templates.ReadFile(name)
+
+	if err != nil {
+		return "", err
+	}
+
+	t, err := template.New(name).
+		Funcs(TemplateFuncMap()).
+		Parse(string(tmpl))
+
+	if err != nil {
+		return "", err
+	}
+
+	input := p.generateMarkdownTemplateCtx()
+
+	p.Log.Tracef("Executing the embedded template: %+v", input)
+
+	err = t.ExecuteTemplate(&w, name, input)
+
+	return w.String(), err
+}
+
+func (p *Plumber) generateDocCommands(commands []*cli.Command) []*templateCommand {
 	var processed []*templateCommand
 
 	for _, command := range commands {
@@ -129,7 +183,7 @@ func (p *Plumber) toMarkdownCommand(commands []*cli.Command) []*templateCommand 
 			Aliases:     command.Aliases,
 			Description: command.Description,
 			Usage:       command.Usage,
-			Flags:       p.toMarkdownFlags(command.VisibleFlags()),
+			Flags:       p.generateDocFlags(command.VisibleFlags()),
 		}
 
 		if p.options.documentation.ExcludeHelpCommand && parsed.Name == "help" {
@@ -143,7 +197,7 @@ func (p *Plumber) toMarkdownCommand(commands []*cli.Command) []*templateCommand 
 		if len(command.Subcommands) > 0 {
 			processed = append(
 				processed,
-				p.toMarkdownCommand(command.Subcommands)...,
+				p.generateDocCommands(command.Subcommands)...,
 			)
 		}
 	}
@@ -151,7 +205,7 @@ func (p *Plumber) toMarkdownCommand(commands []*cli.Command) []*templateCommand 
 	return processed
 }
 
-func (p *Plumber) toMarkdownFlags(
+func (p *Plumber) generateDocFlags(
 	flags []cli.Flag,
 ) parsedFlags {
 	all := []*templateFlag{}
