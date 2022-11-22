@@ -32,6 +32,10 @@ func OverwriteCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply fu
 		return fn(converted)
 	})
 
+	if index < 0 {
+		panic(fmt.Errorf("Flag can not be found to modify."))
+	}
+
 	applied := apply(flags[index].(Flag))
 
 	cast := (interface{})(applied)
