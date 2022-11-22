@@ -1,3 +1,10 @@
+## [4.27.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.27.2...v4.27.3) (2022-11-22)
+
+
+### Bug Fixes
+
+* templating errors with embedded ([f40cd01](https://gitlab.kilic.dev/libraries/plumber/commit/f40cd015c6038dc4977efc0f1f9f1e86c624b1db))
+
 ## [4.27.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.27.1...v4.27.2) (2022-11-22)
 
 
