@@ -1,3 +1,10 @@
+## [4.23.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.23.3...v4.23.4) (2022-11-22)
+
+
+### Bug Fixes
+
+* handle deprecation notices after before function ([196d2ae](https://gitlab.kilic.dev/libraries/plumber/commit/196d2ae01c136900aca8200619fa97c9cb185b33))
+
 ## [4.23.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.23.2...v4.23.3) (2022-11-22)
 
 
