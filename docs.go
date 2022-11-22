@@ -37,6 +37,7 @@ type markdownTemplateInput struct {
 	App         *cli.App
 	GlobalFlags parsedFlags
 	Commands    []*templateCommand
+	Behead      int
 }
 
 //go:embed templates
@@ -93,9 +94,9 @@ func (p *Plumber) embedMarkdownDocumentation() error {
 
 	r := regexp.MustCompile(expr)
 
-	replace := strings.Join([]string{start, "", data, "", end}, "\n")
+	replace := strings.Join([]string{start, "", strings.TrimSpace(data), "", end}, "\n")
 
-	result := r.ReplaceAllString(readme, replace)
+	result := r.ReplaceAllLiteralString(readme, replace)
 
 	err = os.WriteFile(p.options.documentation.EmbeddedMarkdownOutputFile, []byte(result), 0600)
 
@@ -113,6 +114,7 @@ func (p *Plumber) generateMarkdownTemplateCtx() *markdownTemplateInput {
 		App:         p.Cli,
 		Commands:    p.generateDocCommands(p.Cli.Commands),
 		GlobalFlags: p.generateDocFlags(p.Cli.VisibleFlags()),
+		Behead:      p.options.documentation.MarkdownBehead,
 	}
 
 	return input

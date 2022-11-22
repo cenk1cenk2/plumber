@@ -72,6 +72,7 @@ type AppChannel struct {
 type DocumentationOptions struct {
 	MarkdownOutputFile          string
 	EmbeddedMarkdownOutputFile  string
+	MarkdownBehead              int
 	ExcludeFlags                bool
 	ExcludeEnvironmentVariables bool
 	ExcludeHelpCommand          bool

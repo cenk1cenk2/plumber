@@ -1,11 +1,8 @@
-{{- if $.GlobalFlags }}
 {{- if $.Commands }}
 
 ## Global Flags
-{{- else }}
-
-## Flags
 {{- end }}
+{{- if $.GlobalFlags }}
   {{- range $category, $flags := $.GlobalFlags }}
       {{- if eq $category "EMPTY" }}
         {{- template "flags" $flags }}
@@ -14,17 +11,17 @@
   {{- range $category, $flags := $.GlobalFlags }}
     {{- if ne $category "EMPTY" }}
 
-### {{ $category }}
+{{ repeat $.Behead "#" }}### {{ $category }}
       {{- template "flags" $flags }}
     {{- end }}
   {{- end }}
 {{- end }}
 {{- if $.Commands }}
 
-## Commands
+{{ repeat $.Behead "#" }}## Commands
   {{- range $v := $.Commands }}
 
-### `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
+{{ repeat $.Behead "#" }}### `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
     {{- if $v.Description }}
 
 {{ $v.Description }}
@@ -39,7 +36,7 @@
 
     {{- if $v.Flags }}
 
-#### Flags
+{{ repeat $.Behead "#" }}#### Flags
       {{- range $category, $flags := $v.Flags }}
         {{- if eq $category "EMPTY" }}
           {{- template "flags" $flags }}
@@ -48,13 +45,12 @@
       {{- range $category, $flags := $v.Flags }}
         {{- if ne $category "EMPTY" }}
 
-##### {{ $category }}
+{{ repeat $.Behead "#" }}##### {{ $category }}
           {{- template "flags" $flags }}
         {{- end }}
       {{- end }}
     {{- end }}
   {{- end }}
-{{- end }}
 {{- end }}
 {{- define "flags" }}
 
