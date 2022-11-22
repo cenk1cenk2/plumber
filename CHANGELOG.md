@@ -1,3 +1,10 @@
+## [4.27.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.27.1...v4.27.2) (2022-11-22)
+
+
+### Bug Fixes
+
+* error check before casting flags ([114153c](https://gitlab.kilic.dev/libraries/plumber/commit/114153c47864a2d8ebd87111a146a90b2f9d6683))
+
 ## [4.27.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.27.0...v4.27.1) (2022-11-22)
 
 
