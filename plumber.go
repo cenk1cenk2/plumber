@@ -27,16 +27,12 @@ type Plumber struct {
 	onTerminateFn PlumberOnTerminateFn
 	options       PlumberOptions
 
-	DocsFile                        string
-	DocsExcludeFlags                bool
-	DocsExcludeEnvironmentVariables bool
-	DocsExcludeHelpCommand          bool
-
 	DeprecationNotices []DeprecationNotice
 }
 
 type PlumberOptions struct {
-	delimiter string
+	delimiter     string
+	documentation DocumentationOptions
 }
 
 type AppEnvironment struct {
@@ -74,6 +70,13 @@ type AppChannel struct {
 	Exit *broadcaster.Broadcaster[int]
 }
 
+type DocumentationOptions struct {
+	MarkdownOutputFile          string
+	ExcludeFlags                bool
+	ExcludeEnvironmentVariables bool
+	ExcludeHelpCommand          bool
+}
+
 type DeprecationNotice struct {
 	Message     string
 	Environment []string
@@ -83,15 +86,16 @@ type DeprecationNotice struct {
 
 type (
 	PlumberOnTerminateFn func() error
-	PlumberNewFn         func(a *Plumber) *cli.App
+	PlumberNewFn         func(p *Plumber) *cli.App
+	PlumberFn            func(p *Plumber) error
 )
 
 const (
-	log_context_plumber                    = "plumber"
-	log_context_plumber_terminator  string = "terminator"
-	log_context_plumber_parser      string = "parser"
-	log_context_plumber_environment string = "environment"
-	log_context_plumber_setup       string = "setup"
+	log_context_plumber                   = "plumber"
+	log_status_plumber_terminator  string = "terminator"
+	log_status_plumber_parser      string = "parser"
+	log_status_plumber_environment string = "environment"
+	log_status_plumber_setup       string = "setup"
 )
 
 // Creates a new Plumber instance and initiates it.
@@ -121,10 +125,6 @@ func (p *Plumber) New(
 
 	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
 
-	if p.DocsFile == "" {
-		p.DocsFile = "README.md"
-	}
-
 	p.Environment = AppEnvironment{}
 
 	// create error channels
@@ -146,6 +146,29 @@ func (p *Plumber) New(
 	return p
 }
 
+// Sets additional configuration fields.
+func (p *Plumber) Set(fn PlumberFn) *Plumber {
+	if err := fn(p); err != nil {
+		p.SendFatal(err)
+	}
+
+	return p
+}
+
+// Sets documentation options of the application.
+func (p *Plumber) SetDocumentationOptions(options DocumentationOptions) *Plumber {
+	p.options.documentation = options
+
+	return p
+}
+
+// Sets delimiter for the application.
+func (p *Plumber) SetDelimiter(delimiter string) *Plumber {
+	p.options.delimiter = delimiter
+
+	return p
+}
+
 /*
 Enables terminator globally for the current application.
 
@@ -160,7 +183,10 @@ func (p *Plumber) EnableTerminator() *Plumber {
 		Terminated:      broadcaster.NewBroadcaster[bool](1),
 	}
 
-	p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_terminator}, p.options.delimiter)).Traceln("Terminator enabled.")
+	p.Log.WithFields(logrus.Fields{
+		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_STATUS:  log_status_plumber_terminator,
+	}).Traceln("Terminator enabled.")
 
 	return p
 }
@@ -236,7 +262,10 @@ func (p *Plumber) SendExit(code int) *Plumber {
 // Sends a terminate request to the application via interruption signal.
 func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 	if p.Terminator.Enabled {
-		log := p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_terminator}, p.options.delimiter))
+		log := p.Log.WithFields(logrus.Fields{
+			LOG_FIELD_CONTEXT: log_context_plumber,
+			LOG_FIELD_STATUS:  log_status_plumber_terminator,
+		})
 
 		if p.Terminator.initiated {
 			log.Tracef("Termination process already started, ignoring: %s", sig)
@@ -264,7 +293,10 @@ This will gracefully try to stop the application components that are registered 
 func (p *Plumber) Terminate(code int) {
 	if p.Terminator.Enabled {
 		if p.Terminator.registered > 0 {
-			log := p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_terminator}, p.options.delimiter))
+			log := p.Log.WithFields(logrus.Fields{
+				LOG_FIELD_CONTEXT: log_context_plumber,
+				LOG_FIELD_STATUS:  log_status_plumber_terminator,
+			})
 
 			if !p.Terminator.initiated {
 				p.SendTerminate(syscall.SIGSTOP, 1)
@@ -316,7 +348,10 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 	}
 
 	if p.Terminator.registered > 0 {
-		log := p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_terminator}, p.options.delimiter))
+		log := p.Log.WithFields(logrus.Fields{
+			LOG_FIELD_CONTEXT: log_context_plumber,
+			LOG_FIELD_STATUS:  log_status_plumber_terminator,
+		})
 
 		p.Terminator.Lock.Lock()
 		p.Terminator.terminated++
@@ -393,7 +428,10 @@ func (p *Plumber) deprecationNoticeHandler() error {
 	}
 
 	exit := false
-	log := p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_parser}, p.options.delimiter))
+	log := p.Log.WithFields(logrus.Fields{
+		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_STATUS:  log_status_plumber_parser,
+	})
 
 	for _, notice := range p.DeprecationNotices {
 		if notice.Level == LOG_LEVEL_DEFAULT {
@@ -451,7 +489,10 @@ func (p *Plumber) loadEnvironment(ctx *cli.Context) error {
 			return err
 		}
 
-		p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_environment}, p.options.delimiter)).
+		p.Log.WithFields(logrus.Fields{
+			LOG_FIELD_CONTEXT: log_context_plumber,
+			LOG_FIELD_STATUS:  log_status_plumber_environment,
+		}).
 			Tracef("Environment files are loaded: %v", env)
 	}
 
@@ -477,7 +518,10 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		p.setupLogger(level)
 
-		log := p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_setup}, p.options.delimiter))
+		log := p.Log.WithFields(logrus.Fields{
+			LOG_FIELD_CONTEXT: log_context_plumber,
+			LOG_FIELD_STATUS:  log_status_plumber_setup,
+		})
 
 		if ctx.Bool("debug") || level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE {
 			log.Traceln("Running in debug mode.")
@@ -534,7 +578,10 @@ func (p *Plumber) setupLogger(level LogLevel) {
 
 	p.Log.ExitFunc = p.Terminate
 
-	p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_setup}, p.options.delimiter)).
+	p.Log.WithFields(logrus.Fields{
+		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_STATUS:  log_status_plumber_setup,
+	}).
 		Tracef("Logger has been setup with level: %d", level)
 }
 
@@ -582,7 +629,10 @@ func (p *Plumber) registerHandlers() {
 		}
 	}
 
-	p.Log.WithField(LOG_FIELD_CONTEXT, strings.Join([]string{log_context_plumber, log_context_plumber_setup}, p.options.delimiter)).Traceln("Registered handlers.")
+	p.Log.WithFields(logrus.Fields{
+		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_STATUS:  log_status_plumber_setup,
+	}).Traceln("Registered handlers.")
 	close(registered)
 }
 

@@ -43,6 +43,10 @@ type markdownTemplateInput struct {
 var templates embed.FS
 
 func (p *Plumber) generateMarkdownDocumentation() error {
+	if p.options.documentation.MarkdownOutputFile == "" {
+		p.options.documentation.MarkdownOutputFile = "README.md"
+	}
+
 	// const start = "<!-- clidocs -->"
 	// const end = "<!-- clidocsstop -->"
 	// expr := fmt.Sprintf(`(?s)%s(.*)%s`, start, end)
@@ -71,13 +75,13 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 	//
 	// result := r.ReplaceAllString(readme, replace)
 
-	err = os.WriteFile(p.DocsFile, []byte(data), 0600)
+	err = os.WriteFile(p.options.documentation.MarkdownOutputFile, []byte(data), 0600)
 
 	if err != nil {
 		return err
 	}
 
-	p.Log.Infof("Wrote to file: %s", p.DocsFile)
+	p.Log.Infof("Wrote to file: %s", p.options.documentation.MarkdownOutputFile)
 
 	return nil
 }
@@ -128,7 +132,7 @@ func (p *Plumber) toMarkdownCommand(commands []*cli.Command) []*templateCommand 
 			Flags:       p.toMarkdownFlags(command.VisibleFlags()),
 		}
 
-		if p.DocsExcludeHelpCommand && parsed.Name == "help" {
+		if p.options.documentation.ExcludeHelpCommand && parsed.Name == "help" {
 			continue
 		}
 
@@ -163,7 +167,7 @@ func (p *Plumber) toMarkdownFlags(
 		}
 
 		names := []string{}
-		if !p.DocsExcludeFlags {
+		if !p.options.documentation.ExcludeFlags {
 			for _, s := range current.Names() {
 				trimmed := strings.TrimSpace(s)
 
@@ -175,7 +179,7 @@ func (p *Plumber) toMarkdownFlags(
 			}
 		}
 
-		if !p.DocsExcludeEnvironmentVariables {
+		if !p.options.documentation.ExcludeEnvironmentVariables {
 			for _, v := range current.GetEnvVars() {
 				names = append(names, fmt.Sprintf("$%s", v))
 			}
@@ -183,7 +187,7 @@ func (p *Plumber) toMarkdownFlags(
 
 		description := current.GetUsage()
 
-		re := regexp.MustCompile(`((format|json|Template|RegExp|dynamic|enum)\(.*\))$`)
+		re := regexp.MustCompile(`((format|json|Template|RegExp|enum|multiple)\(.*\))$`)
 
 		format := re.FindString(description)
 
