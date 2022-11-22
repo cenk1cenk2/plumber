@@ -91,10 +91,9 @@ type (
 )
 
 const (
-	log_context_plumber                   = "plumber"
-	log_status_plumber_terminator  string = "terminator"
-	log_status_plumber_parser      string = "parser"
-	log_status_plumber_environment string = "environment"
+	log_status_plumber_terminator  string = "terminate"
+	log_status_plumber_parser      string = "parse"
+	log_status_plumber_environment string = "env"
 	log_status_plumber_setup       string = "setup"
 )
 
@@ -191,7 +190,7 @@ func (p *Plumber) EnableTerminator() *Plumber {
 	}
 
 	p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_plumber_terminator,
 	}).Traceln("Terminator enabled.")
 
@@ -260,7 +259,7 @@ func (p *Plumber) SendCustomFatal(log *logrus.Entry, err error) *Plumber {
 // Sends exit code to terminate the application.
 func (p *Plumber) SendExit(code int) *Plumber {
 	p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_exit,
 	}).Traceln(code)
 
@@ -273,7 +272,7 @@ func (p *Plumber) SendExit(code int) *Plumber {
 func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 	if p.Terminator.Enabled {
 		log := p.Log.WithFields(logrus.Fields{
-			LOG_FIELD_CONTEXT: log_context_plumber,
+			LOG_FIELD_CONTEXT: p.Cli.Name,
 			LOG_FIELD_STATUS:  log_status_plumber_terminator,
 		})
 
@@ -304,7 +303,7 @@ func (p *Plumber) Terminate(code int) {
 	if p.Terminator.Enabled {
 		if p.Terminator.registered > 0 {
 			log := p.Log.WithFields(logrus.Fields{
-				LOG_FIELD_CONTEXT: log_context_plumber,
+				LOG_FIELD_CONTEXT: p.Cli.Name,
 				LOG_FIELD_STATUS:  log_status_plumber_terminator,
 			})
 
@@ -359,7 +358,7 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 
 	if p.Terminator.registered > 0 {
 		log := p.Log.WithFields(logrus.Fields{
-			LOG_FIELD_CONTEXT: log_context_plumber,
+			LOG_FIELD_CONTEXT: p.Cli.Name,
 			LOG_FIELD_STATUS:  log_status_plumber_terminator,
 		})
 
@@ -439,7 +438,7 @@ func (p *Plumber) deprecationNoticeHandler() error {
 
 	exit := false
 	log := p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_plumber_parser,
 	})
 
@@ -500,7 +499,7 @@ func (p *Plumber) loadEnvironment(ctx *cli.Context) error {
 		}
 
 		p.Log.WithFields(logrus.Fields{
-			LOG_FIELD_CONTEXT: log_context_plumber,
+			LOG_FIELD_CONTEXT: p.Cli.Name,
 			LOG_FIELD_STATUS:  log_status_plumber_environment,
 		}).
 			Tracef("Environment files are loaded: %v", env)
@@ -529,7 +528,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 		p.setupLogger(level)
 
 		log := p.Log.WithFields(logrus.Fields{
-			LOG_FIELD_CONTEXT: log_context_plumber,
+			LOG_FIELD_CONTEXT: p.Cli.Name,
 			LOG_FIELD_STATUS:  log_status_plumber_setup,
 		})
 
@@ -589,7 +588,7 @@ func (p *Plumber) setupLogger(level LogLevel) {
 	p.Log.ExitFunc = p.Terminate
 
 	p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_plumber_setup,
 	}).
 		Tracef("Logger has been setup with level: %d", level)
@@ -614,7 +613,7 @@ func (p *Plumber) registerInterruptHandler(registered chan string) {
 
 	interrupt := <-p.Channel.Interrupt
 	p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_plumber_terminator,
 	}).Errorf(
 		"Terminating the application with signal: %s",
@@ -643,7 +642,7 @@ func (p *Plumber) registerHandlers() {
 	}
 
 	p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_plumber_setup,
 	}).Traceln("Registered handlers.")
 	close(registered)
