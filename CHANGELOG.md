@@ -1,3 +1,10 @@
+## [4.24.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.24.0...v4.24.1) (2022-11-22)
+
+
+### Bug Fixes
+
+* udpate logging methodology again ([274c7fd](https://gitlab.kilic.dev/libraries/plumber/commit/274c7fdf6b3d4772f889f3c203d29479d21d44ea))
+
 # [4.24.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.23.4...v4.24.0) (2022-11-22)
 
 
