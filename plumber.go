@@ -259,7 +259,10 @@ func (p *Plumber) SendCustomFatal(log *logrus.Entry, err error) *Plumber {
 
 // Sends exit code to terminate the application.
 func (p *Plumber) SendExit(code int) *Plumber {
-	p.Log.Tracef("Exit: %d", code)
+	p.Log.WithFields(logrus.Fields{
+		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_STATUS:  log_status_exit,
+	}).Traceln(code)
 
 	p.Channel.Exit.Submit(code)
 
@@ -610,7 +613,10 @@ func (p *Plumber) registerInterruptHandler(registered chan string) {
 	signal.Notify(p.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	interrupt := <-p.Channel.Interrupt
-	p.Log.Errorf(
+	p.Log.WithFields(logrus.Fields{
+		LOG_FIELD_CONTEXT: log_context_plumber,
+		LOG_FIELD_STATUS:  log_status_plumber_terminator,
+	}).Errorf(
 		"Terminating the application with signal: %s",
 		interrupt,
 	)
