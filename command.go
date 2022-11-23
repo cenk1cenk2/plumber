@@ -78,8 +78,7 @@ func NewCommand[Pipe TaskListData](
 		task:    task,
 		Log:     task.Log,
 		options: CommandOptions[Pipe]{
-			retryDelay:  COMMAND_RETRY_DELAY,
-			retryAlways: true,
+			retryDelay: COMMAND_RETRY_DELAY,
 		},
 	}
 
