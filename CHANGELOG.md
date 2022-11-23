@@ -1,3 +1,11 @@
+## [4.28.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.0...v4.28.1) (2022-11-23)
+
+
+### Bug Fixes
+
+* do not always retry ([c4befc3](https://gitlab.kilic.dev/libraries/plumber/commit/c4befc388f529fdea4a803e9c76405d623078f58))
+* update log message ([40a900c](https://gitlab.kilic.dev/libraries/plumber/commit/40a900c047d1dc0b3320315b8db85ba066a443f7))
+
 # [4.28.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.27.3...v4.28.0) (2022-11-23)
 
 
