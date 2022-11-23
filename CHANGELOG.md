@@ -1,3 +1,11 @@
+## [4.28.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.1...v4.28.2) (2022-11-23)
+
+
+### Bug Fixes
+
+* update go version ([7d9f29a](https://gitlab.kilic.dev/libraries/plumber/commit/7d9f29ab4f48779804662829454418bd733861a3))
+* update retry error ([3c66f89](https://gitlab.kilic.dev/libraries/plumber/commit/3c66f896089832ac0efa2bb22b66db0b4a3409b8))
+
 ## [4.28.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.0...v4.28.1) (2022-11-23)
 
 
