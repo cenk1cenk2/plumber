@@ -402,7 +402,7 @@ func (c *Command[Pipe]) retry(err error) error {
 		return c.handleError(err)
 	}
 
-	c.Log.Warnf("%s -> has failed, will retry to run: %s", c.GetFormattedCommand(), err)
+	c.Log.Warnf("%s -> has failed, will retry to run in %s: %s", c.GetFormattedCommand(), c.options.retryDelay.String(), err)
 	time.Sleep(c.options.retryDelay)
 
 	c.options.retries--
