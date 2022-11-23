@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"gitlab.kilic.dev/libraries/go-broadcaster"
-	"gitlab.kilic.dev/libraries/go-utils/logger"
+	"gitlab.kilic.dev/libraries/go-utils/v2/logger"
 	"golang.org/x/exp/slices"
 )
 

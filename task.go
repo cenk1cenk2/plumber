@@ -9,7 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/workanator/go-floc/v3"
-	"gitlab.kilic.dev/libraries/go-utils/utils"
+	"gitlab.kilic.dev/libraries/go-utils/v2/utils"
 )
 
 type Task[Pipe TaskListData] struct {

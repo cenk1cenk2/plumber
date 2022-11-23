@@ -28,7 +28,7 @@ var CliDefaultFlags = []cli.Flag{
 	&cli.StringFlag{
 		Category: CLI_FLAGS_CATEGORY,
 		Name:     "log-level",
-		Usage:    `Define the log level for the application. enum("panic", "fatal", "warning", "info", "debug", "trace")`,
+		Usage:    `Define the log level for the application. enum("panic", "fatal", "warn", "info", "debug", "trace")`,
 		EnvVars:  []string{"LOG_LEVEL"},
 		Value:    logrus.InfoLevel.String(),
 	},

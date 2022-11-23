@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.kilic.dev/libraries/go-utils/utils"
+	"gitlab.kilic.dev/libraries/go-utils/v2/utils"
 )
 
 type Command[Pipe TaskListData] struct {
@@ -43,6 +43,9 @@ type CommandOptions[Pipe TaskListData] struct {
 	recordStream      bool
 	ensureIsAlive     bool
 	maskOsEnvironment bool
+	retries           int
+	retryAlways       bool
+	retryDelay        time.Duration
 }
 
 type (
@@ -58,8 +61,9 @@ type (
 )
 
 const (
-	stream_stdout string = "stdout"
-	stream_stderr string = "stderr"
+	stream_stdout       string        = "stdout"
+	stream_stderr       string        = "stderr"
+	COMMAND_RETRY_DELAY time.Duration = time.Second
 )
 
 // NewCommand Creates a new command to be run as a job.
@@ -73,6 +77,10 @@ func NewCommand[Pipe TaskListData](
 		Plumber: task.Plumber,
 		task:    task,
 		Log:     task.Log,
+		options: CommandOptions[Pipe]{
+			retryDelay:  COMMAND_RETRY_DELAY,
+			retryAlways: true,
+		},
 	}
 
 	c.SetLogLevel(LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT)
@@ -207,6 +215,15 @@ func (c *Command[Pipe]) SetMaskOsEnvironment() *Command[Pipe] {
 	return c
 }
 
+// Sets the option to retry the command if failed.
+func (c *Command[Pipe]) SetRetries(retries int, always bool, delay time.Duration) *Command[Pipe] {
+	c.options.retries = retries
+	c.options.retryAlways = always
+	c.options.retryDelay = delay
+
+	return c
+}
+
 // Sets the option where this command will save its output to be later accessed in the shouldRunAfterFn.
 func (c *Command[Pipe]) EnableStreamRecording() *Command[Pipe] {
 	c.options.recordStream = true
@@ -249,6 +266,16 @@ func (c *Command[Pipe]) GetCombinedStream() []string {
 	}
 
 	return c.combinedStream
+}
+
+// Returns whether the command has failed or not.
+func (c *Command[Pipe]) HasFailed() bool {
+	return !c.Command.ProcessState.Success()
+}
+
+// Returns whether the command has exited properly or not.
+func (c *Command[Pipe]) HasExited() bool {
+	return !c.Command.ProcessState.Exited()
 }
 
 // Fetches the name of this command, that is formatted for the logger.
@@ -353,14 +380,35 @@ func (c *Command[Pipe]) pipe() error {
 			}
 		}
 
-		if !c.options.ignoreError {
-			return err
-		}
+		return c.retry(err)
 	} else if c.options.ensureIsAlive {
 		return fmt.Errorf("Process not running anymore: %s", c.GetFormattedCommand())
 	}
 
 	return nil
+}
+
+// Handles the error depending on the options.
+func (c *Command[Pipe]) handleError(err error) error {
+	if c.options.ignoreError {
+		return nil
+	}
+
+	return err
+}
+
+// Retries the task with the given options.
+func (c *Command[Pipe]) retry(err error) error {
+	if !c.options.retryAlways || c.options.retries <= 0 {
+		return c.handleError(err)
+	}
+
+	c.Log.Warnf("%s -> has failed, will retry to run: %s", c.GetFormattedCommand(), err)
+	time.Sleep(c.options.retryDelay)
+
+	c.options.retries--
+
+	return c.Run()
 }
 
 // Creates closers and readers for stdout and stderr.
