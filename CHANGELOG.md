@@ -1,3 +1,10 @@
+# [4.28.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.27.3...v4.28.0) (2022-11-23)
+
+
+### Features
+
+* add retry functionality ([012847f](https://gitlab.kilic.dev/libraries/plumber/commit/012847f6d0ad6d6c11c668cb210b34f1ed3cdf06))
+
 ## [4.27.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.27.2...v4.27.3) (2022-11-22)
 
 
