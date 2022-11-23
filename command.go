@@ -390,6 +390,8 @@ func (c *Command[Pipe]) pipe() error {
 // Handles the error depending on the options.
 func (c *Command[Pipe]) handleError(err error) error {
 	if c.options.ignoreError {
+		c.Log.Debugf("%s -> Error ignored: %s", c.GetFormattedCommand(), err.Error())
+
 		return nil
 	}
 
@@ -398,7 +400,7 @@ func (c *Command[Pipe]) handleError(err error) error {
 
 // Retries the task with the given options.
 func (c *Command[Pipe]) retry(err error) error {
-	if !c.options.retryAlways || c.options.retries <= 0 {
+	if !c.options.retryAlways && c.options.retries <= 0 {
 		return c.handleError(err)
 	}
 
