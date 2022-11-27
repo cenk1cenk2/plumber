@@ -1,3 +1,10 @@
+## [4.28.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.2...v4.28.3) (2022-11-27)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 6ab00d0 ([5447511](https://gitlab.kilic.dev/libraries/plumber/commit/54475117bb604867ad66c1e32697a7f48d794d72))
+
 ## [4.28.2](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.1...v4.28.2) (2022-11-23)
 
 
