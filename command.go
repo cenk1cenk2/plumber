@@ -35,7 +35,6 @@ type Command[Pipe TaskListData] struct {
 	stdoutStream   []string
 	stderrStream   []string
 	combinedStream []string
-	hooked         bool
 }
 
 type CommandOptions[Pipe TaskListData] struct {
@@ -356,14 +355,20 @@ func (c *Command[Pipe]) AddSelfToTheParentTask(pt *Task[Pipe]) *Command[Pipe] {
 
 // Executes the command and pipes the output through the logger.
 func (c *Command[Pipe]) pipe() error {
-	if err := c.createReaders(); err != nil {
+	// clone command to be able to retry, elsewise os.exec will throw since this command is already started
+	command := exec.Command(c.Command.Args[0], c.Command.Args[1:]...) //nolint:gosec
+	command.Stdin = c.Command.Stdin
+	command.Dir = c.Command.Dir
+	command.Path = c.Command.Path
+	command.Env = c.Command.Env
+	command.ExtraFiles = c.Command.ExtraFiles
+	command.SysProcAttr = c.Command.SysProcAttr
+
+	if err := c.createReaders(command); err != nil {
 		return err
 	}
 
-	defer c.stdout.closer.Close()
-	defer c.stderr.closer.Close()
-
-	if err := c.Command.Start(); err != nil {
+	if err := command.Start(); err != nil {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
 			Debugf("%s > Can not start command!", c.GetFormattedCommand())
 
@@ -374,7 +379,7 @@ func (c *Command[Pipe]) pipe() error {
 	go c.handleStream(c.stderr, c.stderrLevel)
 
 	//nolint: nestif
-	if err := c.Command.Wait(); err != nil {
+	if err := command.Wait(); err != nil {
 		//nolint:errorlint
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -382,9 +387,6 @@ func (c *Command[Pipe]) pipe() error {
 					Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus())
 			}
 		}
-
-		// indicate that streams are hooked already
-		c.hooked = true
 
 		return c.retry(err)
 	} else if c.options.ensureIsAlive {
@@ -411,23 +413,24 @@ func (c *Command[Pipe]) retry(err error) error {
 		return c.handleError(err)
 	}
 
-	c.Log.Warnf("%s -> has failed, will retry to run in %s: %s", c.GetFormattedCommand(), c.options.retryDelay.String(), err)
+	log := c.Log.WithField(LOG_FIELD_STATUS, log_status_retry)
+
+	if c.options.retryAlways {
+		log.Warnf("%s -> has failed, will retry to run in %s: %s", c.GetFormattedCommand(), c.options.retryDelay.String(), err)
+	} else {
+		log.Warnf("%s -> has failed, will retry to run for %d more times in %s: %s", c.GetFormattedCommand(), c.options.retries, c.options.retryDelay.String(), err)
+
+		c.options.retries--
+	}
+
 	time.Sleep(c.options.retryDelay)
 
-	c.options.retries--
-
-	return c.Run()
+	return c.pipe()
 }
 
 // Creates closers and readers for stdout and stderr.
-func (c *Command[Pipe]) createReaders() error {
-	if c.hooked {
-		c.Log.Tracef("Command outputs has been hooked already: %s", c.GetFormattedCommand())
-
-		return nil
-	}
-
-	closer, err := c.Command.StdoutPipe()
+func (c *Command[Pipe]) createReaders(command *exec.Cmd) error {
+	closer, err := command.StdoutPipe()
 
 	if err != nil {
 		return fmt.Errorf("Failed creating command stdout pipe: %w", err)
@@ -437,7 +440,7 @@ func (c *Command[Pipe]) createReaders() error {
 
 	c.stdout = output{closer: closer, reader: reader, stream: stream_stdout}
 
-	closer, err = c.Command.StderrPipe()
+	closer, err = command.StderrPipe()
 
 	if err != nil {
 		return fmt.Errorf("Failed creating command stderr pipe: %w", err)
@@ -454,7 +457,9 @@ func (c *Command[Pipe]) createReaders() error {
 func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 	log := c.Log.WithFields(logrus.Fields{})
 
-	if c.hooked && c.options.recordStream {
+	defer output.closer.Close()
+
+	if c.options.recordStream {
 		c.combinedStream = []string{}
 		c.stdoutStream = []string{}
 		c.stderrStream = []string{}

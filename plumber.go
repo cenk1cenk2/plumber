@@ -330,7 +330,7 @@ func (p *Plumber) Terminate(code int) {
 				return
 			}
 
-			log.Traceln("Waiting for result through terminator...")
+			log.Tracef("Waiting for result through terminator: %d", p.Terminator.registered)
 
 			ch := make(chan bool, 1)
 
@@ -344,6 +344,7 @@ func (p *Plumber) Terminate(code int) {
 
 				if p.onTerminateFn != nil {
 					p.SendError(p.onTerminateFn())
+					p.onTerminateFn = nil
 				}
 
 				p.SendExit(code)
@@ -357,6 +358,7 @@ func (p *Plumber) Terminate(code int) {
 
 	if p.onTerminateFn != nil {
 		p.SendError(p.onTerminateFn())
+		p.onTerminateFn = nil
 	}
 
 	p.SendExit(code)

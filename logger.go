@@ -23,8 +23,9 @@ const (
 	log_context_disable string = "DISABLE"
 	log_context_skipped string = "SKIPPED"
 
-	log_status_fail string = "FAIL"
-	log_status_exit string = "EXIT"
-	log_status_run  string = "RUN"
-	log_status_end  string = "END"
+	log_status_fail  string = "FAIL"
+	log_status_exit  string = "EXIT"
+	log_status_run   string = "RUN"
+	log_status_end   string = "END"
+	log_status_retry string = "RETRY"
 )
