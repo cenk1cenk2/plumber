@@ -1,3 +1,10 @@
+# [4.30.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.29.0...v4.30.0) (2022-12-02)
+
+
+### Features
+
+* add timeout for terminator ([74afa36](https://gitlab.kilic.dev/libraries/plumber/commit/74afa36633d81365febce1b74c1eb06e014bd29c))
+
 # [4.29.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.5...v4.29.0) (2022-12-02)
 
 
