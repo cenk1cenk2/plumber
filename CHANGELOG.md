@@ -1,3 +1,10 @@
+## [4.28.5](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.4...v4.28.5) (2022-12-02)
+
+
+### Bug Fixes
+
+* move around logging ([fc2be0e](https://gitlab.kilic.dev/libraries/plumber/commit/fc2be0e65909120d89ab869dfbc1e66a0ab72f78))
+
 ## [4.28.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.3...v4.28.4) (2022-12-02)
 
 
