@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -32,6 +33,7 @@ type PlumberOptions struct {
 	delimiter          string
 	documentation      DocumentationOptions
 	deprecationNotices []DeprecationNotice
+	timeout            time.Duration
 }
 
 type AppEnvironment struct {
@@ -142,6 +144,10 @@ func (p *Plumber) New(
 	}
 
 	p.options.delimiter = ":"
+	p.options = PlumberOptions{
+		delimiter: ":",
+		timeout:   time.Second * 5,
+	}
 
 	return p
 }
@@ -165,6 +171,13 @@ func (p *Plumber) SetDocumentationOptions(options DocumentationOptions) *Plumber
 // Sets delimiter for the application.
 func (p *Plumber) SetDelimiter(delimiter string) *Plumber {
 	p.options.delimiter = delimiter
+
+	return p
+}
+
+// Sets timeout for terminator of the application.
+func (p *Plumber) SetTerminatorTimeout(timeout time.Duration) *Plumber {
+	p.options.timeout = timeout
 
 	return p
 }
@@ -303,6 +316,7 @@ Sends a terminate request through the application.
 This will gracefully try to stop the application components that are registered and listening for the terminator.
 */
 func (p *Plumber) Terminate(code int) {
+	//nolint:nestif
 	if p.Terminator.Enabled {
 		if p.Terminator.registered > 0 {
 			log := p.Log.WithFields(logrus.Fields{
@@ -322,6 +336,18 @@ func (p *Plumber) Terminate(code int) {
 
 			p.Terminator.Terminated.Register(ch)
 			defer p.Terminator.Terminated.Unregister(ch)
+
+			go func() {
+				time.Sleep(p.options.timeout)
+
+				log.Warnf("Forcefully terminated since hooks did not finish in time: %d of %d", p.Terminator.terminated, p.Terminator.registered)
+
+				if p.onTerminateFn != nil {
+					p.SendError(p.onTerminateFn())
+				}
+
+				p.SendExit(code)
+			}()
 
 			<-ch
 
