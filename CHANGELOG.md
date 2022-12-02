@@ -1,3 +1,10 @@
+## [4.30.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.30.0...v4.30.1) (2022-12-02)
+
+
+### Bug Fixes
+
+* restarting commands on retry ([20ec0f6](https://gitlab.kilic.dev/libraries/plumber/commit/20ec0f6d3b112e3ce1122979d2f0d05e8c0a200d))
+
 # [4.30.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.29.0...v4.30.0) (2022-12-02)
 
 
