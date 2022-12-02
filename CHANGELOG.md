@@ -1,3 +1,10 @@
+# [4.29.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.5...v4.29.0) (2022-12-02)
+
+
+### Features
+
+* reset output streams after being hooked ([41fc350](https://gitlab.kilic.dev/libraries/plumber/commit/41fc35028e54f2df922ed55594bc01907a7392ba))
+
 ## [4.28.5](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.4...v4.28.5) (2022-12-02)
 
 
