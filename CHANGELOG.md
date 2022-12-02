@@ -1,3 +1,10 @@
+## [4.28.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.3...v4.28.4) (2022-12-02)
+
+
+### Bug Fixes
+
+* update hooking into the stdout stderr on retry ([3608333](https://gitlab.kilic.dev/libraries/plumber/commit/36083338915bb05485757b07e1cc52beb3e2c4a8))
+
 ## [4.28.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.28.2...v4.28.3) (2022-11-27)
 
 
