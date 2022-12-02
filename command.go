@@ -454,6 +454,14 @@ func (c *Command[Pipe]) createReaders() error {
 func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 	log := c.Log.WithFields(logrus.Fields{})
 
+	if c.hooked && c.options.recordStream {
+		c.combinedStream = []string{}
+		c.stdoutStream = []string{}
+		c.stderrStream = []string{}
+
+		c.Log.Tracef("Resetting output streams: %s", c.GetFormattedCommand())
+	}
+
 	for {
 		str, err := output.reader.ReadString('\n')
 
