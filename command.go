@@ -35,6 +35,7 @@ type Command[Pipe TaskListData] struct {
 	stdoutStream   []string
 	stderrStream   []string
 	combinedStream []string
+	hooked         bool
 }
 
 type CommandOptions[Pipe TaskListData] struct {
@@ -369,6 +370,9 @@ func (c *Command[Pipe]) pipe() error {
 	go c.handleStream(c.stdout, c.stdoutLevel)
 	go c.handleStream(c.stderr, c.stderrLevel)
 
+	// indicate that streams are hooked already
+	c.hooked = true
+
 	//nolint: nestif
 	if err := c.Command.Wait(); err != nil {
 		//nolint:errorlint
@@ -414,6 +418,10 @@ func (c *Command[Pipe]) retry(err error) error {
 
 // Creates closers and readers for stdout and stderr.
 func (c *Command[Pipe]) createReaders() error {
+	if c.hooked {
+		return nil
+	}
+
 	closer, err := c.Command.StdoutPipe()
 
 	if err != nil {
@@ -439,6 +447,10 @@ func (c *Command[Pipe]) createReaders() error {
 
 // Handles incoming data stream from a command.
 func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
+	if c.hooked {
+		return
+	}
+
 	defer output.closer.Close()
 
 	log := c.Log.WithFields(logrus.Fields{})
