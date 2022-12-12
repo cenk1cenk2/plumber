@@ -2,6 +2,8 @@ package plumber
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"text/template"
 
 	sprig "github.com/go-task/slim-sprig"
@@ -47,4 +49,19 @@ func OverwriteCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply fu
 	}
 
 	flags[index] = modified
+}
+
+func ParseEnvironmentVariablesToMap() map[string]string {
+	vars := map[string]string{}
+
+	for _, v := range os.Environ() {
+		pair := strings.SplitN(v, "=", 2)
+
+		key := pair[0]
+		value := pair[1]
+
+		vars[key] = value
+	}
+
+	return vars
 }
