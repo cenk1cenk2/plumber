@@ -1,3 +1,10 @@
+# [4.31.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.30.4...v4.31.0) (2022-12-12)
+
+
+### Features
+
+* add utility to parse env vars to map ([dbf4ca7](https://gitlab.kilic.dev/libraries/plumber/commit/dbf4ca77d9f262c143835aacdc28aabd01971df7))
+
 ## [4.30.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.30.3...v4.30.4) (2022-12-11)
 
 
