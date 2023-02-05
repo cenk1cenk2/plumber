@@ -1,3 +1,11 @@
+## [4.31.9](https://gitlab.kilic.dev/libraries/plumber/compare/v4.31.8...v4.31.9) (2023-02-05)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/joho/godotenv to v1.5.0 ([ca2d18a](https://gitlab.kilic.dev/libraries/plumber/commit/ca2d18a5e5ceaf12b04c5a0d8d74fd3e641e02c8))
+* issues with linting ([9e79677](https://gitlab.kilic.dev/libraries/plumber/commit/9e7967758517d3bdeddbf83a35f19bcc8836b29d))
+
 ## [4.31.8](https://gitlab.kilic.dev/libraries/plumber/compare/v4.31.7...v4.31.8) (2023-02-02)
 
 
