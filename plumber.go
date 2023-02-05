@@ -704,11 +704,11 @@ func (p *Plumber) registerErrorHandler(registered chan string) {
 				continue
 			}
 
-			if p.Log != nil {
-				p.Log.Errorln(err)
-			} else {
+			if p.Log == nil {
 				panic(err.Error())
 			}
+
+			p.Log.Errorln(err)
 		case err := <-p.Channel.CustomErr:
 			if err.Err == nil {
 				continue
@@ -730,11 +730,11 @@ func (p *Plumber) registerFatalErrorHandler(registered chan string) {
 				continue
 			}
 
-			if p.Log != nil {
-				p.Log.Fatalln(err)
-			} else {
+			if p.Log == nil {
 				panic(err.Error())
 			}
+
+			p.Log.Fatalln(err)
 		case err := <-p.Channel.CustomFatal:
 			if err.Err == nil {
 				continue
