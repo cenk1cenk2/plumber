@@ -1,3 +1,11 @@
+## [4.31.10](https://gitlab.kilic.dev/libraries/plumber/compare/v4.31.9...v4.31.10) (2023-02-05)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 98cc5a0 ([3795b28](https://gitlab.kilic.dev/libraries/plumber/commit/3795b28cc74b3d6f105363728f7a55a451eb9f3a))
+* **deps:** update module github.com/joho/godotenv to v1.5.1 ([f4f1309](https://gitlab.kilic.dev/libraries/plumber/commit/f4f1309076ad3d557f0cb42f5e7323e4f83d9146))
+
 ## [4.31.9](https://gitlab.kilic.dev/libraries/plumber/compare/v4.31.8...v4.31.9) (2023-02-05)
 
 
