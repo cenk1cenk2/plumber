@@ -1,3 +1,10 @@
+## [4.31.11](https://gitlab.kilic.dev/libraries/plumber/compare/v4.31.10...v4.31.11) (2023-02-12)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to a684f29 ([a7caea5](https://gitlab.kilic.dev/libraries/plumber/commit/a7caea59c254a7046fdb28dd2935a6c80a901a7f))
+
 ## [4.31.10](https://gitlab.kilic.dev/libraries/plumber/compare/v4.31.9...v4.31.10) (2023-02-05)
 
 
