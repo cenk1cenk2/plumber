@@ -31,6 +31,6 @@ require (
 )
 
 require (
-	github.com/urfave/cli/v2 v2.24.4
+	github.com/urfave/cli/v2 v2.25.0
 	golang.org/x/sys v0.4.0 // indirect
 )
