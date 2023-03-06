@@ -205,8 +205,6 @@ func (t *Task[Pipe]) Job() Job {
 			return t.Run()
 		}),
 		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
-			t.handleStopCases()
-
 			return nil
 		}),
 	)

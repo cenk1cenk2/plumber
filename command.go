@@ -332,8 +332,6 @@ func (c *Command[Pipe]) Job() Job {
 			return c.Run()
 		}),
 		c.task.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
-			c.handleStopCases()
-
 			return nil
 		}),
 	)
