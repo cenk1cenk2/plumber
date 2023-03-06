@@ -1,3 +1,10 @@
+# [4.32.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.31.15...v4.32.0) (2023-03-06)
+
+
+### Features
+
+* dont reevaluate disabling twice ([5ae84d4](https://gitlab.kilic.dev/libraries/plumber/commit/5ae84d43e8f049b08c28ed18df1e14ba54b7894e))
+
 ## [4.31.15](https://gitlab.kilic.dev/libraries/plumber/compare/v4.31.14...v4.31.15) (2023-03-05)
 
 
