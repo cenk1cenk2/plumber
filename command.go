@@ -35,6 +35,8 @@ type Command[Pipe TaskListData] struct {
 	stdoutStream   []string
 	stderrStream   []string
 	combinedStream []string
+
+	status CommandStatus
 }
 
 type CommandOptions[Pipe TaskListData] struct {
@@ -46,6 +48,10 @@ type CommandOptions[Pipe TaskListData] struct {
 	retries           int
 	retryAlways       bool
 	retryDelay        time.Duration
+}
+
+type CommandStatus struct {
+	stopCases StatusStopCases
 }
 
 type (
@@ -326,7 +332,7 @@ func (c *Command[Pipe]) Run() error {
 func (c *Command[Pipe]) Job() Job {
 	return c.task.taskList.JobIfNot(
 		c.task.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
-			return c.IsDisabled()
+			return c.handleStopCases()
 		}),
 		c.task.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
 			return c.Run()
@@ -489,14 +495,22 @@ func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 
 // Handles the stop cases for command.
 func (c *Command[Pipe]) handleStopCases() bool {
+	if c.status.stopCases.handled {
+		return c.status.stopCases.result
+	}
+
+	c.status.stopCases.handled = true
+
 	if result := c.IsDisabled(); result {
 		c.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
 			Debugf("%s", c.task.Name)
 
-		return true
+		c.status.stopCases.result = true
+		return c.status.stopCases.result
 	}
 
-	return false
+	c.status.stopCases.result = false
+	return c.status.stopCases.result
 }
 
 // Handles the global plumber terminator to stop execution of the command and forwards the terminate signal if running.

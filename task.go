@@ -34,11 +34,17 @@ type Task[Pipe TaskListData] struct {
 	shouldRunAfterFn  TaskFn[Pipe]
 	onTerminatorFn    TaskFn[Pipe]
 	jobWrapperFn      JobWrapperFn
+
+	status TaskStatus
 }
 
 type TaskOptions[Pipe TaskListData] struct {
 	Skip    TaskPredicateFn[Pipe]
 	Disable TaskPredicateFn[Pipe]
+}
+
+type TaskStatus struct {
+	stopCases StatusStopCases
 }
 
 type (
@@ -193,7 +199,7 @@ func (t *Task[Pipe]) Run() error {
 func (t *Task[Pipe]) Job() Job {
 	return t.taskList.JobIfNot(
 		t.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
-			return t.IsDisabled() || t.IsSkipped()
+			return t.handleStopCases()
 		}),
 		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
 			if t.jobWrapperFn != nil {
@@ -235,19 +241,28 @@ func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
 
 // Handles the stop cases of the task.
 func (t *Task[Pipe]) handleStopCases() bool {
+	if t.status.stopCases.handled {
+		return t.status.stopCases.result
+	}
+
+	t.status.stopCases.handled = true
+
 	if result := t.IsDisabled(); result {
 		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
 			Debugf("%s", t.Name)
 
-		return true
+		t.status.stopCases.result = true
+		return t.status.stopCases.result
 	} else if result := t.IsSkipped(); result {
 		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_skipped).
 			Warnf("%s", t.Name)
 
-		return true
+		t.status.stopCases.result = true
+		return t.status.stopCases.result
 	}
 
-	return false
+	t.status.stopCases.result = false
+	return t.status.stopCases.result
 }
 
 // Handles the errors from the current task.
