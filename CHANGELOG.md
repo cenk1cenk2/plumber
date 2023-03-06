@@ -1,3 +1,10 @@
+## [4.32.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.0...v4.32.1) (2023-03-06)
+
+
+### Bug Fixes
+
+* behavior with logging the stop cases properly, run from tasks or ([1ef7a55](https://gitlab.kilic.dev/libraries/plumber/commit/1ef7a557783ec401121b4951b9cf4d659a64e398))
+
 # [4.32.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.31.15...v4.32.0) (2023-03-06)
 
 
