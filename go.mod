@@ -3,7 +3,7 @@ module gitlab.kilic.dev/libraries/plumber/v4
 go 1.20
 
 require (
-	github.com/creasty/defaults v1.6.0
+	github.com/creasty/defaults v1.7.0
 	github.com/go-playground/validator/v10 v10.11.2
 	github.com/go-task/slim-sprig v2.20.0+incompatible
 	github.com/joho/godotenv v1.5.1
