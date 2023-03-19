@@ -1,3 +1,10 @@
+## [4.32.4](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.3...v4.32.4) (2023-03-19)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 642cace ([5548686](https://gitlab.kilic.dev/libraries/plumber/commit/5548686ab066b3790400a9fb2643ebfbf7c96338))
+
 ## [4.32.3](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.2...v4.32.3) (2023-03-13)
 
 
