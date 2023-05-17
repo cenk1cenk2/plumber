@@ -1,3 +1,10 @@
+## [4.32.15](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.14...v4.32.15) (2023-05-17)
+
+
+### Bug Fixes
+
+* **deps:** update module gitlab.kilic.dev/libraries/go-utils/v2 to v2.0.2 ([379317a](https://gitlab.kilic.dev/libraries/plumber/commit/379317a8885dbf3d5d5b1281d5553a53ea974185))
+
 ## [4.32.14](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.13...v4.32.14) (2023-05-17)
 
 
