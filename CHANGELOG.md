@@ -1,3 +1,11 @@
+## [4.32.28](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.27...v4.32.28) (2023-08-06)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to d63ba01 ([0baf713](https://gitlab.kilic.dev/libraries/plumber/commit/0baf713cdf63b68b7d0ec86e4f76c520b7d7ce28))
+* **deps:** update module github.com/go-playground/validator/v10 to v10.15.0 ([7deda17](https://gitlab.kilic.dev/libraries/plumber/commit/7deda17a168e42d2735df7a97131c958d4fa0428))
+
 ## [4.32.27](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.26...v4.32.27) (2023-07-30)
 
 
