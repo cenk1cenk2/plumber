@@ -1,3 +1,10 @@
+## [4.32.33](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.32...v4.32.33) (2023-08-30)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/go-playground/validator/v10 to v10.15.3 ([2a8d7a5](https://gitlab.kilic.dev/libraries/plumber/commit/2a8d7a516e2b95af8b7c4138d266b7cd2d582166))
+
 ## [4.32.32](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.31...v4.32.32) (2023-08-29)
 
 
