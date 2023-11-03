@@ -1,3 +1,12 @@
+## [4.32.38](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.37...v4.32.38) (2023-11-03)
+
+
+### Bug Fixes
+
+* **deps:** update module gitlab.kilic.dev/libraries/go-utils/v2 to v2.0.4 ([36d885e](https://gitlab.kilic.dev/libraries/plumber/commit/36d885eb66984fdb7dfcd63651606187c48029ae))
+* styling ([f412c7a](https://gitlab.kilic.dev/libraries/plumber/commit/f412c7a3661588e066e1447424119b75f72a54fb))
+* update golang version ([bed9909](https://gitlab.kilic.dev/libraries/plumber/commit/bed9909317ced76f9166692ab6bfb5d909be68ae))
+
 ## [4.32.37](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.36...v4.32.37) (2023-10-08)
 
 
