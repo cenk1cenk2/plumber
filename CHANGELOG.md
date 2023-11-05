@@ -1,3 +1,10 @@
+## [4.32.40](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.39...v4.32.40) (2023-11-05)
+
+
+### Bug Fixes
+
+* update logger empty fields ([e404492](https://gitlab.kilic.dev/libraries/plumber/commit/e4044921ff4a6af9efaced006b8e32e35de4625e))
+
 ## [4.32.39](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.38...v4.32.39) (2023-11-04)
 
 
