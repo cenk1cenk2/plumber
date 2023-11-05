@@ -22,9 +22,10 @@ type Command[Pipe TaskListData] struct {
 	Command *exec.Cmd
 	options CommandOptions[Pipe]
 
-	fn               CommandFn[Pipe]
-	shouldRunAfterFn CommandFn[Pipe]
-	onTerminatorFn   CommandFn[Pipe]
+	fn                CommandFn[Pipe]
+	shouldRunBeforeFn CommandFn[Pipe]
+	shouldRunAfterFn  CommandFn[Pipe]
+	onTerminatorFn    CommandFn[Pipe]
 
 	stdoutLevel   LogLevel
 	stderrLevel   LogLevel
@@ -101,6 +102,13 @@ func (c *Command[Pipe]) Set(fn CommandFn[Pipe]) *Command[Pipe] {
 }
 
 // Sets a function that should run after the main command has exited successfully.
+func (c *Command[Pipe]) ShouldRunBefore(fn CommandFn[Pipe]) *Command[Pipe] {
+	c.shouldRunBeforeFn = fn
+
+	return c
+}
+
+// Sets a function that should run after the main command has exited successfully.
 func (c *Command[Pipe]) ShouldRunAfter(fn CommandFn[Pipe]) *Command[Pipe] {
 	c.shouldRunAfterFn = fn
 
@@ -143,7 +151,9 @@ func (c *Command[Pipe]) SetOnTerminator(fn CommandFn[Pipe]) *Command[Pipe] {
 // Appends arguments to the command.
 func (c *Command[Pipe]) AppendArgs(args ...string) *Command[Pipe] {
 	for _, a := range args {
-		c.Command.Args = append(c.Command.Args, utils.DeleteEmptyStringsFromSlice(strings.Split(a, " "))...)
+		c.Command.Args = append(
+			c.Command.Args,
+			utils.DeleteEmptyStringsFromSlice(strings.Split(a, " "))...)
 	}
 
 	return c
@@ -247,7 +257,9 @@ func (c *Command[Pipe]) EnsureIsAlive() *Command[Pipe] {
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetStdoutStream() []string {
 	if !c.options.recordStream {
-		c.task.SendFatal(fmt.Errorf("Stream recording should be enabled to fetch the command output stream."))
+		c.task.SendFatal(
+			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
+		)
 	}
 
 	return c.stdoutStream
@@ -257,7 +269,9 @@ func (c *Command[Pipe]) GetStdoutStream() []string {
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetStderrStream() []string {
 	if !c.options.recordStream {
-		c.task.SendFatal(fmt.Errorf("Stream recording should be enabled to fetch the command output stream."))
+		c.task.SendFatal(
+			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
+		)
 	}
 
 	return c.stderrStream
@@ -267,7 +281,9 @@ func (c *Command[Pipe]) GetStderrStream() []string {
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetCombinedStream() []string {
 	if !c.options.recordStream {
-		c.task.SendFatal(fmt.Errorf("Stream recording should be enabled to fetch the command output stream."))
+		c.task.SendFatal(
+			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
+		)
 	}
 
 	return c.combinedStream
@@ -301,13 +317,19 @@ func (c *Command[Pipe]) Run() error {
 		}
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, log_status_run).
-		Logf(c.lifetimeLevel, c.GetFormattedCommand())
-
 	c.Command.Args = utils.DeleteEmptyStringsFromSlice(c.Command.Args)
 
 	if !c.options.maskOsEnvironment {
 		c.Command.Env = append(c.Command.Env, os.Environ()...)
+	}
+
+	c.Log.WithField(LOG_FIELD_STATUS, log_status_run).
+		Logf(c.lifetimeLevel, c.GetFormattedCommand())
+
+	if c.shouldRunBeforeFn != nil {
+		if err := c.shouldRunBeforeFn(c); err != nil {
+			return err
+		}
 	}
 
 	if err := c.pipe(); err != nil {
@@ -323,7 +345,8 @@ func (c *Command[Pipe]) Run() error {
 		}
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).Logf(c.lifetimeLevel, fmt.Sprintf("%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String()))
+	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).
+		Logf(c.lifetimeLevel, fmt.Sprintf("%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String()))
 
 	return nil
 }
@@ -420,7 +443,12 @@ func (c *Command[Pipe]) retry(err error) error {
 	log := c.Log.WithField(LOG_FIELD_STATUS, log_status_retry)
 
 	if c.options.retryAlways {
-		log.Warnf("%s -> has failed, will retry to run in %s: %s", c.GetFormattedCommand(), c.options.retryDelay.String(), err)
+		log.Warnf(
+			"%s -> has failed, will retry to run in %s: %s",
+			c.GetFormattedCommand(),
+			c.options.retryDelay.String(),
+			err,
+		)
 	} else {
 		log.Warnf("%s -> has failed, will retry to run for %d more times in %s: %s", c.GetFormattedCommand(), c.options.retries, c.options.retryDelay.String(), err)
 
@@ -522,7 +550,10 @@ func (c *Command[Pipe]) handleTerminator() {
 	sig := <-ch
 
 	if c.IsDisabled() {
-		c.Log.Tracef("Sending terminated directly because the command is already not available: %s", c.GetFormattedCommand())
+		c.Log.Tracef(
+			"Sending terminated directly because the command is already not available: %s",
+			c.GetFormattedCommand(),
+		)
 
 		c.Plumber.RegisterTerminated()
 
