@@ -259,7 +259,8 @@ func (t *TaskList[Pipe]) Run() error {
 		}
 	}
 
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("%s -> %s", t.Name, time.Since(started).Round(time.Millisecond).String())
+	t.Log.WithField(LOG_FIELD_STATUS, log_status_end).
+		Tracef("%s -> %s", t.Name, time.Since(started).Round(time.Millisecond).String())
 
 	return nil
 }
