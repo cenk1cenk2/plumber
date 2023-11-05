@@ -1,3 +1,10 @@
+## [4.32.42](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.41...v4.32.42) (2023-11-05)
+
+
+### Bug Fixes
+
+* issue with nil pointer ([a234ebb](https://gitlab.kilic.dev/libraries/plumber/commit/a234ebbf580e614e8bff0cde161df617aaf28f96))
+
 ## [4.32.41](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.40...v4.32.41) (2023-11-05)
 
 
