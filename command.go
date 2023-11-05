@@ -562,7 +562,9 @@ func (c *Command[Pipe]) handleTerminator() {
 
 	c.Log.Tracef("Forwarding signal to process: %s", sig)
 
-	if err := c.Command.Process.Signal(sig); err != nil {
+	if c.Command.Process == nil {
+		c.Log.Tracef("Already terminated: %s", c.GetFormattedCommand())
+	} else if err := c.Command.Process.Signal(sig); err != nil {
 		c.Log.Tracef("Termination error: %s > %s", c.GetFormattedCommand(), err.Error())
 	}
 
