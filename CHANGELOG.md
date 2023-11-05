@@ -1,3 +1,10 @@
+## [4.32.41](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.40...v4.32.41) (2023-11-05)
+
+
+### Bug Fixes
+
+* add should run before to command ([8553fef](https://gitlab.kilic.dev/libraries/plumber/commit/8553fefbe0aad4f285d8a00e4bb54f92d707b7c8))
+
 ## [4.32.40](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.39...v4.32.40) (2023-11-05)
 
 
