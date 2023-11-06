@@ -237,20 +237,18 @@ func (t *TaskList[Pipe]) Run() error {
 		}
 	}
 
-	{
-		if err := t.Validate(&t.Pipe); err != nil {
-			return err
-		}
+	if err := t.Validate(&t.Pipe); err != nil {
+		return err
+	}
 
-		result, data, err := floc.RunWith(t.flocContext, t.Control, t.tasks)
+	result, data, err := floc.RunWith(t.flocContext, t.Control, t.tasks)
 
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
+	}
 
-		if err := t.handleFloc(result, data); err != nil {
-			return err
-		}
+	if err := t.handleFloc(result, data); err != nil {
+		return err
 	}
 
 	if t.shouldRunAfterFn != nil {
