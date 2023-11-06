@@ -1,3 +1,10 @@
+## [4.32.43](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.42...v4.32.43) (2023-11-06)
+
+
+### Bug Fixes
+
+* update failing slim-sprig dep for dario ([68dc9cc](https://gitlab.kilic.dev/libraries/plumber/commit/68dc9cce2f5f2e1e7774e62b4d8f2f62d8d93eae))
+
 ## [4.32.42](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.41...v4.32.42) (2023-11-05)
 
 
