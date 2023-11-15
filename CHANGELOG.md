@@ -1,3 +1,15 @@
+# [4.34.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.33.0...v4.34.0) (2023-11-15)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 9a3e603 ([fee8276](https://gitlab.kilic.dev/libraries/plumber/commit/fee8276091bb57c6b3e3ca0704b5ecf5187cdc90))
+
+
+### Features
+
+* **command:** improve locking mechanism ([43cc085](https://gitlab.kilic.dev/libraries/plumber/commit/43cc085ec0df4b21a59278f2ff8acdf785140472))
+
 # [4.33.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.32.43...v4.33.0) (2023-11-06)
 
 
