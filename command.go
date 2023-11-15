@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -36,6 +37,7 @@ type Command[Pipe TaskListData] struct {
 	stdoutStream   []string
 	stderrStream   []string
 	combinedStream []string
+	lockStream     *sync.RWMutex
 
 	status CommandStatus
 }
@@ -242,6 +244,7 @@ func (c *Command[Pipe]) SetRetries(retries int, always bool, delay time.Duration
 // Sets the option where this command will save its output to be later accessed in the shouldRunAfterFn.
 func (c *Command[Pipe]) EnableStreamRecording() *Command[Pipe] {
 	c.options.recordStream = true
+	c.lockStream = &sync.RWMutex{}
 
 	return c
 }
@@ -262,6 +265,8 @@ func (c *Command[Pipe]) GetStdoutStream() []string {
 		)
 	}
 
+	c.lockStream.RUnlock()
+
 	return c.stdoutStream
 }
 
@@ -274,6 +279,8 @@ func (c *Command[Pipe]) GetStderrStream() []string {
 		)
 	}
 
+	c.lockStream.RUnlock()
+
 	return c.stderrStream
 }
 
@@ -285,6 +292,8 @@ func (c *Command[Pipe]) GetCombinedStream() []string {
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
 		)
 	}
+
+	c.lockStream.RUnlock()
 
 	return c.combinedStream
 }
@@ -509,6 +518,7 @@ func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 		log.Logln(level, str)
 
 		if c.options.recordStream {
+			c.lockStream.RLock()
 			c.combinedStream = append(c.combinedStream, str)
 
 			switch output.stream {
@@ -517,6 +527,7 @@ func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 			case stream_stderr:
 				c.stderrStream = append(c.stderrStream, str)
 			}
+			c.lockStream.RUnlock()
 		}
 	}
 }
