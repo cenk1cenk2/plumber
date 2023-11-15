@@ -1,3 +1,10 @@
+## [4.34.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.34.0...v4.34.1) (2023-11-15)
+
+
+### Bug Fixes
+
+* update ([2dcf0b8](https://gitlab.kilic.dev/libraries/plumber/commit/2dcf0b82e7601678c58f9ed2dd3ca5356c3b7f6a))
+
 # [4.34.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.33.0...v4.34.0) (2023-11-15)
 
 
