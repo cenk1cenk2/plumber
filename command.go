@@ -265,7 +265,7 @@ func (c *Command[Pipe]) GetStdoutStream() []string {
 		)
 	}
 
-	c.lockStream.RUnlock()
+	c.lockStream.Unlock()
 
 	return c.stdoutStream
 }
@@ -279,7 +279,7 @@ func (c *Command[Pipe]) GetStderrStream() []string {
 		)
 	}
 
-	c.lockStream.RUnlock()
+	c.lockStream.Unlock()
 
 	return c.stderrStream
 }
@@ -293,7 +293,7 @@ func (c *Command[Pipe]) GetCombinedStream() []string {
 		)
 	}
 
-	c.lockStream.RUnlock()
+	c.lockStream.Unlock()
 
 	return c.combinedStream
 }
