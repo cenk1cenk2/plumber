@@ -622,6 +622,7 @@ func (p *Plumber) setupLogger(level LogLevel) {
 			NoColors:         false,
 			NoFieldsColors:   false,
 			NoFieldsSpace:    false,
+			NoEmptyFields:    true,
 			ShowFullLevel:    false,
 			NoUppercaseLevel: false,
 			TrimMessages:     true,
