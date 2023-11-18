@@ -1,3 +1,10 @@
+# [4.35.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.34.2...v4.35.0) (2023-11-18)
+
+
+### Features
+
+* add job wrapper for command ([69cf8e0](https://gitlab.kilic.dev/libraries/plumber/commit/69cf8e0e7311aca35c0abc86f4a7df8f8f2a642e))
+
 ## [4.34.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.34.0...v4.34.1) (2023-11-15)
 
 
