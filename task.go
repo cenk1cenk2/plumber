@@ -50,7 +50,6 @@ type TaskStatus struct {
 type (
 	TaskFn[Pipe TaskListData]          func(t *Task[Pipe]) error
 	TaskPredicateFn[Pipe TaskListData] func(t *Task[Pipe]) bool
-	JobWrapperFn                       func(job Job) Job
 )
 
 // NewTask Creates a new task to be run as a job.

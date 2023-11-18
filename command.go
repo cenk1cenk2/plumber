@@ -27,6 +27,7 @@ type Command[Pipe TaskListData] struct {
 	shouldRunBeforeFn CommandFn[Pipe]
 	shouldRunAfterFn  CommandFn[Pipe]
 	onTerminatorFn    CommandFn[Pipe]
+	jobWrapperFn      JobWrapperFn
 
 	stdoutLevel   LogLevel
 	stderrLevel   LogLevel
@@ -241,6 +242,13 @@ func (c *Command[Pipe]) SetRetries(retries int, always bool, delay time.Duration
 	return c
 }
 
+// Extend the job of the current task.
+func (c *Command[Pipe]) SetJobWrapper(fn JobWrapperFn) *Command[Pipe] {
+	c.jobWrapperFn = fn
+
+	return c
+}
+
 // Sets the option where this command will save its output to be later accessed in the shouldRunAfterFn.
 func (c *Command[Pipe]) EnableStreamRecording() *Command[Pipe] {
 	c.options.recordStream = true
@@ -265,7 +273,11 @@ func (c *Command[Pipe]) GetStdoutStream() []string {
 		)
 	}
 
-	return c.stdoutStream
+	c.lockStream.Lock()
+	stream := c.stdoutStream
+	c.lockStream.Unlock()
+
+	return stream
 }
 
 // Fetches the saved stderr stream that is recorded.
@@ -277,7 +289,11 @@ func (c *Command[Pipe]) GetStderrStream() []string {
 		)
 	}
 
-	return c.stderrStream
+	c.lockStream.Lock()
+	stream := c.stderrStream
+	c.lockStream.Unlock()
+
+	return stream
 }
 
 // Fetches the saved streams that is recorded.
@@ -289,7 +305,11 @@ func (c *Command[Pipe]) GetCombinedStream() []string {
 		)
 	}
 
-	return c.combinedStream
+	c.lockStream.Lock()
+	stream := c.combinedStream
+	c.lockStream.Unlock()
+
+	return stream
 }
 
 // Returns whether the command has failed or not.
@@ -361,6 +381,12 @@ func (c *Command[Pipe]) Job() Job {
 			return c.handleStopCases()
 		}),
 		c.task.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
+			if c.jobWrapperFn != nil {
+				return tl.RunJobs(c.jobWrapperFn(
+					tl.CreateBasicJob(c.Run),
+				))
+			}
+
 			return c.Run()
 		}),
 		c.task.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
@@ -398,15 +424,15 @@ func (c *Command[Pipe]) pipe() error {
 		return err
 	}
 
+	go c.handleStream(c.stdout, c.stdoutLevel)
+	go c.handleStream(c.stderr, c.stderrLevel)
+
 	if err := command.Start(); err != nil {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
 			Debugf("%s > Can not start command!", c.GetFormattedCommand())
 
 		return err
 	}
-
-	go c.handleStream(c.stdout, c.stdoutLevel)
-	go c.handleStream(c.stderr, c.stderrLevel)
 
 	//nolint: nestif
 	if err := command.Wait(); err != nil {
