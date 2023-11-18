@@ -220,6 +220,13 @@ func (p *Plumber) SetOnTerminate(fn PlumberOnTerminateFn) *Plumber {
 	return p
 }
 
+// sets formatter for the plumber.
+func (p *Plumber) SetFormatter(formatter *logger.Formatter) *Plumber {
+	p.Log.SetFormatter(formatter)
+
+	return p
+}
+
 // Appends flags together.
 func (p *Plumber) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
 	f := []cli.Flag{}
@@ -614,7 +621,7 @@ func (p *Plumber) setupBasic() {
 func (p *Plumber) setupLogger(level LogLevel) {
 	p.Log.Level = level
 
-	p.Log.SetFormatter(
+	p.SetFormatter(
 		&logger.Formatter{
 			FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
 			TimestampFormat:  "",
