@@ -1,3 +1,10 @@
+# [4.36.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.35.1...v4.36.0) (2023-11-18)
+
+
+### Features
+
+* add inline template to plumber directly ([d8f27c1](https://gitlab.kilic.dev/libraries/plumber/commit/d8f27c1373efb87aa230e9e33652934facd09aa0))
+
 ## [4.35.1](https://gitlab.kilic.dev/libraries/plumber/compare/v4.35.0...v4.35.1) (2023-11-18)
 
 
