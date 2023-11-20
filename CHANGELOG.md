@@ -1,3 +1,10 @@
+## [5.0.2](https://gitlab.kilic.dev/libraries/plumber/compare/v5.0.1...v5.0.2) (2023-11-20)
+
+
+### Bug Fixes
+
+* distungish wrapper and jobfn ([d09c92d](https://gitlab.kilic.dev/libraries/plumber/commit/d09c92de1059af0a5195f13380b549f0557e7c56))
+
 ## [5.0.1](https://gitlab.kilic.dev/libraries/plumber/compare/v5.0.0...v5.0.1) (2023-11-20)
 
 
