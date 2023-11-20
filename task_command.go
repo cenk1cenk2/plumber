@@ -57,8 +57,8 @@ func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
 }
 
 // Runs the commands that are attached to this task as sequence with the given wrapper.
-func (t *Task[Pipe]) RunCommandJobAsJobSequenceWithExtension(fn JobWrapperFn) error {
-	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobSequence()))
+func (t *Task[Pipe]) RunCommandJobAsJobSequenceWithExtension(fn JobWrapperFn[*Task[Pipe]]) error {
+	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobSequence(), t))
 }
 
 // Runs the commands that are attached to this task as parallel.
@@ -67,6 +67,6 @@ func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {
 }
 
 // Runs the commands that are attached to this task as parallel with the given wrapper.
-func (t *Task[Pipe]) RunCommandJobAsJobParallelWithExtension(fn JobWrapperFn) error {
-	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobParallel()))
+func (t *Task[Pipe]) RunCommandJobAsJobParallelWithExtension(fn JobWrapperFn[*Task[Pipe]]) error {
+	return t.taskList.RunJobs(fn(t.GetCommandJobAsJobParallel(), t))
 }
