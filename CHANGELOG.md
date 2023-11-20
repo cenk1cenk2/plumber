@@ -1,3 +1,20 @@
+# [5.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.36.0...v5.0.0) (2023-11-20)
+
+
+### Bug Fixes
+
+* lint ([45f066d](https://gitlab.kilic.dev/libraries/plumber/commit/45f066dff848d06c7a655436974acff94766f752))
+
+
+### Performance Improvements
+
+* update job wrapper to include the parent ([76d87fa](https://gitlab.kilic.dev/libraries/plumber/commit/76d87fa45bc268e4ed9f79fa3cda98fff069e9ff))
+
+
+### BREAKING CHANGES
+
+* changes the out looking interface
+
 # [4.36.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.35.1...v4.36.0) (2023-11-18)
 
 
