@@ -7,4 +7,5 @@ type StatusStopCases struct {
 
 type (
 	JobWrapperFn[With any] func(job Job, t With) Job
+	JobFn                  func(job Job) Job
 )
