@@ -1,3 +1,10 @@
+## [5.0.1](https://gitlab.kilic.dev/libraries/plumber/compare/v5.0.0...v5.0.1) (2023-11-20)
+
+
+### Bug Fixes
+
+* subtask issue repeating itself ([4af5c45](https://gitlab.kilic.dev/libraries/plumber/commit/4af5c451b1f517a3ef059f5705535a94cb64d7e2))
+
 # [5.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v4.36.0...v5.0.0) (2023-11-20)
 
 
