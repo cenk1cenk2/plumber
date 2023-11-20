@@ -33,7 +33,7 @@ type Task[Pipe TaskListData] struct {
 	shouldRunBeforeFn TaskFn[Pipe]
 	shouldRunAfterFn  TaskFn[Pipe]
 	onTerminatorFn    TaskFn[Pipe]
-	jobWrapperFn      JobWrapperFn
+	jobWrapperFn      JobWrapperFn[*Task[Pipe]]
 
 	status TaskStatus
 }
@@ -150,7 +150,7 @@ func (t *Task[Pipe]) SetOnTerminator(fn TaskFn[Pipe]) *Task[Pipe] {
 }
 
 // Extend the job of the current task.
-func (t *Task[Pipe]) SetJobWrapper(fn JobWrapperFn) *Task[Pipe] {
+func (t *Task[Pipe]) SetJobWrapper(fn JobWrapperFn[*Task[Pipe]]) *Task[Pipe] {
 	t.jobWrapperFn = fn
 
 	return t
@@ -204,6 +204,7 @@ func (t *Task[Pipe]) Job() Job {
 			if t.jobWrapperFn != nil {
 				return tl.RunJobs(t.jobWrapperFn(
 					tl.CreateBasicJob(t.Run),
+					t,
 				))
 			}
 

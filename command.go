@@ -27,7 +27,7 @@ type Command[Pipe TaskListData] struct {
 	shouldRunBeforeFn CommandFn[Pipe]
 	shouldRunAfterFn  CommandFn[Pipe]
 	onTerminatorFn    CommandFn[Pipe]
-	jobWrapperFn      JobWrapperFn
+	jobWrapperFn      JobWrapperFn[*Command[Pipe]]
 
 	stdoutLevel   LogLevel
 	stderrLevel   LogLevel
@@ -243,7 +243,7 @@ func (c *Command[Pipe]) SetRetries(retries int, always bool, delay time.Duration
 }
 
 // Extend the job of the current task.
-func (c *Command[Pipe]) SetJobWrapper(fn JobWrapperFn) *Command[Pipe] {
+func (c *Command[Pipe]) SetJobWrapper(fn JobWrapperFn[*Command[Pipe]]) *Command[Pipe] {
 	c.jobWrapperFn = fn
 
 	return c
@@ -384,6 +384,7 @@ func (c *Command[Pipe]) Job() Job {
 			if c.jobWrapperFn != nil {
 				return tl.RunJobs(c.jobWrapperFn(
 					tl.CreateBasicJob(c.Run),
+					c,
 				))
 			}
 
