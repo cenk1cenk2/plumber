@@ -54,7 +54,6 @@ type Terminator struct {
 	ShouldTerminate *broadcaster.Broadcaster[os.Signal]
 	Terminated      *broadcaster.Broadcaster[bool]
 	Lock            *sync.RWMutex
-	ready           bool
 	terminated      uint
 	registered      uint
 	initiated       bool
@@ -407,6 +406,27 @@ func (p *Plumber) RegisterTerminator() *Plumber {
 	return p
 }
 
+func (p *Plumber) DeregisterTerminator() *Plumber {
+	if !p.Terminator.Enabled {
+		p.SendFatal(fmt.Errorf("Plumber does not have the Terminator enabled."))
+
+		return p
+	}
+
+	log := p.Log.WithFields(logrus.Fields{
+		LOG_FIELD_CONTEXT: p.Cli.Name,
+		LOG_FIELD_STATUS:  log_status_plumber_terminator,
+	})
+
+	p.Terminator.Lock.Lock()
+	p.Terminator.registered--
+	p.Terminator.Lock.Unlock()
+
+	log.Tracef("Registration revoked from terminator.")
+
+	return p
+}
+
 // Register a component as successfully terminated.
 func (p *Plumber) RegisterTerminated() *Plumber {
 	if !p.Terminator.Enabled {
@@ -427,10 +447,6 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 		log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.terminated, p.Terminator.registered)
 
 		if p.Terminator.terminated < p.Terminator.registered {
-			return p
-		} else if !p.Terminator.ready {
-			log.Tracef("Enough votes received for termination but not ready to terminate yet.")
-
 			return p
 		}
 
@@ -476,14 +492,11 @@ func (p *Plumber) Run() {
 
 	if err := p.Cli.Run(append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
 		p.SendFatal(err)
-		p.Terminator.ready = true
 
 		for {
 			<-ch
 		}
 	}
-
-	p.Terminator.ready = true
 }
 
 // Prints out DeprecationNotices.

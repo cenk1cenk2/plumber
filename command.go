@@ -369,7 +369,7 @@ func (c *Command[Pipe]) Run() error {
 		return nil
 	}
 
-	defer c.Plumber.RegisterTerminated()
+	defer c.Plumber.DeregisterTerminator()
 
 	started := time.Now()
 	if c.fn != nil {
