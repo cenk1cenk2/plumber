@@ -22,15 +22,16 @@ type Command[Pipe TaskListData] struct {
 	TL      *TaskList[Pipe]
 	Log     *logrus.Entry
 
-	Command *exec.Cmd
-	script  *CommandScript
-	options CommandOptions[Pipe]
+	Command  *exec.Cmd
+	scriptFn CommandScriptFn[Pipe]
+	options  CommandOptions[Pipe]
 
 	shouldRunBeforeFn CommandFn[Pipe]
 	fn                CommandFn[Pipe]
 	shouldRunAfterFn  CommandFn[Pipe]
 	onTerminatorFn    CommandFn[Pipe]
 	jobWrapperFn      CommandJobWrapperFn[Pipe]
+	credentialFn      CommandCredentialsFn[Pipe]
 
 	stdoutLevel   LogLevel
 	stderrLevel   LogLevel
@@ -38,7 +39,7 @@ type Command[Pipe TaskListData] struct {
 
 	stdout         output
 	stderr         output
-	stdin          io.Reader
+	stdinFn        CommandStdinFn[Pipe]
 	stdoutStream   []string
 	stderrStream   []string
 	combinedStream []string
@@ -74,8 +75,11 @@ type CommandRetry struct {
 }
 
 type (
-	CommandFn[Pipe TaskListData]           func(*Command[Pipe]) error
-	CommandJobWrapperFn[Pipe TaskListData] func(job Job, c *Command[Pipe]) Job
+	CommandFn[Pipe TaskListData]            func(*Command[Pipe]) error
+	CommandJobWrapperFn[Pipe TaskListData]  func(job Job, c *Command[Pipe]) Job
+	CommandStdinFn[Pipe TaskListData]       func(c *Command[Pipe]) io.Reader
+	CommandScriptFn[Pipe TaskListData]      func(c *Command[Pipe]) *CommandScript
+	CommandCredentialsFn[Pipe TaskListData] func(c *Command[Pipe], credential *syscall.Credential) *syscall.Credential
 )
 
 type (
@@ -167,24 +171,20 @@ func (c *Command[Pipe]) SetOnTerminator(fn CommandFn[Pipe]) *Command[Pipe] {
 	return c
 }
 
-func (c *Command[Pipe]) SetScript(script *CommandScript) *Command[Pipe] {
-	c.script = script
+func (c *Command[Pipe]) SetScript(fn CommandScriptFn[Pipe]) *Command[Pipe] {
+	c.scriptFn = fn
 
 	return c
 }
 
-func (c *Command[Pipe]) SetCredential(fn func(credential *syscall.Credential)) *Command[Pipe] {
-	if c.Command.SysProcAttr.Credential == nil {
-		c.Command.SysProcAttr.Credential = &syscall.Credential{}
-	}
-
-	fn(c.Command.SysProcAttr.Credential)
+func (c *Command[Pipe]) SetCredential(fn CommandCredentialsFn[Pipe]) *Command[Pipe] {
+	c.credentialFn = fn
 
 	return c
 }
 
-func (c *Command[Pipe]) SetStdin(fn func(c *Command[Pipe]) io.Reader) *Command[Pipe] {
-	c.stdin = fn(c)
+func (c *Command[Pipe]) SetStdin(fn CommandStdinFn[Pipe]) *Command[Pipe] {
+	c.stdinFn = fn
 
 	return c
 }
@@ -466,28 +466,40 @@ func (c *Command[Pipe]) pipe() error {
 	go c.handleStream(c.stderr, c.stderrLevel)
 
 	//nolint: nestif
-	if c.script != nil {
-		if c.script.File != "" {
-			tpl, err := os.ReadFile(c.script.File)
+	if c.scriptFn != nil {
+		script := c.scriptFn(c)
+
+		if script.File != "" {
+			tpl, err := os.ReadFile(script.File)
 
 			if err != nil {
 				return err
 			}
 
-			if err := c.templateScript(command, string(tpl)); err != nil {
+			if err := c.templateScript(command, script, string(tpl)); err != nil {
 				return err
 			}
 
-			c.Log.Tracef("Templated file for command script: %s -> with context %+v", c.script.File, c.script.Ctx)
-		} else if c.script.Inline != "" {
-			if err := c.templateScript(command, c.script.Inline); err != nil {
+			c.Log.Tracef("Templated file for command script: %s -> with context %+v", script.File, script.Ctx)
+		} else if script.Inline != "" {
+			if err := c.templateScript(command, script, script.Inline); err != nil {
 				return err
 			}
 
-			c.Log.Tracef("Templated inline for command script: inline -> with context %+v", c.script.Ctx)
+			c.Log.Tracef("Templated inline for command script: inline -> with context %+v", script.Ctx)
+		} else {
+			return fmt.Errorf("Either file or inline has to be set for command script.")
 		}
-	} else if command.Stdin != nil {
-		command.Stdin = c.stdin
+	} else if c.stdinFn != nil {
+		command.Stdin = c.stdinFn(c)
+	}
+
+	if c.credentialFn != nil {
+		if c.Command.SysProcAttr.Credential == nil {
+			c.Command.SysProcAttr.Credential = &syscall.Credential{}
+		}
+
+		c.Command.SysProcAttr.Credential = c.credentialFn(c, c.Command.SysProcAttr.Credential)
 	}
 
 	if err := command.Start(); err != nil {
@@ -676,8 +688,8 @@ func (c *Command[Pipe]) handleTerminator() {
 	c.Plumber.RegisterTerminated()
 }
 
-func (c *Command[Pipe]) templateScript(command *exec.Cmd, tmpl string) error {
-	tpl, err := InlineTemplate(tmpl, c.script.Ctx, c.script.Funcs...)
+func (c *Command[Pipe]) templateScript(command *exec.Cmd, script *CommandScript, tmpl string) error {
+	tpl, err := InlineTemplate(tmpl, script.Ctx, script.Funcs...)
 
 	if err != nil {
 		return err
