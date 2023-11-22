@@ -18,7 +18,7 @@ import (
 
 type Command[Pipe TaskListData] struct {
 	Plumber *Plumber
-	Task    *Task[Pipe]
+	T       *Task[Pipe]
 	TL      *TaskList[Pipe]
 	Log     *logrus.Entry
 
@@ -96,7 +96,7 @@ func NewCommand[Pipe TaskListData](
 	c := &Command[Pipe]{
 		Command: exec.Command(command, args...),
 		Plumber: task.Plumber,
-		Task:    task,
+		T:       task,
 		TL:      task.TL,
 		Log:     task.Log,
 		options: CommandOptions[Pipe]{
@@ -138,7 +138,7 @@ func (c *Command[Pipe]) IsDisabled() bool {
 		return false
 	}
 
-	return c.options.Disable(c.Task)
+	return c.options.Disable(c.T)
 }
 
 // Adds a predicate to check whether this command should be disabled depending on the pipe variables.
@@ -304,7 +304,7 @@ func (c *Command[Pipe]) EnsureIsAlive() *Command[Pipe] {
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetStdoutStream() []string {
 	if !c.options.recordStream {
-		c.Task.SendFatal(
+		c.T.SendFatal(
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
 		)
 	}
@@ -320,7 +320,7 @@ func (c *Command[Pipe]) GetStdoutStream() []string {
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetStderrStream() []string {
 	if !c.options.recordStream {
-		c.Task.SendFatal(
+		c.T.SendFatal(
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
 		)
 	}
@@ -336,7 +336,7 @@ func (c *Command[Pipe]) GetStderrStream() []string {
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetCombinedStream() []string {
 	if !c.options.recordStream {
-		c.Task.SendFatal(
+		c.T.SendFatal(
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
 		)
 	}
@@ -414,11 +414,11 @@ func (c *Command[Pipe]) Run() error {
 
 // Convert Command.Run to a floc job.
 func (c *Command[Pipe]) Job() Job {
-	return c.Task.TL.JobIfNot(
-		c.Task.TL.Predicate(func(tl *TaskList[Pipe]) bool {
+	return c.T.TL.JobIfNot(
+		c.T.TL.Predicate(func(tl *TaskList[Pipe]) bool {
 			return c.handleStopCases()
 		}),
-		c.Task.TL.CreateJob(func(tl *TaskList[Pipe]) error {
+		c.T.TL.CreateJob(func(tl *TaskList[Pipe]) error {
 			if c.jobWrapperFn != nil {
 				return tl.RunJobs(c.jobWrapperFn(
 					tl.CreateBasicJob(c.Run),
@@ -428,7 +428,7 @@ func (c *Command[Pipe]) Job() Job {
 
 			return c.Run()
 		}),
-		c.Task.TL.CreateJob(func(tl *TaskList[Pipe]) error {
+		c.T.TL.CreateJob(func(tl *TaskList[Pipe]) error {
 			return nil
 		}),
 	)
@@ -436,7 +436,7 @@ func (c *Command[Pipe]) Job() Job {
 
 // Adds the current command to the parent task.
 func (c *Command[Pipe]) AddSelfToTheTask() *Command[Pipe] {
-	c.Task.AddCommands(c)
+	c.T.AddCommands(c)
 
 	return c
 }
@@ -625,7 +625,7 @@ func (c *Command[Pipe]) handleStopCases() bool {
 
 	if result := c.IsDisabled(); result {
 		c.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
-			Debugf("%s", c.Task.Name)
+			Debugf("%s", c.T.Name)
 
 		c.status.stopCases.result = true
 		return c.status.stopCases.result
@@ -665,7 +665,7 @@ func (c *Command[Pipe]) handleTerminator() {
 	}
 
 	if c.onTerminatorFn != nil {
-		c.Task.SendError(c.onTerminatorFn(c))
+		c.T.SendError(c.onTerminatorFn(c))
 	}
 
 	c.Log.Tracef("Registered as terminated: %s", c.GetFormattedCommand())
