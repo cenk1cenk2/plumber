@@ -31,7 +31,7 @@ type Command[Pipe TaskListData] struct {
 	shouldRunAfterFn  CommandFn[Pipe]
 	onTerminatorFn    CommandFn[Pipe]
 	jobWrapperFn      CommandJobWrapperFn[Pipe]
-	credentialFn      CommandCredentialsFn[Pipe]
+	credentialFn      CommandCredentialFn[Pipe]
 
 	stdoutLevel   LogLevel
 	stderrLevel   LogLevel
@@ -75,11 +75,11 @@ type CommandRetry struct {
 }
 
 type (
-	CommandFn[Pipe TaskListData]            func(*Command[Pipe]) error
-	CommandJobWrapperFn[Pipe TaskListData]  func(job Job, c *Command[Pipe]) Job
-	CommandStdinFn[Pipe TaskListData]       func(c *Command[Pipe]) io.Reader
-	CommandScriptFn[Pipe TaskListData]      func(c *Command[Pipe]) *CommandScript
-	CommandCredentialsFn[Pipe TaskListData] func(c *Command[Pipe], credential *syscall.Credential) *syscall.Credential
+	CommandFn[Pipe TaskListData]           func(*Command[Pipe]) error
+	CommandJobWrapperFn[Pipe TaskListData] func(job Job, c *Command[Pipe]) Job
+	CommandStdinFn[Pipe TaskListData]      func(c *Command[Pipe]) io.Reader
+	CommandScriptFn[Pipe TaskListData]     func(c *Command[Pipe]) *CommandScript
+	CommandCredentialFn[Pipe TaskListData] func(c *Command[Pipe], credential *syscall.Credential) *syscall.Credential
 )
 
 type (
@@ -177,7 +177,7 @@ func (c *Command[Pipe]) SetScript(fn CommandScriptFn[Pipe]) *Command[Pipe] {
 	return c
 }
 
-func (c *Command[Pipe]) SetCredential(fn CommandCredentialsFn[Pipe]) *Command[Pipe] {
+func (c *Command[Pipe]) SetCredential(fn CommandCredentialFn[Pipe]) *Command[Pipe] {
 	c.credentialFn = fn
 
 	return c
