@@ -1,3 +1,10 @@
+## [5.1.2](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.1...v5.1.2) (2023-11-22)
+
+
+### Bug Fixes
+
+* how terminator is handled ([c14ed9b](https://gitlab.kilic.dev/libraries/plumber/commit/c14ed9bc970ea955554b5cccd05e3fb46e08afe1))
+
 ## [5.1.1](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.0...v5.1.1) (2023-11-22)
 
 
