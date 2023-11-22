@@ -47,14 +47,14 @@ type Command[Pipe TaskListData] struct {
 }
 
 type CommandOptions[Pipe TaskListData] struct {
-	Disable           TaskPredicateFn[Pipe]
-	ignoreError       bool
-	recordStream      bool
-	ensureIsAlive     bool
-	maskOsEnvironment bool
-	retries           int
-	retryAlways       bool
-	retryDelay        time.Duration
+	disablePredicateFn TaskPredicateFn[Pipe]
+	ignoreError        bool
+	recordStream       bool
+	ensureIsAlive      bool
+	maskOsEnvironment  bool
+	retries            int
+	retryAlways        bool
+	retryDelay         time.Duration
 }
 
 type CommandStatus struct {
@@ -134,16 +134,16 @@ func (c *Command[Pipe]) ShouldRunAfter(fn CommandFn[Pipe]) *Command[Pipe] {
 
 // Checks whether current command is disabled.
 func (c *Command[Pipe]) IsDisabled() bool {
-	if c.options.Disable == nil {
+	if c.options.disablePredicateFn == nil {
 		return false
 	}
 
-	return c.options.Disable(c.T)
+	return c.options.disablePredicateFn(c.T)
 }
 
 // Adds a predicate to check whether this command should be disabled depending on the pipe variables.
 func (c *Command[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Command[Pipe] {
-	c.options.Disable = fn
+	c.options.disablePredicateFn = fn
 
 	return c
 }
@@ -455,6 +455,7 @@ func (c *Command[Pipe]) pipe() error {
 	command.Dir = c.Command.Dir
 	command.Path = c.Command.Path
 	command.Env = c.Command.Env
+	command.Process = c.Command.Process
 	command.ExtraFiles = c.Command.ExtraFiles
 	command.SysProcAttr = c.Command.SysProcAttr
 
