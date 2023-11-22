@@ -168,8 +168,18 @@ func (c *Command[Pipe]) SetScript(script *CommandScript) *Command[Pipe] {
 	return c
 }
 
-func (c *Command[Pipe]) SetCredential(credential *syscall.Credential) *Command[Pipe] {
-	c.Command.SysProcAttr.Credential = credential
+func (c *Command[Pipe]) SetCredential(fn func(credential *syscall.Credential)) *Command[Pipe] {
+	if c.Command.SysProcAttr.Credential == nil {
+		c.Command.SysProcAttr.Credential = &syscall.Credential{}
+	}
+
+	fn(c.Command.SysProcAttr.Credential)
+
+	return c
+}
+
+func (c *Command[Pipe]) SetStdin(reader io.Reader) *Command[Pipe] {
+	c.Command.Stdin = reader
 
 	return c
 }
