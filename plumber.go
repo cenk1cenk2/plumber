@@ -466,22 +466,35 @@ func (p *Plumber) Run() {
 	ch := make(chan int, 1)
 	p.Channel.Exit.Register(ch)
 
-	p.Cli.Commands = append(p.Cli.Commands, cli.Commands{
-		{
-			Hidden: true,
-			Name:   "MARKDOWN_DOC",
-			Action: func(ctx *cli.Context) error {
-				return p.generateMarkdownDocumentation()
-			},
-		},
-		{
-			Hidden: true,
-			Name:   "MARKDOWN_EMBED",
-			Action: func(ctx *cli.Context) error {
-				return p.embedMarkdownDocumentation()
-			},
-		},
-	}...)
+	if slices.Contains(os.Args, "MARKDOWN_DOC") {
+		p.setupBasic()
+
+		p.Log.Infoln("Only running the documentation generation without the CLI.")
+
+		if err := p.generateMarkdownDocumentation(); err != nil {
+			p.SendFatal(err)
+
+			for {
+				<-ch
+			}
+		}
+
+		return
+	} else if slices.Contains(os.Args, "MARKDOWN_EMBED") {
+		p.setupBasic()
+
+		p.Log.Infoln("Only running the documentation generation to embed to file without the CLI.")
+
+		if err := p.embedMarkdownDocumentation(); err != nil {
+			p.SendFatal(err)
+
+			for {
+				<-ch
+			}
+		}
+
+		return
+	}
 
 	if err := p.Cli.Run(append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
 		p.SendFatal(err)
@@ -614,6 +627,17 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		return p.deprecationNoticeHandler()
 	}
+}
+
+// Setups the basic application to perform tasks outside of the CLI context.
+func (p *Plumber) setupBasic() {
+	level, err := logrus.ParseLevel(os.Getenv("LOG_LEVEL"))
+
+	if err != nil {
+		level = logrus.InfoLevel
+	}
+
+	p.setupLogger(level)
 }
 
 // Sets up logger for the application.
