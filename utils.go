@@ -13,6 +13,7 @@ import (
 )
 
 func TemplateFuncMap() template.FuncMap {
+	// functions can be found here: https://go-task.github.io/slim-sprig/
 	return sprig.FuncMap()
 }
 
@@ -67,13 +68,18 @@ func ParseEnvironmentVariablesToMap() map[string]string {
 	return vars
 }
 
-func InlineTemplate[Ctx any](tmpl string, ctx Ctx) (string, error) {
+func InlineTemplate[Ctx any](tmpl string, ctx Ctx, funcs ...template.FuncMap) (string, error) {
 	if tmpl == "" {
 		return "", nil
 	}
 
-	// functions can be found here: https://go-task.github.io/slim-sprig/
-	tmp, err := template.New("inline").Funcs(TemplateFuncMap()).Parse(tmpl)
+	parser := template.New("inline").Funcs(TemplateFuncMap())
+
+	for _, f := range funcs {
+		parser.Funcs(f)
+	}
+
+	tmp, err := parser.Parse(tmpl)
 
 	if err != nil {
 		return "", fmt.Errorf("Can not create inline template: %w", err)

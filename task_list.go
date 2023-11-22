@@ -34,20 +34,20 @@ type TaskList[Pipe TaskListData] struct {
 	Log     *logrus.Entry
 
 	flocContext       floc.Context
-	tasks             Job
 	shouldRunBeforeFn TaskListFn[Pipe]
+	fn                TaskListJobFn[Pipe]
 	shouldRunAfterFn  TaskListFn[Pipe]
 }
 
 type (
-	TaskListFn[Pipe TaskListData]          func(*TaskList[Pipe]) error
-	TaskListJobFn[Pipe TaskListData]       func(*TaskList[Pipe]) Job
-	TaskListPredicateFn[Pipe TaskListData] func(*TaskList[Pipe]) bool
+	TaskListFn[Pipe TaskListData]          func(tl *TaskList[Pipe]) error
+	TaskListJobFn[Pipe TaskListData]       func(tl *TaskList[Pipe]) Job
+	TaskListPredicateFn[Pipe TaskListData] func(tl *TaskList[Pipe]) bool
 )
 
 type TaskListOptions[Pipe TaskListData] struct {
-	Skip         TaskListPredicateFn[Pipe]
-	Disable      TaskListPredicateFn[Pipe]
+	skipFn       TaskListPredicateFn[Pipe]
+	disableFn    TaskListPredicateFn[Pipe]
 	runtimeDepth int
 }
 
@@ -59,114 +59,103 @@ func NewTaskList[Pipe TaskListData](p *Plumber) *TaskList[Pipe] {
 }
 
 // Creates a new task list.
-func (t *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
-	t.Lock = &sync.RWMutex{}
-	t.Plumber = p
-	t.Channel = &p.Channel
-	t.options.runtimeDepth = 3
+func (tl *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
+	tl.Lock = &sync.RWMutex{}
+	tl.Plumber = p
+	tl.Channel = &p.Channel
 
-	t.setupLogger()
+	tl.setupLogger()
 
-	t.flocContext = floc.NewContext()
-	t.Control = floc.NewControl(t.flocContext)
-	go t.registerTerminateHandler()
+	tl.flocContext = floc.NewContext()
+	tl.Control = floc.NewControl(tl.flocContext)
+	go tl.registerTerminateHandler()
 
-	return t
+	return tl
 }
 
 // Sets the function that should run before the task list.
-func (t *TaskList[Pipe]) ShouldRunBefore(fn TaskListFn[Pipe]) *TaskList[Pipe] {
-	t.Lock.Lock()
-	t.shouldRunBeforeFn = fn
-	t.Lock.Unlock()
+func (tl *TaskList[Pipe]) ShouldRunBefore(fn TaskListFn[Pipe]) *TaskList[Pipe] {
+	tl.Lock.Lock()
+	tl.shouldRunBeforeFn = fn
+	tl.Lock.Unlock()
 
-	return t
-}
-
-// Returns the current tasks inside the task list as job.
-func (t *TaskList[Pipe]) GetTasks() Job {
-	return t.tasks
+	return tl
 }
 
 // Sets the tasks of the task list.
-func (t *TaskList[Pipe]) Set(fn TaskListJobFn[Pipe]) *TaskList[Pipe] {
-	t.Lock.Lock()
-	t.tasks = fn(t)
-	t.Lock.Unlock()
+func (tl *TaskList[Pipe]) Set(fn TaskListJobFn[Pipe]) *TaskList[Pipe] {
+	tl.Lock.Lock()
+	tl.fn = fn
+	tl.Lock.Unlock()
 
-	return t
-}
-
-// Sets the tasks of the task list with wrapper.
-func (t *TaskList[Pipe]) SetTasks(tasks Job) *TaskList[Pipe] {
-	t.Lock.Lock()
-	t.tasks = tasks
-	t.Lock.Unlock()
-
-	return t
+	return tl
 }
 
 // Sets the function that should run after the task list.
-func (t *TaskList[Pipe]) ShouldRunAfter(fn TaskListFn[Pipe]) *TaskList[Pipe] {
-	t.Lock.Lock()
-	t.shouldRunAfterFn = fn
-	t.Lock.Unlock()
+func (tl *TaskList[Pipe]) ShouldRunAfter(fn TaskListFn[Pipe]) *TaskList[Pipe] {
+	tl.Lock.Lock()
+	tl.shouldRunAfterFn = fn
+	tl.Lock.Unlock()
 
-	return t
+	return tl
 }
 
 // Sets the predicate that should conditionally disable the task list depending on the pipe variables.
-func (t *TaskList[Pipe]) ShouldDisable(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
-	t.options.Disable = fn
+func (tl *TaskList[Pipe]) ShouldDisable(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
+	tl.Lock.Lock()
+	tl.options.disableFn = fn
+	tl.Lock.Unlock()
 
-	return t
+	return tl
 }
 
 // Checks whether the current task is disabled or not.
-func (t *TaskList[Pipe]) IsDisabled() bool {
-	if t.options.Disable == nil {
+func (tl *TaskList[Pipe]) IsDisabled() bool {
+	if tl.options.disableFn == nil {
 		return false
 	}
 
-	return t.options.Disable(t)
+	return tl.options.disableFn(tl)
 }
 
 // Sets the predicate that should conditionally skip the task list depending on the pipe variables.
-func (t *TaskList[Pipe]) ShouldSkip(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
-	t.options.Skip = fn
+func (tl *TaskList[Pipe]) ShouldSkip(fn TaskListPredicateFn[Pipe]) *TaskList[Pipe] {
+	tl.Lock.Lock()
+	tl.options.skipFn = fn
+	tl.Lock.Unlock()
 
-	return t
+	return tl
 }
 
 // Checks whether the current task is skipped or not.
-func (t *TaskList[Pipe]) IsSkipped() bool {
-	if t.options.Skip == nil {
+func (tl *TaskList[Pipe]) IsSkipped() bool {
+	if tl.options.skipFn == nil {
 		return false
 	}
 
-	return t.options.Skip(t)
+	return tl.options.skipFn(tl)
 }
 
 // Creates a new task.
-func (t *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
-	return NewTask(t, name...)
+func (tl *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
+	return NewTask(tl, name...)
 }
 
 // Sets the CLI context for urfave/cli that is coming from the action function.
-func (t *TaskList[Pipe]) SetCliContext(ctx *cli.Context) *TaskList[Pipe] {
-	t.Lock.Lock()
-	t.CliContext = ctx
-	t.Lock.Unlock()
+func (tl *TaskList[Pipe]) SetCliContext(ctx *cli.Context) *TaskList[Pipe] {
+	tl.Lock.Lock()
+	tl.CliContext = ctx
+	tl.Lock.Unlock()
 
-	return t
+	return tl
 }
 
 // Sets the runtime depth for the logger.
-func (t *TaskList[Pipe]) SetRuntimeDepth(depth int) *TaskList[Pipe] {
-	t.options.runtimeDepth = depth
-	t.setupLogger()
+func (tl *TaskList[Pipe]) SetRuntimeDepth(depth int) *TaskList[Pipe] {
+	tl.options.runtimeDepth = depth
+	tl.setupLogger()
 
-	return t
+	return tl
 }
 
 // Validates the current pipe of the task list.
@@ -175,9 +164,7 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 		return fmt.Errorf("Can not set defaults: %w", err)
 	}
 
-	validate := validator.New()
-
-	err := validate.Struct(data)
+	err := t.Plumber.Validator.Struct(data)
 
 	if err != nil {
 		//nolint:errorlint
@@ -219,10 +206,6 @@ func (t *TaskList[Pipe]) RunJobs(job Job) error {
 
 // Runs the current task list.
 func (t *TaskList[Pipe]) Run() error {
-	if t.tasks == nil {
-		return fmt.Errorf("Task list is empty.")
-	}
-
 	if stop := t.handleStopCases(); stop {
 		return nil
 	}
@@ -241,7 +224,7 @@ func (t *TaskList[Pipe]) Run() error {
 		return err
 	}
 
-	result, data, err := floc.RunWith(t.flocContext, t.Control, t.tasks)
+	result, data, err := floc.RunWith(t.flocContext, t.Control, t.fn(t))
 
 	if err != nil {
 		return err
