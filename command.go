@@ -38,6 +38,7 @@ type Command[Pipe TaskListData] struct {
 
 	stdout         output
 	stderr         output
+	stdin          io.Reader
 	stdoutStream   []string
 	stderrStream   []string
 	combinedStream []string
@@ -52,9 +53,7 @@ type CommandOptions[Pipe TaskListData] struct {
 	recordStream       bool
 	ensureIsAlive      bool
 	maskOsEnvironment  bool
-	retries            int
-	retryAlways        bool
-	retryDelay         time.Duration
+	retry              *CommandRetry
 }
 
 type CommandStatus struct {
@@ -66,6 +65,12 @@ type CommandScript struct {
 	File   string
 	Ctx    interface{}
 	Funcs  []template.FuncMap
+}
+
+type CommandRetry struct {
+	Tries  uint32
+	Always bool
+	Delay  time.Duration
 }
 
 type (
@@ -99,9 +104,6 @@ func NewCommand[Pipe TaskListData](
 		T:       task,
 		TL:      task.TL,
 		Log:     task.Log,
-		options: CommandOptions[Pipe]{
-			retryDelay: COMMAND_RETRY_DELAY,
-		},
 	}
 
 	c.Command.SysProcAttr = &syscall.SysProcAttr{}
@@ -182,7 +184,7 @@ func (c *Command[Pipe]) SetCredential(fn func(credential *syscall.Credential)) *
 }
 
 func (c *Command[Pipe]) SetStdin(reader io.Reader) *Command[Pipe] {
-	c.Command.Stdin = reader
+	c.stdin = reader
 
 	return c
 }
@@ -270,10 +272,8 @@ func (c *Command[Pipe]) SetMaskOsEnvironment() *Command[Pipe] {
 }
 
 // Sets the option to retry the command if failed.
-func (c *Command[Pipe]) SetRetries(retries int, always bool, delay time.Duration) *Command[Pipe] {
-	c.options.retries = retries
-	c.options.retryAlways = always
-	c.options.retryDelay = delay
+func (c *Command[Pipe]) SetRetries(retry *CommandRetry) *Command[Pipe] {
+	c.options.retry = retry
 
 	return c
 }
@@ -456,6 +456,7 @@ func (c *Command[Pipe]) pipe() error {
 	command.Process = c.Command.Process
 	command.ExtraFiles = c.Command.ExtraFiles
 	command.SysProcAttr = c.Command.SysProcAttr
+	command.Stdin = c.Command.Stdin
 
 	if err := c.createReaders(command); err != nil {
 		return err
@@ -485,9 +486,9 @@ func (c *Command[Pipe]) pipe() error {
 
 			c.Log.Tracef("Templated inline for command script: inline -> with context %+v", c.script.Ctx)
 		}
+	} else if command.Stdin != nil {
+		command.Stdin = c.stdin
 	}
-
-	command.Stdin = c.Command.Stdin
 
 	if err := command.Start(); err != nil {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
@@ -527,26 +528,26 @@ func (c *Command[Pipe]) handleError(err error) error {
 
 // Retries the task with the given options.
 func (c *Command[Pipe]) retry(err error) error {
-	if !c.options.retryAlways && c.options.retries <= 0 {
+	if c.options.retry == nil || !c.options.retry.Always && c.options.retry.Tries <= 0 {
 		return c.handleError(err)
 	}
 
 	log := c.Log.WithField(LOG_FIELD_STATUS, log_status_retry)
 
-	if c.options.retryAlways {
+	if c.options.retry.Always {
 		log.Warnf(
 			"%s -> has failed, will retry to run in %s: %s",
 			c.GetFormattedCommand(),
-			c.options.retryDelay.String(),
+			c.options.retry.Delay.String(),
 			err,
 		)
 	} else {
-		log.Warnf("%s -> has failed, will retry to run for %d more times in %s: %s", c.GetFormattedCommand(), c.options.retries, c.options.retryDelay.String(), err)
+		log.Warnf("%s -> has failed, will retry to run for %d more times in %s: %s", c.GetFormattedCommand(), c.options.retry.Tries, c.options.retry.Delay.String(), err)
 
-		c.options.retries--
+		c.options.retry.Tries--
 	}
 
-	time.Sleep(c.options.retryDelay)
+	time.Sleep(c.options.retry.Delay)
 
 	return c.pipe()
 }
@@ -655,7 +656,6 @@ func (c *Command[Pipe]) handleTerminator() {
 
 	if c.Command.Process == nil {
 		c.Log.Tracef("Already finished running, registered as terminated: %s", c.GetFormattedCommand())
-
 		c.Plumber.RegisterTerminated()
 
 		return

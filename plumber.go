@@ -428,7 +428,6 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 		return p
 	}
 
-	p.Terminator.Lock.Lock()
 	if p.Terminator.registered > 0 {
 		log := p.Log.WithFields(logrus.Fields{
 			LOG_FIELD_CONTEXT: p.Cli.Name,
@@ -446,7 +445,6 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 
 		log.Tracef("Enough votes received for termination.")
 	}
-	p.Terminator.Lock.Unlock()
 
 	p.Terminator.Terminated.Submit(true)
 
