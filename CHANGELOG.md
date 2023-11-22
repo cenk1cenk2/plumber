@@ -1,3 +1,10 @@
+# [5.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.8...v5.2.0) (2023-11-22)
+
+
+### Features
+
+* reenable old document generation ([ba02d8f](https://gitlab.kilic.dev/libraries/plumber/commit/ba02d8f7aa9f5a0e5eca9fb7608b50a9a4b0dcbe))
+
 ## [5.1.8](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.7...v5.1.8) (2023-11-22)
 
 
