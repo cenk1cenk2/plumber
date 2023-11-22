@@ -366,6 +366,8 @@ func (c *Command[Pipe]) Run() error {
 		return nil
 	}
 
+	defer c.Plumber.RegisterTerminated()
+
 	started := time.Now()
 	if c.fn != nil {
 		if err := c.fn(c); err != nil {
@@ -392,12 +394,8 @@ func (c *Command[Pipe]) Run() error {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
 			Errorf("%s > %s", c.GetFormattedCommand(), err.Error())
 
-		c.Plumber.RegisterTerminated()
-
 		return err
 	}
-
-	c.Plumber.RegisterTerminated()
 
 	if c.shouldRunAfterFn != nil {
 		if err := c.shouldRunAfterFn(c); err != nil {
@@ -473,27 +471,17 @@ func (c *Command[Pipe]) pipe() error {
 				return err
 			}
 
-			c.script.Inline = string(tpl)
-		}
+			if err := c.templateScript(command, string(tpl)); err != nil {
+				return err
+			}
 
-		tpl, err := InlineTemplate(c.script.Inline, c.script.Ctx, c.script.Funcs...)
+			c.Log.Tracef("Templated file for command script: %s -> with context %+v", c.script.File, c.script.Ctx)
+		} else if c.script.Inline != "" {
+			if err := c.templateScript(command, c.script.Inline); err != nil {
+				return err
+			}
 
-		if err != nil {
-			return err
-		}
-
-		stdin, err := command.StdinPipe()
-
-		if err != nil {
-			return err
-		}
-
-		if _, err := io.WriteString(stdin, tpl); err != nil {
-			return err
-		}
-
-		if err := stdin.Close(); err != nil {
-			return err
+			c.Log.Tracef("Templated inline for command script: inline -> with context %+v", c.script.Ctx)
 		}
 	}
 
@@ -680,4 +668,24 @@ func (c *Command[Pipe]) handleTerminator() {
 	c.Log.Tracef("Registered as terminated: %s", c.GetFormattedCommand())
 
 	c.Plumber.RegisterTerminated()
+}
+
+func (c *Command[Pipe]) templateScript(command *exec.Cmd, tmpl string) error {
+	tpl, err := InlineTemplate(tmpl, c.script.Ctx, c.script.Funcs...)
+
+	if err != nil {
+		return err
+	}
+
+	stdin, err := command.StdinPipe()
+
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.WriteString(stdin, tpl); err != nil {
+		return err
+	}
+
+	return stdin.Close()
 }
