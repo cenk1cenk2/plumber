@@ -1,3 +1,11 @@
+## [5.1.6](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.5...v5.1.6) (2023-11-22)
+
+
+### Bug Fixes
+
+* deregister instead ([80598d3](https://gitlab.kilic.dev/libraries/plumber/commit/80598d3cdb3e749ddd1b7117159a701dd3781e5a))
+* update log message ([e5810b7](https://gitlab.kilic.dev/libraries/plumber/commit/e5810b7cec68a09170ba8354c44c0aaa87785aad))
+
 ## [5.1.5](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.4...v5.1.5) (2023-11-22)
 
 
