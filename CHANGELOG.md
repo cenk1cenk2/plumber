@@ -1,3 +1,11 @@
+## [5.1.3](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.2...v5.1.3) (2023-11-22)
+
+
+### Bug Fixes
+
+* update naimg scheme ([56b8073](https://gitlab.kilic.dev/libraries/plumber/commit/56b80735db0675e2d57c7cb317cc0d7494629ecc))
+* use direct names ([5c87441](https://gitlab.kilic.dev/libraries/plumber/commit/5c87441d0d370ec5508c836c4af9a043cee4b00f))
+
 ## [5.1.2](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.1...v5.1.2) (2023-11-22)
 
 
