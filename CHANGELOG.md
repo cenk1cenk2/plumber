@@ -1,3 +1,10 @@
+## [5.2.1](https://gitlab.kilic.dev/libraries/plumber/compare/v5.2.0...v5.2.1) (2023-11-22)
+
+
+### Bug Fixes
+
+* update with func ([ac2f884](https://gitlab.kilic.dev/libraries/plumber/commit/ac2f8849f356755910d4690afaa8940611f61342))
+
 # [5.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.8...v5.2.0) (2023-11-22)
 
 
