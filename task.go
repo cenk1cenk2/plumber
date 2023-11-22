@@ -275,19 +275,19 @@ func (t *Task[Pipe]) handleErrors(err error) error {
 
 // Handles the plumber terminator when terminator is triggered.
 func (t *Task[Pipe]) handleTerminator() {
+	if t.IsDisabled() || t.IsSkipped() {
+		t.Log.Traceln("Sending terminated directly because the task is already not available.")
+
+		t.Plumber.DeregisterTerminator()
+
+		return
+	}
+
 	ch := make(chan os.Signal, 1)
 
 	t.Plumber.Terminator.ShouldTerminate.Register(ch)
 
 	sig := <-ch
-
-	if t.IsDisabled() || t.IsSkipped() {
-		t.Log.Traceln("Sending terminated directly because the task is already not available.")
-
-		t.Plumber.RegisterTerminated()
-
-		return
-	}
 
 	t.Log.Tracef("Forwarding signal to task: %s", sig)
 

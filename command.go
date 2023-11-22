@@ -369,8 +369,6 @@ func (c *Command[Pipe]) Run() error {
 		return nil
 	}
 
-	defer c.Plumber.DeregisterTerminator()
-
 	started := time.Now()
 	if c.fn != nil {
 		if err := c.fn(c); err != nil {
@@ -638,17 +636,25 @@ func (c *Command[Pipe]) handleStopCases() bool {
 
 // Handles the global plumber terminator to stop execution of the command and forwards the terminate signal if running.
 func (c *Command[Pipe]) handleTerminator() {
+	if c.IsDisabled() {
+		c.Log.Tracef(
+			"Deregister terminator directly because the command is already not available: %s",
+			c.GetFormattedCommand(),
+		)
+
+		c.Plumber.DeregisterTerminator()
+
+		return
+	}
+
 	ch := make(chan os.Signal, 1)
 	c.Plumber.Terminator.ShouldTerminate.Register(ch)
 	defer c.Plumber.Terminator.ShouldTerminate.Unregister(ch)
 
 	sig := <-ch
 
-	if c.IsDisabled() {
-		c.Log.Tracef(
-			"Sending terminated directly because the command is already not available: %s",
-			c.GetFormattedCommand(),
-		)
+	if c.Command.Process == nil {
+		c.Log.Tracef("Already finished running, registered as terminated: %s", c.GetFormattedCommand())
 
 		c.Plumber.RegisterTerminated()
 
@@ -657,11 +663,7 @@ func (c *Command[Pipe]) handleTerminator() {
 
 	c.Log.Tracef("Forwarding signal to process: %s", sig)
 
-	if c.Command.Process == nil {
-		c.Log.Tracef("Already not running: %s", c.GetFormattedCommand())
-
-		return
-	} else if err := c.Command.Process.Signal(sig); err != nil {
+	if err := c.Command.Process.Signal(sig); err != nil {
 		c.Log.Tracef("Termination error: %s > %s", c.GetFormattedCommand(), err.Error())
 	}
 

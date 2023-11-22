@@ -274,12 +274,7 @@ func (t *TaskList[Pipe]) handleStopCases() bool {
 }
 
 // Handles output coming from floc.
-func (t *TaskList[Pipe]) handleFloc(result floc.Result, data interface{}) error {
-	switch {
-	case result.IsCanceled() && data != nil:
-		t.Log.Debugf("Tasks are cancelled: %s", data)
-	}
-
+func (t *TaskList[Pipe]) handleFloc(_ floc.Result, _ interface{}) error {
 	return nil
 }
 

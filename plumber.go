@@ -399,16 +399,9 @@ func (p *Plumber) RegisterTerminator() *Plumber {
 		return p
 	}
 
-	log := p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: p.Cli.Name,
-		LOG_FIELD_STATUS:  log_status_plumber_terminator,
-	})
-
 	p.Terminator.Lock.Lock()
 	p.Terminator.registered++
 	p.Terminator.Lock.Unlock()
-
-	log.Tracef("Registered to terminator: %d in total", p.Terminator.registered)
 
 	return p
 }
@@ -420,16 +413,9 @@ func (p *Plumber) DeregisterTerminator() *Plumber {
 		return p
 	}
 
-	log := p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: p.Cli.Name,
-		LOG_FIELD_STATUS:  log_status_plumber_terminator,
-	})
-
 	p.Terminator.Lock.Lock()
 	p.Terminator.registered--
 	p.Terminator.Lock.Unlock()
-
-	log.Tracef("Registration revoked from terminator: %d left", p.Terminator.registered)
 
 	return p
 }
@@ -442,6 +428,7 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 		return p
 	}
 
+	p.Terminator.Lock.Lock()
 	if p.Terminator.registered > 0 {
 		log := p.Log.WithFields(logrus.Fields{
 			LOG_FIELD_CONTEXT: p.Cli.Name,
@@ -459,6 +446,7 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 
 		log.Tracef("Enough votes received for termination.")
 	}
+	p.Terminator.Lock.Unlock()
 
 	p.Terminator.Terminated.Submit(true)
 
