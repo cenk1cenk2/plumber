@@ -62,6 +62,6 @@ func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {
 }
 
 // Runs the commands that are attached to this task as parallel with the given wrapper.
-func (t *Task[Pipe]) RunCommandJob(fn JobParserFn[*Task[Pipe]]) error {
+func (t *Task[Pipe]) RunCommandJob(fn TaskJobParserFn[Pipe]) error {
 	return t.TL.RunJobs(fn(t))
 }

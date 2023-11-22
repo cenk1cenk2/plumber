@@ -19,6 +19,7 @@ import (
 type Command[Pipe TaskListData] struct {
 	Plumber *Plumber
 	Task    *Task[Pipe]
+	TL      *TaskList[Pipe]
 	Log     *logrus.Entry
 
 	Command *exec.Cmd
@@ -29,7 +30,7 @@ type Command[Pipe TaskListData] struct {
 	fn                CommandFn[Pipe]
 	shouldRunAfterFn  CommandFn[Pipe]
 	onTerminatorFn    CommandFn[Pipe]
-	jobWrapperFn      JobWrapperFn[*Command[Pipe]]
+	jobWrapperFn      CommandJobWrapperFn[Pipe]
 
 	stdoutLevel   LogLevel
 	stderrLevel   LogLevel
@@ -68,7 +69,8 @@ type CommandScript struct {
 }
 
 type (
-	CommandFn[Pipe TaskListData] func(*Command[Pipe]) error
+	CommandFn[Pipe TaskListData]           func(*Command[Pipe]) error
+	CommandJobWrapperFn[Pipe TaskListData] func(job Job, c *Command[Pipe]) Job
 )
 
 type (
@@ -95,6 +97,7 @@ func NewCommand[Pipe TaskListData](
 		Command: exec.Command(command, args...),
 		Plumber: task.Plumber,
 		Task:    task,
+		TL:      task.TL,
 		Log:     task.Log,
 		options: CommandOptions[Pipe]{
 			retryDelay: COMMAND_RETRY_DELAY,
@@ -276,7 +279,7 @@ func (c *Command[Pipe]) SetRetries(retries int, always bool, delay time.Duration
 }
 
 // Extend the job of the current task.
-func (c *Command[Pipe]) SetJobWrapper(fn JobWrapperFn[*Command[Pipe]]) *Command[Pipe] {
+func (c *Command[Pipe]) SetJobWrapper(fn CommandJobWrapperFn[Pipe]) *Command[Pipe] {
 	c.jobWrapperFn = fn
 
 	return c
