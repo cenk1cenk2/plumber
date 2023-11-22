@@ -54,6 +54,7 @@ type Terminator struct {
 	ShouldTerminate *broadcaster.Broadcaster[os.Signal]
 	Terminated      *broadcaster.Broadcaster[bool]
 	Lock            *sync.RWMutex
+	ready           bool
 	terminated      uint
 	registered      uint
 	initiated       bool
@@ -427,6 +428,10 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 
 		if p.Terminator.terminated < p.Terminator.registered {
 			return p
+		} else if !p.Terminator.ready {
+			log.Tracef("Enough votes received for termination but not ready to terminate yet.")
+
+			return p
 		}
 
 		log.Tracef("Enough votes received for termination.")
@@ -471,11 +476,14 @@ func (p *Plumber) Run() {
 
 	if err := p.Cli.Run(append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
 		p.SendFatal(err)
+		p.Terminator.ready = true
 
 		for {
 			<-ch
 		}
 	}
+
+	p.Terminator.ready = true
 }
 
 // Prints out DeprecationNotices.
