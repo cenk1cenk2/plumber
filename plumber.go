@@ -399,9 +399,16 @@ func (p *Plumber) RegisterTerminator() *Plumber {
 		return p
 	}
 
+	log := p.Log.WithFields(logrus.Fields{
+		LOG_FIELD_CONTEXT: p.Cli.Name,
+		LOG_FIELD_STATUS:  log_status_plumber_terminator,
+	})
+
 	p.Terminator.Lock.Lock()
 	p.Terminator.registered++
 	p.Terminator.Lock.Unlock()
+
+	log.Tracef("Registrated to terminator: %d in total", p.Terminator.registered)
 
 	return p
 }
@@ -422,7 +429,7 @@ func (p *Plumber) DeregisterTerminator() *Plumber {
 	p.Terminator.registered--
 	p.Terminator.Lock.Unlock()
 
-	log.Tracef("Registration revoked from terminator.")
+	log.Tracef("Registration revoked from terminator: %d left", p.Terminator.registered)
 
 	return p
 }
