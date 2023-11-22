@@ -1,3 +1,10 @@
+## [5.2.4](https://gitlab.kilic.dev/libraries/plumber/compare/v5.2.3...v5.2.4) (2023-11-22)
+
+
+### Bug Fixes
+
+* naming ([87030a7](https://gitlab.kilic.dev/libraries/plumber/commit/87030a7cef9bd438edfcb4e738c2009ae998f0ee))
+
 ## [5.2.3](https://gitlab.kilic.dev/libraries/plumber/compare/v5.2.2...v5.2.3) (2023-11-22)
 
 
