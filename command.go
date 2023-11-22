@@ -469,26 +469,28 @@ func (c *Command[Pipe]) pipe() error {
 	if c.scriptFn != nil {
 		script := c.scriptFn(c)
 
-		if script.File != "" {
-			tpl, err := os.ReadFile(script.File)
+		if script != nil {
+			if script.File != "" {
+				tpl, err := os.ReadFile(script.File)
 
-			if err != nil {
-				return err
+				if err != nil {
+					return err
+				}
+
+				if err := c.templateScript(command, script, string(tpl)); err != nil {
+					return err
+				}
+
+				c.Log.Tracef("Templated file for command script: %s -> with context %+v", script.File, script.Ctx)
+			} else if script.Inline != "" {
+				if err := c.templateScript(command, script, script.Inline); err != nil {
+					return err
+				}
+
+				c.Log.Tracef("Templated inline for command script: inline -> with context %+v", script.Ctx)
+			} else {
+				return fmt.Errorf("Either file or inline has to be set for command script.")
 			}
-
-			if err := c.templateScript(command, script, string(tpl)); err != nil {
-				return err
-			}
-
-			c.Log.Tracef("Templated file for command script: %s -> with context %+v", script.File, script.Ctx)
-		} else if script.Inline != "" {
-			if err := c.templateScript(command, script, script.Inline); err != nil {
-				return err
-			}
-
-			c.Log.Tracef("Templated inline for command script: inline -> with context %+v", script.Ctx)
-		} else {
-			return fmt.Errorf("Either file or inline has to be set for command script.")
 		}
 	} else if c.stdinFn != nil {
 		command.Stdin = c.stdinFn(c)
