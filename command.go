@@ -183,8 +183,8 @@ func (c *Command[Pipe]) SetCredential(fn func(credential *syscall.Credential)) *
 	return c
 }
 
-func (c *Command[Pipe]) SetStdin(reader io.Reader) *Command[Pipe] {
-	c.stdin = reader
+func (c *Command[Pipe]) SetStdin(fn func(c *Command[Pipe]) io.Reader) *Command[Pipe] {
+	c.stdin = fn(c)
 
 	return c
 }
