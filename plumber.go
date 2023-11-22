@@ -408,7 +408,7 @@ func (p *Plumber) RegisterTerminator() *Plumber {
 	p.Terminator.registered++
 	p.Terminator.Lock.Unlock()
 
-	log.Tracef("Registrated to terminator: %d in total", p.Terminator.registered)
+	log.Tracef("Registered to terminator: %d in total", p.Terminator.registered)
 
 	return p
 }
