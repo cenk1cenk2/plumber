@@ -1,3 +1,10 @@
+## [5.1.5](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.4...v5.1.5) (2023-11-22)
+
+
+### Bug Fixes
+
+* update ([d599256](https://gitlab.kilic.dev/libraries/plumber/commit/d599256560199ffffd3ee2ddd392f392610a4a1a))
+
 ## [5.1.4](https://gitlab.kilic.dev/libraries/plumber/compare/v5.1.3...v5.1.4) (2023-11-22)
 
 
