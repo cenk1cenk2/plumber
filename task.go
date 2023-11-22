@@ -13,18 +13,18 @@ import (
 )
 
 type Task[Pipe TaskListData] struct {
-	Plumber  *Plumber
-	taskList *TaskList[Pipe]
-	Log      *logrus.Entry
-	Channel  *AppChannel
+	Plumber *Plumber
+	TL      *TaskList[Pipe]
+	Log     *logrus.Entry
+	Channel *AppChannel
+	Pipe    *Pipe
+	Control floc.Control
+	Name    string
+
 	Lock     *sync.RWMutex
 	taskLock *sync.RWMutex
-	Pipe     *Pipe
-	Control  floc.Control
 
-	Name    string
-	options TaskOptions[Pipe]
-
+	options           TaskOptions[Pipe]
 	commands          []*Command[Pipe]
 	parent            *Task[Pipe]
 	subtask           Job
@@ -34,13 +34,12 @@ type Task[Pipe TaskListData] struct {
 	shouldRunAfterFn  TaskFn[Pipe]
 	onTerminatorFn    TaskFn[Pipe]
 	jobWrapperFn      JobWrapperFn[*Task[Pipe]]
-
-	status TaskStatus
+	status            TaskStatus
 }
 
 type TaskOptions[Pipe TaskListData] struct {
-	Skip    TaskPredicateFn[Pipe]
-	Disable TaskPredicateFn[Pipe]
+	skipPredicateFn    TaskPredicateFn[Pipe]
+	disablePredicateFn TaskPredicateFn[Pipe]
 }
 
 type TaskStatus struct {
@@ -56,7 +55,7 @@ type (
 func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] {
 	t := &Task[Pipe]{
 		Name:     strings.Join(utils.DeleteEmptyStringsFromSlice(name), tl.Plumber.options.delimiter),
-		taskList: tl,
+		TL:       tl,
 		Plumber:  tl.Plumber,
 		Lock:     tl.Lock,
 		taskLock: &sync.RWMutex{},
@@ -102,34 +101,34 @@ func (t *Task[Pipe]) ShouldRunAfter(fn TaskFn[Pipe]) *Task[Pipe] {
 
 // Sets the predicate that should conditionally disable the task depending on the pipe variables.
 func (t *Task[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
-	t.options.Disable = fn
+	t.options.disablePredicateFn = fn
 
 	return t
 }
 
 // Checks whether the current task is disabled or not.
 func (t *Task[Pipe]) IsDisabled() bool {
-	if t.options.Disable == nil {
+	if t.options.disablePredicateFn == nil {
 		return false
 	}
 
-	return t.options.Disable(t)
+	return t.options.disablePredicateFn(t)
 }
 
 // Sets the predicate that should conditionally skip the task depending on the pipe variables.
 func (t *Task[Pipe]) ShouldSkip(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
-	t.options.Skip = fn
+	t.options.skipPredicateFn = fn
 
 	return t
 }
 
 // Checks whether the current task is skipped or not.
 func (t *Task[Pipe]) IsSkipped() bool {
-	if t.options.Skip == nil {
+	if t.options.skipPredicateFn == nil {
 		return false
 	}
 
-	return t.options.Skip(t)
+	return t.options.skipPredicateFn(t)
 }
 
 // Enables global plumber terminator on this task.
@@ -196,11 +195,11 @@ func (t *Task[Pipe]) Run() error {
 
 // Runs the current task as a job.
 func (t *Task[Pipe]) Job() Job {
-	return t.taskList.JobIfNot(
-		t.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
+	return t.TL.JobIfNot(
+		t.TL.Predicate(func(tl *TaskList[Pipe]) bool {
 			return t.handleStopCases()
 		}),
-		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
+		t.TL.CreateJob(func(tl *TaskList[Pipe]) error {
 			if t.jobWrapperFn != nil {
 				return tl.RunJobs(t.jobWrapperFn(
 					tl.CreateBasicJob(t.Run),
@@ -210,7 +209,7 @@ func (t *Task[Pipe]) Job() Job {
 
 			return t.Run()
 		}),
-		t.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
+		t.TL.CreateJob(func(tl *TaskList[Pipe]) error {
 			return nil
 		}),
 	)

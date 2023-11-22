@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	validator "github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -23,6 +24,7 @@ type Plumber struct {
 	Environment AppEnvironment
 	Channel     AppChannel
 	Terminator
+	Validator *validator.Validate
 
 	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
@@ -34,6 +36,7 @@ type PlumberOptions struct {
 	documentation      DocumentationOptions
 	deprecationNotices []DeprecationNotice
 	timeout            time.Duration
+	greeter            PlumberFn
 }
 
 type AppEnvironment struct {
@@ -147,7 +150,10 @@ func (p *Plumber) New(
 	p.options = PlumberOptions{
 		delimiter: ":",
 		timeout:   time.Second * 5,
+		greeter:   greeter,
 	}
+
+	p.Validator = validator.New()
 
 	return p
 }
@@ -187,6 +193,20 @@ func (p *Plumber) SetDeprecationNotices(notices ...[]DeprecationNotice) *Plumber
 	for _, notice := range notices {
 		p.options.deprecationNotices = append(p.options.deprecationNotices, notice...)
 	}
+
+	return p
+}
+
+// Sets the greeter function to print out the CLI name and version.
+func (p *Plumber) SetGreeter(fn PlumberFn) *Plumber {
+	p.options.greeter = fn
+
+	return p
+}
+
+// Disables the greeter function to print out the CLI name and version.
+func (p *Plumber) DisableGreeter() *Plumber {
+	p.options.greeter = nil
 
 	return p
 }
@@ -421,42 +441,33 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 func (p *Plumber) Run() {
 	p.Cli.Setup()
 
-	p.greet()
+	if p.options.greeter != nil {
+		if err := p.options.greeter(p); err != nil {
+			p.SendFatal(err)
+		}
+	}
 
 	p.registerHandlers()
 
 	ch := make(chan int, 1)
 	p.Channel.Exit.Register(ch)
 
-	if slices.Contains(os.Args, "MARKDOWN_DOC") {
-		p.setupBasic()
-
-		p.Log.Infoln("Only running the documentation generation without the CLI.")
-
-		if err := p.generateMarkdownDocumentation(); err != nil {
-			p.SendFatal(err)
-
-			for {
-				<-ch
-			}
-		}
-
-		return
-	} else if slices.Contains(os.Args, "MARKDOWN_EMBED") {
-		p.setupBasic()
-
-		p.Log.Infoln("Only running the documentation generation to embed to file without the CLI.")
-
-		if err := p.embedMarkdownDocumentation(); err != nil {
-			p.SendFatal(err)
-
-			for {
-				<-ch
-			}
-		}
-
-		return
-	}
+	p.Cli.Commands = append(p.Cli.Commands, cli.Commands{
+		{
+			Hidden: true,
+			Name:   "MARKDOWN_DOC",
+			Action: func(ctx *cli.Context) error {
+				return p.generateMarkdownDocumentation()
+			},
+		},
+		{
+			Hidden: true,
+			Name:   "MARKDOWN_EMBED",
+			Action: func(ctx *cli.Context) error {
+				return p.embedMarkdownDocumentation()
+			},
+		},
+	}...)
 
 	if err := p.Cli.Run(append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
 		p.SendFatal(err)
@@ -465,21 +476,6 @@ func (p *Plumber) Run() {
 			<-ch
 		}
 	}
-}
-
-// Greet the user with the application name and version.
-func (p *Plumber) greet() {
-	var version = p.Cli.Version
-
-	if version == "latest" || version == "" {
-		version = fmt.Sprintf("BUILD.%s", p.Cli.Compiled.UTC().Format("20060102Z1504"))
-	}
-
-	name := fmt.Sprintf("%s - %s", p.Cli.Name, version)
-	//revive:disable:unhandled-error
-	fmt.Println(name)
-	fmt.Println(strings.Repeat("-", len(name)))
-	//revive:enable:unhandled-error
 }
 
 // Prints out DeprecationNotices.
@@ -604,17 +600,6 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 
 		return p.deprecationNoticeHandler()
 	}
-}
-
-// Setups the basic application to perform tasks outside of the CLI context.
-func (p *Plumber) setupBasic() {
-	level, err := logrus.ParseLevel(os.Getenv("LOG_LEVEL"))
-
-	if err != nil {
-		level = logrus.InfoLevel
-	}
-
-	p.setupLogger(level)
 }
 
 // Sets up logger for the application.
@@ -778,4 +763,21 @@ func (p *Plumber) registerExitHandler(registered chan string) {
 	close(p.Channel.CustomFatal)
 
 	os.Exit(code)
+}
+
+// Greet the user with the application name and version.
+func greeter(p *Plumber) error {
+	var version = p.Cli.Version
+
+	if version == "latest" || version == "" {
+		version = fmt.Sprintf("BUILD.%s", p.Cli.Compiled.UTC().Format("20060102Z1504"))
+	}
+
+	name := fmt.Sprintf("%s - %s", p.Cli.Name, version)
+	//revive:disable:unhandled-error
+	fmt.Println(name)
+	fmt.Println(strings.Repeat("-", len(name)))
+	//revive:enable:unhandled-error
+
+	return nil
 }

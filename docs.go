@@ -1,14 +1,12 @@
 package plumber
 
 import (
-	"bytes"
 	"embed"
 	"fmt"
 	"os"
 	"reflect"
 	"regexp"
 	"strings"
-	"text/template"
 
 	"github.com/urfave/cli/v2"
 )
@@ -121,17 +119,7 @@ func (p *Plumber) generateMarkdownTemplateCtx() *markdownTemplateInput {
 }
 
 func (p *Plumber) toMarkdown() (string, error) {
-	var w bytes.Buffer
-	const name = "templates/markdown.go.tmpl"
-	tmpl, err := templates.ReadFile(name)
-
-	if err != nil {
-		return "", err
-	}
-
-	t, err := template.New(name).
-		Funcs(TemplateFuncMap()).
-		Parse(string(tmpl))
+	tmpl, err := templates.ReadFile("templates/markdown.go.tmpl")
 
 	if err != nil {
 		return "", err
@@ -141,23 +129,11 @@ func (p *Plumber) toMarkdown() (string, error) {
 
 	p.Log.Tracef("Executing the template: %+v", input)
 
-	err = t.ExecuteTemplate(&w, name, input)
-
-	return w.String(), err
+	return InlineTemplate(string(tmpl), input)
 }
 
 func (p *Plumber) toEmbededMarkdown() (string, error) {
-	var w bytes.Buffer
-	const name = "templates/markdown-flags.go.tmpl"
-	tmpl, err := templates.ReadFile(name)
-
-	if err != nil {
-		return "", err
-	}
-
-	t, err := template.New(name).
-		Funcs(TemplateFuncMap()).
-		Parse(string(tmpl))
+	tmpl, err := templates.ReadFile("templates/markdown-flags.go.tmpl")
 
 	if err != nil {
 		return "", err
@@ -167,9 +143,7 @@ func (p *Plumber) toEmbededMarkdown() (string, error) {
 
 	p.Log.Tracef("Executing the embedded template: %+v", input)
 
-	err = t.ExecuteTemplate(&w, name, input)
-
-	return w.String(), err
+	return InlineTemplate(string(tmpl), input)
 }
 
 func (p *Plumber) generateDocCommands(commands []*cli.Command) []*templateCommand {
@@ -243,7 +217,7 @@ func (p *Plumber) generateDocFlags(
 
 		description := current.GetUsage()
 
-		re := regexp.MustCompile(`((format|json|Template|RegExp|enum|multiple)\(.*\))$`)
+		re := regexp.MustCompile(`(?s)((format|json|Template|RegExp|enum|multiple)\(.*\))`)
 
 		format := re.FindString(description)
 

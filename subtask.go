@@ -4,11 +4,15 @@ import (
 	"fmt"
 )
 
+type (
+	SubtaskExtendFn[Pipe TaskListData] func(pt *Task[Pipe], st *Task[Pipe])
+)
+
 // Creates a subtask that is attached to the current task.
 func (t *Task[Pipe]) CreateSubtask(name ...string) *Task[Pipe] {
 	parsed := append([]string{t.Name}, name...)
 
-	st := NewTask(t.taskList, parsed...)
+	st := NewTask(t.TL, parsed...)
 
 	st.parent = t
 	st.Lock = t.Lock
@@ -21,13 +25,24 @@ func (t *Task[Pipe]) HasParent() bool {
 	return t.parent != nil
 }
 
-// Attaches this task to the given parent task.
+// Extends the subtask of the current task with a wrapper.
+func (t *Task[Pipe]) ExtendSubtask(fn JobFn) *Task[Pipe] {
+	t.taskLock.Lock()
+	t.subtask = fn(t.subtask)
+	t.taskLock.Unlock()
+
+	return t
+}
+
+// Attaches this task to a arbitatary given parent task.
 func (t *Task[Pipe]) ToParent(
 	parent *Task[Pipe],
-	fn func(pt *Task[Pipe], st *Task[Pipe]),
+	fn SubtaskExtendFn[Pipe],
 ) *Task[Pipe] {
 	t.parent.taskLock.Lock()
+
 	fn(parent, t)
+
 	t.parent.taskLock.Unlock()
 
 	return t
@@ -35,7 +50,7 @@ func (t *Task[Pipe]) ToParent(
 
 // Attaches this task to the parent task with a wrapper.
 func (t *Task[Pipe]) AddSelfToTheParent(
-	fn func(pt *Task[Pipe], st *Task[Pipe]),
+	fn SubtaskExtendFn[Pipe],
 ) *Task[Pipe] {
 	if !t.HasParent() {
 		t.SendFatal(fmt.Errorf("Task has no parent value set."))
@@ -60,7 +75,7 @@ func (t *Task[Pipe]) AddSelfToTheParentAsSequence() *Task[Pipe] {
 
 	t.parent.Lock.Lock()
 	t.parent.ExtendSubtask(func(job Job) Job {
-		return t.taskList.JobSequence(job, t.Job())
+		return t.TL.JobSequence(job, t.Job())
 	})
 	t.parent.Lock.Unlock()
 
@@ -77,7 +92,7 @@ func (t *Task[Pipe]) AddSelfToTheParentAsParallel() *Task[Pipe] {
 
 	t.parent.Lock.Lock()
 	t.parent.ExtendSubtask(func(job Job) Job {
-		return t.taskList.JobParallel(job, t.Job())
+		return t.TL.JobParallel(job, t.Job())
 	})
 	t.parent.Lock.Unlock()
 
@@ -98,29 +113,13 @@ func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
 	return t
 }
 
-// Extends the subtask of the current task with a wrapper.
-func (t *Task[Pipe]) ExtendSubtask(fn JobFn) *Task[Pipe] {
-	t.taskLock.Lock()
-	t.subtask = fn(t.subtask)
-	t.taskLock.Unlock()
-
-	return t
-}
-
 // Runs the subtasks of the current task.
 func (t *Task[Pipe]) RunSubtasks() error {
-	err := t.taskList.RunJobs(t.subtask)
+	err := t.TL.RunJobs(t.subtask)
 
 	if err == nil {
 		t.SetSubtask(nil)
 	}
 
 	return err
-}
-
-// Runs the subtasks of the current task with a wrapper.
-func (t *Task[Pipe]) RunSubtasksWithExtension(fn func(job Job) Job) error {
-	t.subtask = fn(t.subtask)
-
-	return t.RunSubtasks()
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"text/template"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -17,14 +18,15 @@ import (
 
 type Command[Pipe TaskListData] struct {
 	Plumber *Plumber
-	task    *Task[Pipe]
+	Task    *Task[Pipe]
 	Log     *logrus.Entry
 
 	Command *exec.Cmd
+	script  *CommandScript
 	options CommandOptions[Pipe]
 
-	fn                CommandFn[Pipe]
 	shouldRunBeforeFn CommandFn[Pipe]
+	fn                CommandFn[Pipe]
 	shouldRunAfterFn  CommandFn[Pipe]
 	onTerminatorFn    CommandFn[Pipe]
 	jobWrapperFn      JobWrapperFn[*Command[Pipe]]
@@ -58,6 +60,13 @@ type CommandStatus struct {
 	stopCases StatusStopCases
 }
 
+type CommandScript struct {
+	Inline string
+	File   string
+	Ctx    interface{}
+	Funcs  []template.FuncMap
+}
+
 type (
 	CommandFn[Pipe TaskListData] func(*Command[Pipe]) error
 )
@@ -85,12 +94,14 @@ func NewCommand[Pipe TaskListData](
 	c := &Command[Pipe]{
 		Command: exec.Command(command, args...),
 		Plumber: task.Plumber,
-		task:    task,
+		Task:    task,
 		Log:     task.Log,
 		options: CommandOptions[Pipe]{
 			retryDelay: COMMAND_RETRY_DELAY,
 		},
 	}
+
+	c.Command.SysProcAttr = &syscall.SysProcAttr{}
 
 	c.SetLogLevel(LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT)
 
@@ -124,7 +135,7 @@ func (c *Command[Pipe]) IsDisabled() bool {
 		return false
 	}
 
-	return c.options.Disable(c.task)
+	return c.options.Disable(c.Task)
 }
 
 // Adds a predicate to check whether this command should be disabled depending on the pipe variables.
@@ -147,6 +158,18 @@ func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
 // Sets a function that fires on when the application is globally terminated through plumber.
 func (c *Command[Pipe]) SetOnTerminator(fn CommandFn[Pipe]) *Command[Pipe] {
 	c.onTerminatorFn = fn
+
+	return c
+}
+
+func (c *Command[Pipe]) SetScript(script *CommandScript) *Command[Pipe] {
+	c.script = script
+
+	return c
+}
+
+func (c *Command[Pipe]) SetCredential(credential *syscall.Credential) *Command[Pipe] {
+	c.Command.SysProcAttr.Credential = credential
 
 	return c
 }
@@ -268,7 +291,7 @@ func (c *Command[Pipe]) EnsureIsAlive() *Command[Pipe] {
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetStdoutStream() []string {
 	if !c.options.recordStream {
-		c.task.SendFatal(
+		c.Task.SendFatal(
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
 		)
 	}
@@ -284,7 +307,7 @@ func (c *Command[Pipe]) GetStdoutStream() []string {
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetStderrStream() []string {
 	if !c.options.recordStream {
-		c.task.SendFatal(
+		c.Task.SendFatal(
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
 		)
 	}
@@ -300,7 +323,7 @@ func (c *Command[Pipe]) GetStderrStream() []string {
 // Should have the Command.options.recordStream enabled.
 func (c *Command[Pipe]) GetCombinedStream() []string {
 	if !c.options.recordStream {
-		c.task.SendFatal(
+		c.Task.SendFatal(
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
 		)
 	}
@@ -359,8 +382,12 @@ func (c *Command[Pipe]) Run() error {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
 			Errorf("%s > %s", c.GetFormattedCommand(), err.Error())
 
+		c.Plumber.RegisterTerminated()
+
 		return err
 	}
+
+	c.Plumber.RegisterTerminated()
 
 	if c.shouldRunAfterFn != nil {
 		if err := c.shouldRunAfterFn(c); err != nil {
@@ -376,11 +403,11 @@ func (c *Command[Pipe]) Run() error {
 
 // Convert Command.Run to a floc job.
 func (c *Command[Pipe]) Job() Job {
-	return c.task.taskList.JobIfNot(
-		c.task.taskList.Predicate(func(tl *TaskList[Pipe]) bool {
+	return c.Task.TL.JobIfNot(
+		c.Task.TL.Predicate(func(tl *TaskList[Pipe]) bool {
 			return c.handleStopCases()
 		}),
-		c.task.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
+		c.Task.TL.CreateJob(func(tl *TaskList[Pipe]) error {
 			if c.jobWrapperFn != nil {
 				return tl.RunJobs(c.jobWrapperFn(
 					tl.CreateBasicJob(c.Run),
@@ -390,7 +417,7 @@ func (c *Command[Pipe]) Job() Job {
 
 			return c.Run()
 		}),
-		c.task.taskList.CreateJob(func(tl *TaskList[Pipe]) error {
+		c.Task.TL.CreateJob(func(tl *TaskList[Pipe]) error {
 			return nil
 		}),
 	)
@@ -398,7 +425,7 @@ func (c *Command[Pipe]) Job() Job {
 
 // Adds the current command to the parent task.
 func (c *Command[Pipe]) AddSelfToTheTask() *Command[Pipe] {
-	c.task.AddCommands(c)
+	c.Task.AddCommands(c)
 
 	return c
 }
@@ -414,7 +441,6 @@ func (c *Command[Pipe]) AddSelfToTheParentTask(pt *Task[Pipe]) *Command[Pipe] {
 func (c *Command[Pipe]) pipe() error {
 	// clone command to be able to retry, elsewise os.exec will throw since this command is already started
 	command := exec.Command(c.Command.Args[0], c.Command.Args[1:]...) //nolint:gosec
-	command.Stdin = c.Command.Stdin
 	command.Dir = c.Command.Dir
 	command.Path = c.Command.Path
 	command.Env = c.Command.Env
@@ -427,6 +453,41 @@ func (c *Command[Pipe]) pipe() error {
 
 	go c.handleStream(c.stdout, c.stdoutLevel)
 	go c.handleStream(c.stderr, c.stderrLevel)
+
+	//nolint: nestif
+	if c.script != nil {
+		if c.script.File != "" {
+			tpl, err := os.ReadFile(c.script.File)
+
+			if err != nil {
+				return err
+			}
+
+			c.script.Inline = string(tpl)
+		}
+
+		tpl, err := InlineTemplate(c.script.Inline, c.script.Ctx, c.script.Funcs...)
+
+		if err != nil {
+			return err
+		}
+
+		stdin, err := command.StdinPipe()
+
+		if err != nil {
+			return err
+		}
+
+		if _, err := io.WriteString(stdin, tpl); err != nil {
+			return err
+		}
+
+		if err := stdin.Close(); err != nil {
+			return err
+		}
+	}
+
+	command.Stdin = c.Command.Stdin
 
 	if err := command.Start(); err != nil {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
@@ -563,7 +624,7 @@ func (c *Command[Pipe]) handleStopCases() bool {
 
 	if result := c.IsDisabled(); result {
 		c.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
-			Debugf("%s", c.task.Name)
+			Debugf("%s", c.Task.Name)
 
 		c.status.stopCases.result = true
 		return c.status.stopCases.result
@@ -595,13 +656,15 @@ func (c *Command[Pipe]) handleTerminator() {
 	c.Log.Tracef("Forwarding signal to process: %s", sig)
 
 	if c.Command.Process == nil {
-		c.Log.Tracef("Already terminated: %s", c.GetFormattedCommand())
+		c.Log.Tracef("Already not running: %s", c.GetFormattedCommand())
+
+		return
 	} else if err := c.Command.Process.Signal(sig); err != nil {
 		c.Log.Tracef("Termination error: %s > %s", c.GetFormattedCommand(), err.Error())
 	}
 
 	if c.onTerminatorFn != nil {
-		c.task.SendError(c.onTerminatorFn(c))
+		c.Task.SendError(c.onTerminatorFn(c))
 	}
 
 	c.Log.Tracef("Registered as terminated: %s", c.GetFormattedCommand())
