@@ -63,6 +63,7 @@ func (tl *TaskList[Pipe]) New(p *Plumber) *TaskList[Pipe] {
 	tl.Lock = &sync.RWMutex{}
 	tl.Plumber = p
 	tl.Channel = &p.Channel
+	tl.options.runtimeDepth = 1
 
 	tl.setupLogger()
 
