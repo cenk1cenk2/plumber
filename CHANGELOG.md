@@ -1,3 +1,10 @@
+# [5.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.2.4...v5.3.0) (2023-11-23)
+
+
+### Features
+
+* ability to handle multiple templates ([08e635c](https://gitlab.kilic.dev/libraries/plumber/commit/08e635c33ea919a0cae25303984ffc9baab32f64))
+
 ## [5.2.4](https://gitlab.kilic.dev/libraries/plumber/compare/v5.2.3...v5.2.4) (2023-11-22)
 
 
