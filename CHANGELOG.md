@@ -1,3 +1,10 @@
+## [5.3.1](https://gitlab.kilic.dev/libraries/plumber/compare/v5.3.0...v5.3.1) (2023-11-23)
+
+
+### Bug Fixes
+
+* update documentation generation ([7cee02e](https://gitlab.kilic.dev/libraries/plumber/commit/7cee02e8ff0e29dc82cd7e372613e1aa0c1a3a6c))
+
 # [5.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.2.4...v5.3.0) (2023-11-23)
 
 
