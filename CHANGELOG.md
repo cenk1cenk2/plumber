@@ -1,3 +1,10 @@
+## [5.3.5](https://gitlab.kilic.dev/libraries/plumber/compare/v5.3.4...v5.3.5) (2023-11-23)
+
+
+### Bug Fixes
+
+* default runtime depth to 1 ([1d5aa83](https://gitlab.kilic.dev/libraries/plumber/commit/1d5aa83576e4a3ae343a6dfc628d0d690d34ec64))
+
 ## [5.3.4](https://gitlab.kilic.dev/libraries/plumber/compare/v5.3.3...v5.3.4) (2023-11-23)
 
 
