@@ -95,3 +95,24 @@ func InlineTemplate[Ctx any](tmpl string, ctx Ctx, funcs ...template.FuncMap) (s
 
 	return w.String(), nil
 }
+
+func InlineTemplates[Ctx any](tmpls []string, ctx Ctx, funcs ...template.FuncMap) ([]string, error) {
+	results := []string{}
+	errors := []string{}
+
+	for _, tmpl := range tmpls {
+		tpl, err := InlineTemplate[Ctx](tmpl, ctx, funcs...)
+
+		if err != nil {
+			errors = append(errors, err.Error())
+		}
+
+		results = append(results, tpl)
+	}
+
+	if len(errors) > 0 {
+		return results, fmt.Errorf("%s", strings.Join(errors, "\n"))
+	}
+
+	return results, nil
+}
