@@ -223,12 +223,20 @@ func (p *Plumber) generateDocFlags(
 
 		description = re.ReplaceAllString(description, "")
 
+		text := current.GetValue()
+
+		if b, ok := current.(*cli.BoolFlag); text == "" && ok {
+			text = fmt.Sprintf("%v", b.Value)
+		} else if text == "" {
+			text = current.GetDefaultText()
+		}
+
 		parsed := &templateFlag{
 			Name:        names,
 			Description: description,
 			Type:        strings.ReplaceAll(strings.ReplaceAll(reflect.TypeOf(f).String(), "*cli.", ""), "Flag", ""),
 			Format:      format,
-			Default:     current.GetValue(),
+			Default:     text,
 			Required:    current.(cli.RequiredFlag).IsRequired(),
 			Category:    current.(cli.CategorizableFlag).GetCategory(),
 		}
