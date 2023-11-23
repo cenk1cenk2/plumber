@@ -1,3 +1,10 @@
+## [5.3.4](https://gitlab.kilic.dev/libraries/plumber/compare/v5.3.3...v5.3.4) (2023-11-23)
+
+
+### Bug Fixes
+
+* update format ([b90fc48](https://gitlab.kilic.dev/libraries/plumber/commit/b90fc48511c093e210111065a8870c60576ff621))
+
 ## [5.3.3](https://gitlab.kilic.dev/libraries/plumber/compare/v5.3.2...v5.3.3) (2023-11-23)
 
 
