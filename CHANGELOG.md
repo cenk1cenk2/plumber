@@ -1,3 +1,10 @@
+# [5.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.3.8...v5.4.0) (2023-12-19)
+
+
+### Features
+
+* log out script before running it ([a3f50c3](https://gitlab.kilic.dev/libraries/plumber/commit/a3f50c34e322e4a3563f43250c6f95945c315120))
+
 ## [5.3.8](https://gitlab.kilic.dev/libraries/plumber/compare/v5.3.7...v5.3.8) (2023-12-14)
 
 
