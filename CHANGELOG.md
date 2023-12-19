@@ -1,3 +1,10 @@
+## [5.4.1](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.0...v5.4.1) (2023-12-19)
+
+
+### Bug Fixes
+
+* update how script is logged ([c75e6d7](https://gitlab.kilic.dev/libraries/plumber/commit/c75e6d76b5b51724d0ef4414a73314cfa7615696))
+
 # [5.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.3.8...v5.4.0) (2023-12-19)
 
 
