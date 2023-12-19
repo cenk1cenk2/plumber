@@ -697,7 +697,9 @@ func (c *Command[Pipe]) templateScript(command *exec.Cmd, script *CommandScript,
 		return err
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, log_status_script).Infoln(tpl)
+	for _, t := range strings.Split(tpl, "\n") {
+		c.Log.WithField(LOG_FIELD_STATUS, log_status_script).Infoln(t)
+	}
 
 	stdin, err := command.StdinPipe()
 
