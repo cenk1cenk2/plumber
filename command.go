@@ -697,6 +697,8 @@ func (c *Command[Pipe]) templateScript(command *exec.Cmd, script *CommandScript,
 		return err
 	}
 
+	c.Log.WithField(LOG_FIELD_STATUS, log_status_script).Infoln(tpl)
+
 	stdin, err := command.StdinPipe()
 
 	if err != nil {
