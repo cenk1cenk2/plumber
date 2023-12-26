@@ -1,3 +1,10 @@
+## [5.4.3](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.2...v5.4.3) (2023-12-26)
+
+
+### Bug Fixes
+
+* **deps:** update all minor dependency updates ([173b70f](https://gitlab.kilic.dev/libraries/plumber/commit/173b70f7a1c9c87c4a9b9bf3f5ea2ff37184316d))
+
 ## [5.4.2](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.1...v5.4.2) (2023-12-19)
 
 
