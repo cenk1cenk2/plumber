@@ -1,3 +1,10 @@
+## [5.4.5](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.4...v5.4.5) (2024-01-03)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to be819d1 ([14a6a69](https://gitlab.kilic.dev/libraries/plumber/commit/14a6a69d8943ff9402d3696d1124f2f9212b97fc))
+
 ## [5.4.4](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.3...v5.4.4) (2023-12-30)
 
 
