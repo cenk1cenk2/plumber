@@ -1,3 +1,10 @@
+## [5.4.7](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.6...v5.4.7) (2024-01-12)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to db7319d ([40a7fce](https://gitlab.kilic.dev/libraries/plumber/commit/40a7fcea7b172bc7c00a1803d6a7188b86c22cae))
+
 ## [5.4.6](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.5...v5.4.6) (2024-01-10)
 
 
