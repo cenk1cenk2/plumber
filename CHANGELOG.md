@@ -1,3 +1,10 @@
+## [5.4.10](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.9...v5.4.10) (2024-02-05)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 2c58cdc ([1fa7089](https://gitlab.kilic.dev/libraries/plumber/commit/1fa7089ec60eddf1fa13842522aafdfdc4f263d6))
+
 ## [5.4.9](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.8...v5.4.9) (2024-01-19)
 
 
