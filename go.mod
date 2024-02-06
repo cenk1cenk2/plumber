@@ -1,6 +1,6 @@
 module gitlab.kilic.dev/libraries/plumber/v5
 
-go 1.21.6
+go 1.22.0
 
 require (
 	github.com/creasty/defaults v1.7.0
