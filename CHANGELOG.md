@@ -1,3 +1,10 @@
+## [5.4.11](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.10...v5.4.11) (2024-02-09)
+
+
+### Bug Fixes
+
+* update for linting rules ([fb459c8](https://gitlab.kilic.dev/libraries/plumber/commit/fb459c8f60cafd704417a75a8609367ad10575d4))
+
 ## [5.4.10](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.9...v5.4.10) (2024-02-05)
 
 
