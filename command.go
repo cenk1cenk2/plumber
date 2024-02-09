@@ -413,7 +413,7 @@ func (c *Command[Pipe]) Run() error {
 // Convert Command.Run to a floc job.
 func (c *Command[Pipe]) Job() Job {
 	return c.T.TL.JobIfNot(
-		c.T.TL.Predicate(func(tl *TaskList[Pipe]) bool {
+		c.T.TL.Predicate(func(_ *TaskList[Pipe]) bool {
 			return c.handleStopCases()
 		}),
 		c.T.TL.CreateJob(func(tl *TaskList[Pipe]) error {
@@ -426,7 +426,7 @@ func (c *Command[Pipe]) Job() Job {
 
 			return c.Run()
 		}),
-		c.T.TL.CreateJob(func(tl *TaskList[Pipe]) error {
+		c.T.TL.CreateJob(func(_ *TaskList[Pipe]) error {
 			return nil
 		}),
 	)

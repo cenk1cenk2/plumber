@@ -28,7 +28,7 @@ const (
 
 // Creates a new floc predicate out of the given conditions.
 func (tl *TaskList[Pipe]) Predicate(fn TaskListPredicateFn[Pipe]) JobPredicate {
-	return func(ctx floc.Context) bool {
+	return func(_ floc.Context) bool {
 		return fn(tl)
 	}
 }
@@ -66,13 +66,13 @@ func (tl *TaskList[Pipe]) JobBackground(job Job) Job {
 }
 
 func (tl *TaskList[Pipe]) CreateJob(fn func(tl *TaskList[Pipe]) error) Job {
-	return func(ctx floc.Context, ctrl floc.Control) error {
+	return func(_ floc.Context, _ floc.Control) error {
 		return fn(tl)
 	}
 }
 
 func (tl *TaskList[Pipe]) CreateBasicJob(fn func() error) Job {
-	return func(ctx floc.Context, ctrl floc.Control) error {
+	return func(_ floc.Context, _ floc.Control) error {
 		return fn()
 	}
 }
@@ -395,7 +395,7 @@ func (tl *TaskList[Pipe]) GuardOnTimeout(
 		guard.ConstTimeout(timeout),
 		nil,
 		job,
-		func(ctx floc.Context, ctrl floc.Control, id interface{}) {
+		func(_ floc.Context, _ floc.Control, _ interface{}) {
 			fn(tl)
 		},
 	)
@@ -423,7 +423,7 @@ func (tl *TaskList[Pipe]) GuardIgnorePanic(job Job) Job {
 func (tl *TaskList[Pipe]) GuardOnPanic(job Job, fn GuardHandlerFn[Pipe]) Job {
 	return guard.OnPanic(
 		job,
-		func(ctx floc.Context, ctrl floc.Control, id interface{}) {
+		func(_ floc.Context, _ floc.Control, _ interface{}) {
 			fn(tl)
 		},
 	)

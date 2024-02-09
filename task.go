@@ -68,10 +68,10 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] 
 
 	t.Log = tl.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
 
-	t.emptyJob = tl.JobIf(tl.Predicate(func(tl *TaskList[Pipe]) bool {
+	t.emptyJob = tl.JobIf(tl.Predicate(func(_ *TaskList[Pipe]) bool {
 		return false
 	}),
-		func(ctx floc.Context, ctrl floc.Control) error {
+		func(_ floc.Context, _ floc.Control) error {
 			return nil
 		},
 	)
@@ -198,7 +198,7 @@ func (t *Task[Pipe]) Run() error {
 // Runs the current task as a job.
 func (t *Task[Pipe]) Job() Job {
 	return t.TL.JobIfNot(
-		t.TL.Predicate(func(tl *TaskList[Pipe]) bool {
+		t.TL.Predicate(func(_ *TaskList[Pipe]) bool {
 			return t.handleStopCases()
 		}),
 		t.TL.CreateJob(func(tl *TaskList[Pipe]) error {
@@ -211,7 +211,7 @@ func (t *Task[Pipe]) Job() Job {
 
 			return t.Run()
 		}),
-		t.TL.CreateJob(func(tl *TaskList[Pipe]) error {
+		t.TL.CreateJob(func(_ *TaskList[Pipe]) error {
 			return nil
 		}),
 	)
