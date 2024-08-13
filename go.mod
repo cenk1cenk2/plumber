@@ -1,9 +1,9 @@
 module gitlab.kilic.dev/libraries/plumber/v5
 
-go 1.22.6
+go 1.23.0
 
 require (
-	github.com/creasty/defaults v1.7.0
+	github.com/creasty/defaults v1.8.0
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/go-task/slim-sprig/v3 v3.0.0
 	github.com/joho/godotenv v1.5.1
