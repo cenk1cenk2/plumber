@@ -39,6 +39,7 @@ type Task[Pipe TaskListData] struct {
 
 type TaskCtx struct {
 	Plumber *Plumber
+	TL      *TaskListCtx
 	Log     *logrus.Entry
 
 	Name string
@@ -251,8 +252,10 @@ func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
 
 // Convert the task into task context.
 
-func (t *Task[Pipe]) ToTaskCtx() *TaskCtx {
+func (t *Task[Pipe]) ToCtx() *TaskCtx {
 	return &TaskCtx{
+		TL: t.TL.ToCtx(),
+
 		Plumber: t.Plumber,
 		Log:     t.Log,
 		Name:    t.Name,

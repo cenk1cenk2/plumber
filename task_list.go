@@ -39,6 +39,15 @@ type TaskList[Pipe TaskListData] struct {
 	shouldRunAfterFn  TaskListFn[Pipe]
 }
 
+type TaskListCtx struct {
+	Plumber    *Plumber
+	CliContext *cli.Context
+
+	Name string
+	Lock *sync.RWMutex
+	Log  *logrus.Entry
+}
+
 type (
 	TaskListFn[Pipe TaskListData]          func(tl *TaskList[Pipe]) error
 	TaskListJobFn[Pipe TaskListData]       func(tl *TaskList[Pipe]) Job
@@ -254,6 +263,17 @@ func (t *TaskList[Pipe]) Job() Job {
 		t.Control = ctrl
 
 		return t.Run()
+	}
+}
+
+// Returns the context of the current task list.
+func (t *TaskList[Pipe]) ToCtx() *TaskListCtx {
+	return &TaskListCtx{
+		Plumber:    t.Plumber,
+		CliContext: t.CliContext,
+		Name:       t.Name,
+		Lock:       t.Lock,
+		Log:        t.Log,
 	}
 }
 

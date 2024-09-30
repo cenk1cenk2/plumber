@@ -49,6 +49,9 @@ type Command[Pipe TaskListData] struct {
 }
 
 type CommandCtx struct {
+	TL *TaskListCtx
+	T  *TaskCtx
+
 	Plumber *Plumber
 	Log     *logrus.Entry
 
@@ -456,8 +459,11 @@ func (c *Command[Pipe]) AddSelfToTheParentTask(pt *Task[Pipe]) *Command[Pipe] {
 }
 
 // Converts the command to a command context.
-func (c *Command[Pipe]) ToCommandCtx() *CommandCtx {
+func (c *Command[Pipe]) ToCtx() *CommandCtx {
 	return &CommandCtx{
+		TL: c.TL.ToCtx(),
+		T:  c.T.ToCtx(),
+
 		Plumber: c.Plumber,
 		Log:     c.Log,
 		Command: c.Command,
