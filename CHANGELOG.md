@@ -1,3 +1,12 @@
+## [5.4.21](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.20...v5.4.21) (2024-09-30)
+
+
+### Bug Fixes
+
+* **deps:** update all minor dependency updates ([1ed5737](https://gitlab.kilic.dev/libraries/plumber/commit/1ed5737e76411c0c741624137e44fb60b6633c97))
+* **deps:** update module github.com/urfave/cli/v2 to v2.27.4 ([880b770](https://gitlab.kilic.dev/libraries/plumber/commit/880b7700d231c921fdf35a1505b1ac5f0d8ed0dd))
+* null pointer error with running subtasks prematurely ([397a1ff](https://gitlab.kilic.dev/libraries/plumber/commit/397a1ff470d6ea0e6968a06110ae8388e6f70240))
+
 ## [5.4.20](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.19...v5.4.20) (2024-07-24)
 
 
