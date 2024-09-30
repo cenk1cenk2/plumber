@@ -1,3 +1,10 @@
+# [5.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.22...v5.5.0) (2024-09-30)
+
+
+### Features
+
+* update with ability to convert context ([0e1292c](https://gitlab.kilic.dev/libraries/plumber/commit/0e1292c6cbdb18639191ef50eff4a1653db380f0))
+
 ## [5.4.22](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.21...v5.4.22) (2024-09-30)
 
 
