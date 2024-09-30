@@ -106,6 +106,10 @@ func (t *Task[Pipe]) GetSubtasks() Job {
 
 // Sets the subtask of this task directly.
 func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
+	if job == nil {
+		job = t.emptyJob
+	}
+
 	t.taskLock.Lock()
 	t.subtask = job
 	t.taskLock.Unlock()
