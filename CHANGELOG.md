@@ -1,3 +1,10 @@
+# [5.6.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.5.0...v5.6.0) (2024-09-30)
+
+
+### Features
+
+* add ability return ctx for all kinds of things ([79cd7c4](https://gitlab.kilic.dev/libraries/plumber/commit/79cd7c40e6f3b37c99fc338bab85d88f04a88b29))
+
 # [5.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.4.22...v5.5.0) (2024-09-30)
 
 
