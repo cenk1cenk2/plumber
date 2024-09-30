@@ -383,6 +383,7 @@ func (c *Command[Pipe]) Run() error {
 	}
 
 	c.Log.WithField(LOG_FIELD_STATUS, log_status_run).
+		//nolint: govet
 		Logf(c.lifetimeLevel, c.GetFormattedCommand())
 
 	if c.shouldRunBeforeFn != nil {
@@ -405,6 +406,7 @@ func (c *Command[Pipe]) Run() error {
 	}
 
 	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).
+		//nolint: govet
 		Logf(c.lifetimeLevel, fmt.Sprintf("%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String()))
 
 	return nil
