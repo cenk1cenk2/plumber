@@ -1,3 +1,10 @@
+## [5.6.1](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.0...v5.6.1) (2024-09-30)
+
+
+### Bug Fixes
+
+* documentation for nested commands ([1b4ed88](https://gitlab.kilic.dev/libraries/plumber/commit/1b4ed8892aa1ee6ee1a8766c4227799c9efc9cb0))
+
 # [5.6.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.5.0...v5.6.0) (2024-09-30)
 
 
