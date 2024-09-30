@@ -24,7 +24,7 @@
   {{- range $category, $flags := $.GlobalFlags }}
     {{- if ne $category "EMPTY" }}
 
-### {{ $category }}
+**{{ $category }}**
       {{- template "flags" $flags }}
     {{- end }}
   {{- end }}
@@ -34,14 +34,14 @@
 ## Commands
   {{- range $v := $.Commands }}
 
-### `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
+###{{ repeat $v.Level "#" }} `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
     {{- if $v.Description }}
 
 {{ $v.Description }}
     {{- end }}
     {{- if $v.Usage }}
 
-`{{ $v.Usage }}`
+{{ $v.Usage }}
     {{- else }}
 
 `{{ $.App.Name }} {{ $v.Name }} [GLOBAL FLAGS] [FLAGS]`
@@ -49,7 +49,7 @@
 
     {{- if $v.Flags }}
 
-#### Flags
+####{{ repeat $v.Level "#" }} Flags
       {{- range $category, $flags := $v.Flags }}
         {{- if eq $category "EMPTY" }}
           {{- template "flags" $flags }}
@@ -58,7 +58,7 @@
       {{- range $category, $flags := $v.Flags }}
         {{- if ne $category "EMPTY" }}
 
-##### {{ $category }}
+**{{ $category }}**
           {{- template "flags" $flags }}
         {{- end }}
       {{- end }}

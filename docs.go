@@ -19,6 +19,7 @@ type templateCommand struct {
 	Flags       parsedFlags
 	Usage       string
 	Description string
+	Level       int
 }
 
 type templateFlag struct {
@@ -74,7 +75,7 @@ func (p *Plumber) embedMarkdownDocumentation() error {
 
 	p.Log.Debugf("Using expression: %s", expr)
 
-	data, err := p.toEmbededMarkdown()
+	data, err := p.toEmbeddedMarkdown()
 
 	if err != nil {
 		return err
@@ -110,7 +111,7 @@ func (p *Plumber) embedMarkdownDocumentation() error {
 func (p *Plumber) generateMarkdownTemplateCtx() *markdownTemplateInput {
 	input := &markdownTemplateInput{
 		App:         p.Cli,
-		Commands:    p.generateDocCommands(p.Cli.Commands),
+		Commands:    p.generateDocCommands(p.Cli.Commands, 0),
 		GlobalFlags: p.generateDocFlags(p.Cli.VisibleFlags()),
 		Behead:      p.options.documentation.MarkdownBehead,
 	}
@@ -132,7 +133,7 @@ func (p *Plumber) toMarkdown() (string, error) {
 	return InlineTemplate(string(tmpl), input)
 }
 
-func (p *Plumber) toEmbededMarkdown() (string, error) {
+func (p *Plumber) toEmbeddedMarkdown() (string, error) {
 	tmpl, err := templates.ReadFile("templates/markdown-flags.go.tmpl")
 
 	if err != nil {
@@ -146,7 +147,7 @@ func (p *Plumber) toEmbededMarkdown() (string, error) {
 	return InlineTemplate(string(tmpl), input)
 }
 
-func (p *Plumber) generateDocCommands(commands []*cli.Command) []*templateCommand {
+func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*templateCommand {
 	var processed []*templateCommand
 
 	for _, command := range commands {
@@ -160,6 +161,7 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command) []*templateComman
 			Description: command.Description,
 			Usage:       command.Usage,
 			Flags:       p.generateDocFlags(command.VisibleFlags()),
+			Level:       level,
 		}
 
 		if p.options.documentation.ExcludeHelpCommand && parsed.Name == "help" {
@@ -173,7 +175,7 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command) []*templateComman
 		if len(command.Subcommands) > 0 {
 			processed = append(
 				processed,
-				p.generateDocCommands(command.Subcommands)...,
+				p.generateDocCommands(command.Subcommands, level+1)...,
 			)
 		}
 	}
