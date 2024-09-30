@@ -37,6 +37,15 @@ type Task[Pipe TaskListData] struct {
 	status            TaskStatus
 }
 
+type TaskCtx struct {
+	Plumber *Plumber
+	Log     *logrus.Entry
+
+	Name string
+
+	Lock *sync.RWMutex
+}
+
 type TaskOptions[Pipe TaskListData] struct {
 	skipPredicateFn    TaskPredicateFn[Pipe]
 	disablePredicateFn TaskPredicateFn[Pipe]
@@ -238,6 +247,17 @@ func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
 	t.Plumber.SendExit(code)
 
 	return t
+}
+
+// Convert the task into task context.
+
+func (t *Task[Pipe]) ToTaskCtx() *TaskCtx {
+	return &TaskCtx{
+		Plumber: t.Plumber,
+		Log:     t.Log,
+		Name:    t.Name,
+		Lock:    t.Lock,
+	}
 }
 
 // Handles the stop cases of the task.

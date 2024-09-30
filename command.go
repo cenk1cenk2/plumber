@@ -48,6 +48,13 @@ type Command[Pipe TaskListData] struct {
 	status CommandStatus
 }
 
+type CommandCtx struct {
+	Plumber *Plumber
+	Log     *logrus.Entry
+
+	Command *exec.Cmd
+}
+
 type CommandOptions[Pipe TaskListData] struct {
 	disablePredicateFn TaskPredicateFn[Pipe]
 	ignoreError        bool
@@ -446,6 +453,15 @@ func (c *Command[Pipe]) AddSelfToTheParentTask(pt *Task[Pipe]) *Command[Pipe] {
 	pt.AddCommands(c)
 
 	return c
+}
+
+// Converts the command to a command context.
+func (c *Command[Pipe]) ToCommandCtx() *CommandCtx {
+	return &CommandCtx{
+		Plumber: c.Plumber,
+		Log:     c.Log,
+		Command: c.Command,
+	}
 }
 
 // Executes the command and pipes the output through the logger.
