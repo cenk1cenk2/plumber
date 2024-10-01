@@ -116,3 +116,14 @@ func InlineTemplates[Ctx any](tmpls []string, ctx Ctx, funcs ...template.FuncMap
 
 	return results, nil
 }
+
+// Combine flags together.
+func CombineFlags(flags ...[]cli.Flag) []cli.Flag {
+	f := []cli.Flag{}
+
+	for _, v := range flags {
+		f = append(f, v...)
+	}
+
+	return f
+}

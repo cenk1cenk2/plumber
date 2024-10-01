@@ -248,14 +248,9 @@ func (p *Plumber) SetFormatter(formatter *logger.Formatter) *Plumber {
 }
 
 // Appends flags together.
+// @deprecated.
 func (p *Plumber) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
-	f := []cli.Flag{}
-
-	for _, v := range flags {
-		f = append(f, v...)
-	}
-
-	return f
+	return CombineFlags(flags...)
 }
 
 // Adds sensitive information so that the logger will not log out the given secrets.
