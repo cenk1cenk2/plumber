@@ -22,18 +22,14 @@
   {{- range $v := $.Commands }}
 
 {{ repeat $.Behead "#" }}###{{ repeat $v.Level "#" }} `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
-    {{- if $v.Description }}
-
-{{ $v.Description }}
-    {{- end }}
     {{- if $v.Usage }}
 
-{{ $v.Usage }}
-    {{- else }}
-
-`{{ $.App.Name }} {{ $v.Name }} [GLOBAL FLAGS] [FLAGS]`
+{{ $v.Usage | trim }}
     {{- end }}
+    {{- if $v.Description }}
 
+{{ $v.Description | trim }}
+    {{- end }}
     {{- if $v.Flags }}
 
 {{ repeat $.Behead "#" }}####{{ repeat $v.Level "#" }} Flags
