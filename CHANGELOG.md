@@ -1,3 +1,10 @@
+## [5.6.3](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.2...v5.6.3) (2024-10-01)
+
+
+### Bug Fixes
+
+* update with global func ([8877a75](https://gitlab.kilic.dev/libraries/plumber/commit/8877a75c945b19b530463b2afdc645ed42e9aca3))
+
 ## [5.6.2](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.1...v5.6.2) (2024-10-01)
 
 
