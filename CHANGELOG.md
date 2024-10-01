@@ -1,3 +1,10 @@
+## [5.6.2](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.1...v5.6.2) (2024-10-01)
+
+
+### Bug Fixes
+
+* documentation generation ([df2ae91](https://gitlab.kilic.dev/libraries/plumber/commit/df2ae919898abf6b55e5a62dd212d1e24b23d813))
+
 ## [5.6.1](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.0...v5.6.1) (2024-09-30)
 
 
