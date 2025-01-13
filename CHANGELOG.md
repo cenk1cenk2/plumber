@@ -1,3 +1,10 @@
+## [5.6.5](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.4...v5.6.5) (2025-01-13)
+
+
+### Bug Fixes
+
+* update for linting problems ([be44ca5](https://gitlab.kilic.dev/libraries/plumber/commit/be44ca52ef5dc0a0b9f405deb78880d559b183a7))
+
 ## [5.6.4](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.3...v5.6.4) (2024-10-14)
 
 
