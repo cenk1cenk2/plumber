@@ -40,6 +40,7 @@ func OverwriteCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply fu
 		panic(fmt.Errorf("Flag can not be found to modify."))
 	}
 
+	//nolint:errcheck
 	applied := apply(flags[index].(Flag))
 
 	cast := (interface{})(applied)

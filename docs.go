@@ -239,8 +239,10 @@ func (p *Plumber) generateDocFlags(
 			Type:        strings.ReplaceAll(strings.ReplaceAll(reflect.TypeOf(f).String(), "*cli.", ""), "Flag", ""),
 			Format:      format,
 			Default:     text,
-			Required:    current.(cli.RequiredFlag).IsRequired(),
-			Category:    current.(cli.CategorizableFlag).GetCategory(),
+			//nolint: errcheck
+			Required: current.(cli.RequiredFlag).IsRequired(),
+			//nolint: errcheck
+			Category: current.(cli.CategorizableFlag).GetCategory(),
 		}
 
 		if len(parsed.Name) == 0 {

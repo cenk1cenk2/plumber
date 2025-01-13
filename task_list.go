@@ -177,7 +177,7 @@ func (t *TaskList[Pipe]) Validate(data TaskListData) error {
 	err := t.Plumber.Validator.Struct(data)
 
 	if err != nil {
-		//nolint:errorlint
+		//nolint:errcheck, errorlint
 		for _, err := range err.(validator.ValidationErrors) {
 			e := fmt.Sprintf(
 				`"%s" field failed validation: %s`,

@@ -98,7 +98,6 @@ linters-settings:
     # Enable all analyzers.
     # Default: false
     enable-all: true
-    check-shadowing: false
     # Disable analyzers by name.
     # Run `go tool vet help` to see all analyzers.
     # Default: []
