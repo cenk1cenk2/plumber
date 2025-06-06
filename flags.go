@@ -2,7 +2,7 @@ package plumber
 
 import (
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const CLI_FLAGS_CATEGORY = "CLI"
