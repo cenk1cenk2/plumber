@@ -12,7 +12,7 @@ import (
 	validator "github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"gitlab.kilic.dev/libraries/go-broadcaster"
 	"gitlab.kilic.dev/libraries/go-utils/v2/logger"
 	"golang.org/x/exp/slices"

@@ -8,7 +8,7 @@ import (
 	"text/template"
 
 	sprig "github.com/go-task/slim-sprig/v3"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"golang.org/x/exp/slices"
 )
 
