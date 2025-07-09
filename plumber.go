@@ -438,7 +438,7 @@ func (p *Plumber) Run() {
 			Action: func(_ context.Context, _ *cli.Command) error {
 				p.Log.Infoln("Only running the documentation generation without the CLI.")
 
-				return p.embedMarkdownDocumentation()
+				return p.generateMarkdownDocumentation()
 			},
 		},
 		&cli.Command{
@@ -447,7 +447,7 @@ func (p *Plumber) Run() {
 			Action: func(_ context.Context, _ *cli.Command) error {
 				p.Log.Infoln("Only running the documentation generation to embed to file without the CLI.")
 
-				return p.generateMarkdownDocumentation()
+				return p.embedMarkdownDocumentation()
 			},
 		},
 	)
@@ -523,7 +523,7 @@ func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
 }
 
 // Loads the given environment file to the application.
-func (p *Plumber) loadEnvironment(_ context.Context, command *cli.Command) error {
+func (p *Plumber) loadEnvironment(command *cli.Command) error {
 	if env := command.StringSlice("env-file"); len(env) != 0 {
 		if err := godotenv.Load(env...); err != nil {
 			return err
@@ -548,7 +548,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			}
 		}
 
-		if err := p.setupLogger(ctx, command); err != nil {
+		if err := p.setupLogger(command); err != nil {
 			return nil, err
 		}
 
@@ -556,7 +556,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			return nil, err
 		}
 
-		if err := p.loadEnvironment(ctx, command); err != nil {
+		if err := p.loadEnvironment(command); err != nil {
 			return nil, err
 		}
 
@@ -588,7 +588,7 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 // Sets up logger for the application.
 //
 //nolint:unparam
-func (p *Plumber) setupLogger(_ context.Context, command *cli.Command) error {
+func (p *Plumber) setupLogger(command *cli.Command) error {
 	level, err := logrus.ParseLevel(command.String("log-level"))
 
 	if err != nil {

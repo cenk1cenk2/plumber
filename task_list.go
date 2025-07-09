@@ -22,11 +22,11 @@ type TaskListData interface {
 }
 
 type TaskList[Pipe TaskListData] struct {
-	Plumber    *Plumber
-	CliContext *cli.Command
-	Pipe       Pipe
-	Channel    *AppChannel
-	Control    floc.Control
+	Plumber *Plumber
+	Cli     *cli.Command
+	Pipe    Pipe
+	Channel *AppChannel
+	Control floc.Control
 
 	Name    string
 	options TaskListOptions[Pipe]
@@ -40,8 +40,8 @@ type TaskList[Pipe TaskListData] struct {
 }
 
 type TaskListCtx struct {
-	Plumber    *Plumber
-	CliContext *cli.Command
+	Plumber *Plumber
+	Cli     *cli.Command
 
 	Name string
 	Lock *sync.RWMutex
@@ -152,9 +152,9 @@ func (tl *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
 }
 
 // Sets the CLI context for urfave/cli that is coming from the action function.
-func (tl *TaskList[Pipe]) SetCliContext(ctx *cli.Command) *TaskList[Pipe] {
+func (tl *TaskList[Pipe]) SetCliContext(command *cli.Command) *TaskList[Pipe] {
 	tl.Lock.Lock()
-	tl.CliContext = ctx
+	tl.Cli = command
 	tl.Lock.Unlock()
 
 	return tl
@@ -269,11 +269,11 @@ func (t *TaskList[Pipe]) Job() Job {
 // Returns the context of the current task list.
 func (t *TaskList[Pipe]) ToCtx() *TaskListCtx {
 	return &TaskListCtx{
-		Plumber:    t.Plumber,
-		CliContext: t.CliContext,
-		Name:       t.Name,
-		Lock:       t.Lock,
-		Log:        t.Log,
+		Plumber: t.Plumber,
+		Cli:     t.Cli,
+		Name:    t.Name,
+		Lock:    t.Lock,
+		Log:     t.Log,
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -29,6 +28,7 @@ type templateFlag struct {
 	Required    bool
 	Default     string
 	Category    string
+	Multiple    bool
 	Format      string
 }
 
@@ -236,13 +236,15 @@ func (p *Plumber) generateDocFlags(
 		parsed := &templateFlag{
 			Name:        names,
 			Description: description,
-			Type:        strings.ReplaceAll(strings.ReplaceAll(reflect.TypeOf(f).String(), "*cli.", ""), "Flag", ""),
+			Type:        current.TypeName(),
 			Format:      format,
 			Default:     text,
 			//nolint: errcheck
 			Required: current.(cli.RequiredFlag).IsRequired(),
 			//nolint: errcheck
 			Category: current.(cli.CategorizableFlag).GetCategory(),
+			//nolint: errcheck
+			Multiple: current.(cli.DocGenerationMultiValueFlag).IsMultiValueFlag(),
 		}
 
 		if len(parsed.Name) == 0 {
