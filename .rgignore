@@ -1,0 +1,9 @@
+CHANGELOG.md
+README.md
+LICENSE
+.golanci.yml
+.gitlab-ci.yml
+.gitignore
+.editorconfig
+go.mod
+go.sum

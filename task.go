@@ -229,7 +229,7 @@ func (t *Task[Pipe]) Job() Job {
 
 // Send the error message to plumber while running inside a routine.
 func (t *Task[Pipe]) SendError(err error) *Task[Pipe] {
-	t.Plumber.SendCustomError(t.Log, err)
+	t.Plumber.SendError(t.Log, err)
 
 	return t
 }
@@ -237,7 +237,7 @@ func (t *Task[Pipe]) SendError(err error) *Task[Pipe] {
 // Send the fatal error message to plumber while running inside a routine.
 func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
 	t.Control.Cancel(err)
-	t.Plumber.SendCustomFatal(t.Log, err)
+	t.Plumber.SendFatal(t.Log, err)
 
 	return t
 }

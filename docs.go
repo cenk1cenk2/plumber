@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 type parsedFlags = map[string][]*templateFlag
@@ -33,7 +33,7 @@ type templateFlag struct {
 }
 
 type markdownTemplateInput struct {
-	App         *cli.App
+	App         *cli.Command
 	GlobalFlags parsedFlags
 	Commands    []*templateCommand
 	Behead      int
@@ -172,10 +172,10 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*tem
 
 		p.Log.Debugf("Processed command: %+v", parsed)
 
-		if len(command.Subcommands) > 0 {
+		if len(command.Commands) > 0 {
 			processed = append(
 				processed,
-				p.generateDocCommands(command.Subcommands, level+1)...,
+				p.generateDocCommands(command.Commands, level+1)...,
 			)
 		}
 	}
@@ -200,7 +200,7 @@ func (p *Plumber) generateDocFlags(
 
 		names := []string{}
 		if !p.options.documentation.ExcludeFlags {
-			for _, s := range current.Names() {
+			for _, s := range f.Names() {
 				trimmed := strings.TrimSpace(s)
 
 				if len(trimmed) > 1 {

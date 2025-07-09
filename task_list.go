@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"github.com/workanator/go-floc/v3"
 
 	"fmt"
@@ -23,7 +23,7 @@ type TaskListData interface {
 
 type TaskList[Pipe TaskListData] struct {
 	Plumber    *Plumber
-	CliContext *cli.Context
+	CliContext *cli.Command
 	Pipe       Pipe
 	Channel    *AppChannel
 	Control    floc.Control
@@ -41,7 +41,7 @@ type TaskList[Pipe TaskListData] struct {
 
 type TaskListCtx struct {
 	Plumber    *Plumber
-	CliContext *cli.Context
+	CliContext *cli.Command
 
 	Name string
 	Lock *sync.RWMutex
@@ -152,7 +152,7 @@ func (tl *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
 }
 
 // Sets the CLI context for urfave/cli that is coming from the action function.
-func (tl *TaskList[Pipe]) SetCliContext(ctx *cli.Context) *TaskList[Pipe] {
+func (tl *TaskList[Pipe]) SetCliContext(ctx *cli.Command) *TaskList[Pipe] {
 	tl.Lock.Lock()
 	tl.CliContext = ctx
 	tl.Lock.Unlock()
