@@ -165,8 +165,8 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*tem
 			Level:       level,
 		}
 
-		if p.options.documentation.ExcludeHelpCommand && command.Name == "help" {
-			continue
+		if !p.options.documentation.IncludeDefaultCommands && (command.Name == "help" || command.Name == "version") {
+			break
 		}
 
 		processed = append(processed, parsed)
@@ -202,6 +202,10 @@ func (p *Plumber) generateDocFlags(
 		names := []string{}
 		if !p.options.documentation.ExcludeFlags {
 			for _, s := range f.Names() {
+				if !p.options.documentation.IncludeDefaultFlags && (s == "help" || s == "version") {
+					break
+				}
+
 				trimmed := strings.TrimSpace(s)
 
 				if len(trimmed) > 1 {
