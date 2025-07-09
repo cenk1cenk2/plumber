@@ -424,21 +424,21 @@ func (c *Command[Pipe]) Run() error {
 
 // Convert Command.Run to a floc job.
 func (c *Command[Pipe]) Job() Job {
-	return c.T.TL.JobIfNot(
-		c.T.TL.Predicate(func(_ *TaskList[Pipe]) bool {
+	return JobIfNot(
+		Predicate(func() bool {
 			return c.handleStopCases()
 		}),
-		c.T.TL.CreateJob(func(tl *TaskList[Pipe]) error {
+		CreateJob(func() error {
 			if c.jobWrapperFn != nil {
-				return tl.RunJobs(c.jobWrapperFn(
-					tl.CreateBasicJob(c.Run),
+				return c.Plumber.RunJobs(c.jobWrapperFn(
+					CreateBasicJob(c.Run),
 					c,
 				))
 			}
 
 			return c.Run()
 		}),
-		c.T.TL.CreateJob(func(_ *TaskList[Pipe]) error {
+		CreateJob(func() error {
 			return nil
 		}),
 	)

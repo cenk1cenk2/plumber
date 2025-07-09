@@ -1,7 +1,6 @@
 package plumber
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -18,7 +17,6 @@ type Task[Pipe TaskListData] struct {
 	Log     *logrus.Entry
 	Channel *AppChannel
 	Pipe    *Pipe
-	Control floc.Control
 	Name    string
 
 	Lock     *sync.RWMutex
@@ -73,12 +71,11 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] 
 		taskLock: &sync.RWMutex{},
 		Channel:  tl.Channel,
 		Pipe:     &tl.Pipe,
-		Control:  tl.Control,
 	}
 
 	t.Log = tl.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
 
-	t.emptyJob = tl.JobIf(tl.Predicate(func(_ *TaskList[Pipe]) bool {
+	t.emptyJob = JobIf(Predicate(func() bool {
 		return false
 	}),
 		func(_ floc.Context, _ floc.Control) error {
@@ -207,21 +204,21 @@ func (t *Task[Pipe]) Run() error {
 
 // Runs the current task as a job.
 func (t *Task[Pipe]) Job() Job {
-	return t.TL.JobIfNot(
-		t.TL.Predicate(func(_ *TaskList[Pipe]) bool {
+	return JobIfNot(
+		Predicate(func() bool {
 			return t.handleStopCases()
 		}),
-		t.TL.CreateJob(func(tl *TaskList[Pipe]) error {
+		CreateJob(func() error {
 			if t.jobWrapperFn != nil {
-				return tl.RunJobs(t.jobWrapperFn(
-					tl.CreateBasicJob(t.Run),
+				return t.Plumber.RunJobs(t.jobWrapperFn(
+					CreateBasicJob(t.Run),
 					t,
 				))
 			}
 
 			return t.Run()
 		}),
-		t.TL.CreateJob(func(_ *TaskList[Pipe]) error {
+		CreateJob(func() error {
 			return nil
 		}),
 	)
@@ -236,7 +233,6 @@ func (t *Task[Pipe]) SendError(err error) *Task[Pipe] {
 
 // Send the fatal error message to plumber while running inside a routine.
 func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
-	t.Control.Cancel(err)
 	t.Plumber.SendFatal(t.Log, err)
 
 	return t
@@ -244,7 +240,6 @@ func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
 
 // Trigger the exit protocol of plumber.
 func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
-	t.Control.Cancel(fmt.Sprintf("Will exit with code: %d", code))
 	t.Plumber.SendExit(code)
 
 	return t

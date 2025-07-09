@@ -16,7 +16,8 @@ type (
 	Result       = floc.Result
 	ResultMask   = floc.ResultMask
 
-	GuardHandlerFn[Pipe TaskListData] func(*TaskList[Pipe])
+	GuardHandlerFn func()
+	PredicateFn    func() bool
 )
 
 const (
@@ -27,9 +28,9 @@ const (
 )
 
 // Creates a new floc predicate out of the given conditions.
-func (tl *TaskList[Pipe]) Predicate(fn TaskListPredicateFn[Pipe]) JobPredicate {
+func Predicate(fn PredicateFn) JobPredicate {
 	return func(_ floc.Context) bool {
-		return fn(tl)
+		return fn()
 	}
 }
 
@@ -61,17 +62,17 @@ Diagram:
 	  |
 	  +-->[JOB]
 */
-func (tl *TaskList[Pipe]) JobBackground(job Job) Job {
+func JobBackground(job Job) Job {
 	return run.Background(job)
 }
 
-func (tl *TaskList[Pipe]) CreateJob(fn func(tl *TaskList[Pipe]) error) Job {
+func CreateJob(fn func() error) Job {
 	return func(_ floc.Context, _ floc.Control) error {
-		return fn(tl)
+		return fn()
 	}
 }
 
-func (tl *TaskList[Pipe]) CreateBasicJob(fn func() error) Job {
+func CreateBasicJob(fn func() error) Job {
 	return func(_ floc.Context, _ floc.Control) error {
 		return fn()
 	}
@@ -92,15 +93,15 @@ Diagram:
 	  V          |
 	----->[JOB]--+
 */
-func (tl *TaskList[Pipe]) JobLoop(job Job) Job {
+func JobLoop(job Job) Job {
 	return run.Loop(job)
 }
 
-func (tl *TaskList[Pipe]) JobLoopWithWaitAfter(job Job, delay time.Duration) Job {
+func JobLoopWithWaitAfter(job Job, delay time.Duration) Job {
 	return run.Loop(
 		run.Sequence(
 			job,
-			run.Delay(delay, tl.CreateBasicJob(func() error {
+			run.Delay(delay, CreateBasicJob(func() error {
 				return nil
 			})),
 		),
@@ -119,7 +120,7 @@ Diagram:
 
 	--(DELAY)-->[JOB]-->
 */
-func (tl *TaskList[Pipe]) JobDelay(job Job, delay time.Duration) Job {
+func JobDelay(job Job, delay time.Duration) Job {
 	return run.Delay(delay, job)
 }
 
@@ -148,7 +149,7 @@ Diagram:
 	                    | NO             |
 	                    +----->[JOB_2]---+
 */
-func (tl *TaskList[Pipe]) JobIf(predicate JobPredicate, jobs ...Job) Job {
+func JobIf(predicate JobPredicate, jobs ...Job) Job {
 	return run.If(predicate, jobs...)
 }
 
@@ -177,7 +178,7 @@ Diagram:
 	                    | YES            |
 	                    +----->[JOB_2]---+
 */
-func (tl *TaskList[Pipe]) JobIfNot(predicate JobPredicate, jobs ...Job) Job {
+func JobIfNot(predicate JobPredicate, jobs ...Job) Job {
 	return run.IfNot(predicate, jobs...)
 }
 
@@ -194,7 +195,7 @@ Diagram:
 
 	----[JOB]--->
 */
-func (tl *TaskList[Pipe]) JobThen(job Job) Job {
+func JobThen(job Job) Job {
 	return run.Then(job)
 }
 
@@ -211,7 +212,7 @@ Diagram:
 
 	----[JOB]--->
 */
-func (tl *TaskList[Pipe]) JobElse(job Job) Job {
+func JobElse(job Job) Job {
 	return run.Else(job)
 }
 
@@ -234,7 +235,7 @@ Diagram:
 	  V                   | YES
 	----(CONDITION MET?)--+----->
 */
-func (tl *TaskList[Pipe]) JobWait(predicate JobPredicate, sleep time.Duration) Job {
+func JobWait(predicate JobPredicate, sleep time.Duration) Job {
 	return run.Wait(predicate, sleep)
 }
 
@@ -254,7 +255,7 @@ Diagram:
 	  V                   | NO
 	----(CONDITION MET?)--+---->
 */
-func (tl *TaskList[Pipe]) JobWhile(predicate JobPredicate, job Job) Job {
+func JobWhile(predicate JobPredicate, job Job) Job {
 	return run.While(predicate, job)
 }
 
@@ -274,7 +275,7 @@ Diagram:
 	  |            |
 	  +-->[JOB_N]--+
 */
-func (tl *TaskList[Pipe]) JobParallel(jobs ...Job) Job {
+func JobParallel(jobs ...Job) Job {
 	return run.Parallel(jobs...)
 }
 
@@ -290,7 +291,7 @@ Diagram:
 
 	-->[JOB_1]-...->[JOB_N]-->
 */
-func (tl *TaskList[Pipe]) JobSequence(jobs ...Job) Job {
+func JobSequence(jobs ...Job) Job {
 	return run.Sequence(jobs...)
 }
 
@@ -310,21 +311,21 @@ Diagram:
 	  V                          | YES
 	----(ITERATED COUNT TIMES?)--+---->
 */
-func (tl *TaskList[Pipe]) JobRepeat(job Job, times int) Job {
+func JobRepeat(job Job, times int) Job {
 	return run.Repeat(times, job)
 }
 
-func (tl *TaskList[Pipe]) JobWaitForTerminator() Job {
-	return tl.CreateBasicJob(func() error {
-		if !tl.Plumber.Terminator.Enabled {
+func JobWaitForTerminator(p *Plumber) Job {
+	return CreateBasicJob(func() error {
+		if !p.Terminator.Enabled {
 			return fmt.Errorf("Terminator is not enabled.")
 		}
 
-		tl.Log.Traceln("Waiting for the terminator signal...")
+		p.Log.Traceln("Waiting for the terminator signal...")
 
 		ch := make(chan bool, 1)
-		tl.Plumber.Terminator.Terminated.Register(ch)
-		defer tl.Plumber.Terminator.Terminated.Unregister(ch)
+		p.Terminator.Terminated.Register(ch)
+		defer p.Terminator.Terminated.Unregister(ch)
 
 		<-ch
 
@@ -340,7 +341,7 @@ func (tl *TaskList[Pipe]) JobWaitForTerminator() Job {
 // The result predicate tests the condition as follows.
 //
 //	[PRED_1] AND ... AND [PRED_N]
-func (tl *TaskList[Pipe]) PredicateAnd(predicates ...JobPredicate) JobPredicate {
+func PredicateAnd(predicates ...JobPredicate) JobPredicate {
 	return pred.And(predicates...)
 }
 
@@ -351,7 +352,7 @@ func (tl *TaskList[Pipe]) PredicateAnd(predicates ...JobPredicate) JobPredicate 
 // The result predicate tests the condition as follows.
 //
 //	[PRED_1] OR ... OR [PRED_N]
-func (tl *TaskList[Pipe]) PredicateOr(predicates ...JobPredicate) JobPredicate {
+func PredicateOr(predicates ...JobPredicate) JobPredicate {
 	return pred.Or(predicates...)
 }
 
@@ -360,7 +361,7 @@ func (tl *TaskList[Pipe]) PredicateOr(predicates ...JobPredicate) JobPredicate {
 // The result predicate tests the condition as follows.
 //
 //	NOT [PRED]
-func (tl *TaskList[Pipe]) PredicateNot(predicate JobPredicate) JobPredicate {
+func PredicateNot(predicate JobPredicate) JobPredicate {
 	return pred.Not(predicate)
 }
 
@@ -371,14 +372,14 @@ func (tl *TaskList[Pipe]) PredicateNot(predicate JobPredicate) JobPredicate {
 // The result predicate tests the condition as follows.
 //
 //	(([PRED_1] XOR [PRED_2]) ... XOR [PRED_N])
-func (tl *TaskList[Pipe]) PredicateXor(predicates ...JobPredicate) JobPredicate {
+func PredicateXor(predicates ...JobPredicate) JobPredicate {
 	return pred.Xor(predicates...)
 }
 
 // GuardTimeout protects the job from taking too much time on execution.
 // The job is run in it's own goroutine while the current goroutine waits
 // until the job finished or time went out or the flow is finished.
-func (tl *TaskList[Pipe]) GuardTimeout(job Job, timeout time.Duration) Job {
+func GuardTimeout(job Job, timeout time.Duration) Job {
 	return guard.Timeout(guard.ConstTimeout(timeout), nil, job)
 }
 
@@ -386,9 +387,9 @@ func (tl *TaskList[Pipe]) GuardTimeout(job Job, timeout time.Duration) Job {
 // In addition it takes TimeoutTrigger func (t *TaskList[Pipe])  which called if time is out.
 // The job is run in it's own goroutine while the current goroutine waits
 // until the job finished or time went out or the flow is finished.
-func (tl *TaskList[Pipe]) GuardOnTimeout(
+func GuardOnTimeout(
 	job Job,
-	fn GuardHandlerFn[Pipe],
+	fn GuardHandlerFn,
 	timeout time.Duration,
 ) Job {
 	return guard.OnTimeout(
@@ -396,7 +397,7 @@ func (tl *TaskList[Pipe]) GuardOnTimeout(
 		nil,
 		job,
 		func(_ floc.Context, _ floc.Control, _ interface{}) {
-			fn(tl)
+			fn()
 		},
 	)
 }
@@ -404,13 +405,13 @@ func (tl *TaskList[Pipe]) GuardOnTimeout(
 // Panic protects the job from falling into panic. On panic the flow will
 // be canceled with the ErrPanic result. Guarding the job from falling into
 // panic is effective only if the job runs in the current goroutine.
-func (tl *TaskList[Pipe]) GuardPanic(job Job) Job {
+func GuardPanic(job Job) Job {
 	return guard.Panic(
 		job,
 	)
 }
 
-func (tl *TaskList[Pipe]) GuardIgnorePanic(job Job) Job {
+func GuardIgnorePanic(job Job) Job {
 	return guard.IgnorePanic(
 		job,
 	)
@@ -420,11 +421,11 @@ func (tl *TaskList[Pipe]) GuardIgnorePanic(job Job) Job {
 // takes PanicTrigger func which is called in case of panic. Guarding the job
 // from falling into panic is effective only if the job runs in the current
 // goroutine.
-func (tl *TaskList[Pipe]) GuardOnPanic(job Job, fn GuardHandlerFn[Pipe]) Job {
+func GuardOnPanic(job Job, fn GuardHandlerFn) Job {
 	return guard.OnPanic(
 		job,
 		func(_ floc.Context, _ floc.Control, _ interface{}) {
-			fn(tl)
+			fn()
 		},
 	)
 }
@@ -433,16 +434,16 @@ func (tl *TaskList[Pipe]) GuardOnPanic(job Job, fn GuardHandlerFn[Pipe]) Job {
 // If the mask is empty execution will be resumed regardless the reason
 // it was finished. Otherwise execution will be resumed if the reason
 // it finished with is masked.
-func (tl *TaskList[Pipe]) GuardResume(job Job, mask Result) Job {
-	return guard.Resume(tl.NewResultMask(mask), job)
+func GuardResume(job Job, mask Result) Job {
+	return guard.Resume(NewJobResultMask(mask), job)
 }
 
 // Always run this job!
-func (tl *TaskList[Pipe]) GuardAlways(job Job) Job {
-	return guard.Resume(tl.NewResultMask(TASK_ANY), job)
+func GuardAlways(job Job) Job {
+	return guard.Resume(NewJobResultMask(TASK_ANY), job)
 }
 
-// NewResultMask constructs new instance from the mask given.
-func (tl *TaskList[Pipe]) NewResultMask(mask Result) ResultMask {
+// NewJobResultMask constructs new instance from the mask given.
+func NewJobResultMask(mask Result) ResultMask {
 	return floc.NewResultMask(mask)
 }

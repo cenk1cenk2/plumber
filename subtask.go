@@ -75,7 +75,7 @@ func (t *Task[Pipe]) AddSelfToTheParentAsSequence() *Task[Pipe] {
 
 	t.parent.Lock.Lock()
 	t.parent.ExtendSubtask(func(job Job) Job {
-		return t.TL.JobSequence(job, t.Job())
+		return JobSequence(job, t.Job())
 	})
 	t.parent.Lock.Unlock()
 
@@ -92,7 +92,7 @@ func (t *Task[Pipe]) AddSelfToTheParentAsParallel() *Task[Pipe] {
 
 	t.parent.Lock.Lock()
 	t.parent.ExtendSubtask(func(job Job) Job {
-		return t.TL.JobParallel(job, t.Job())
+		return JobParallel(job, t.Job())
 	})
 	t.parent.Lock.Unlock()
 
@@ -119,7 +119,7 @@ func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
 
 // Runs the subtasks of the current task.
 func (t *Task[Pipe]) RunSubtasks() error {
-	err := t.TL.RunJobs(t.subtask)
+	err := t.Plumber.RunJobs(t.subtask)
 
 	if err == nil {
 		t.SetSubtask(nil)

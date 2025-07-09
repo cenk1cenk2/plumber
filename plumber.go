@@ -14,6 +14,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
+	"github.com/workanator/go-floc/v3"
 	"gitlab.kilic.dev/libraries/go-broadcaster"
 	"gitlab.kilic.dev/libraries/go-utils/v2/logger"
 	"golang.org/x/exp/slices"
@@ -27,8 +28,10 @@ type Plumber struct {
 	Terminator
 	Validator *validator.Validate
 
-	Context context.Context
-	cancel  context.CancelFunc
+	context     context.Context
+	cancel      context.CancelFunc
+	flocControl floc.Control
+	flocContext floc.Context
 
 	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
@@ -94,6 +97,7 @@ type (
 	PlumberOnTerminateFn func() error
 	PlumberNewFn         func(p *Plumber) *cli.Command
 	PlumberFn            func(p *Plumber) error
+	PlumberPredicate     func(p *Plumber) bool
 )
 
 const (
@@ -107,7 +111,11 @@ const (
 func NewPlumber(fn PlumberNewFn) *Plumber {
 	p := &Plumber{}
 
-	p.Context, p.cancel = context.WithCancel(context.Background())
+	p.context, p.cancel = context.WithCancel(context.Background())
+
+	p.flocContext = floc.NewContext()
+	p.flocControl = floc.NewControl(p.flocContext)
+
 	p.Cli = fn(p)
 
 	p.Cli.Before = p.setup(p.Cli.Before)
@@ -259,6 +267,8 @@ func (p *Plumber) SendError(log *logrus.Entry, err error) *Plumber {
 
 // Sends an fatal error with its custom instance of logger through the channel.
 func (p *Plumber) SendFatal(log *logrus.Entry, err error) *Plumber {
+	p.flocControl.Cancel(err)
+
 	e := PlumberError{
 		Err: err,
 		Log: log,
@@ -275,6 +285,8 @@ func (p *Plumber) SendFatal(log *logrus.Entry, err error) *Plumber {
 
 // Sends exit code to terminate the application.
 func (p *Plumber) SendExit(code int) *Plumber {
+	p.flocControl.Cancel(fmt.Sprintf("Will exit with code: %d", code))
+
 	p.Log.WithFields(logrus.Fields{
 		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_exit,
@@ -427,6 +439,26 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 	return p
 }
 
+// Runs a the provided job.
+func (p *Plumber) RunJobs(job Job) error {
+	if job == nil {
+		return nil
+	}
+
+	result, data, err := floc.RunWith(p.flocContext, p.flocControl, job)
+
+	if err != nil {
+		return err
+	}
+
+	return p.handleFloc(result, data)
+}
+
+// Handles output coming from floc.
+func (p *Plumber) handleFloc(_ floc.Result, _ interface{}) error {
+	return nil
+}
+
 // Starts the application.
 func (p *Plumber) Run() {
 	ch := make(chan int, 1)
@@ -454,7 +486,7 @@ func (p *Plumber) Run() {
 		},
 	)
 
-	if err := p.Cli.Run(p.Context, append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
+	if err := p.Cli.Run(p.context, append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
 		p.SendFatal(nil, err)
 
 		for {

@@ -28,7 +28,7 @@ func (t *Task[Pipe]) GetCommandJobAsJobSequence() Job {
 		return nil
 	}
 
-	return t.TL.JobSequence(j...)
+	return JobSequence(j...)
 }
 
 // Returns the attached commands to this task as a job to run as parallel depending on their definition order.
@@ -39,7 +39,7 @@ func (t *Task[Pipe]) GetCommandJobAsJobParallel() Job {
 		return nil
 	}
 
-	return t.TL.JobParallel(j...)
+	return JobParallel(j...)
 }
 
 // Attaches existing commands to this task.
@@ -53,15 +53,15 @@ func (t *Task[Pipe]) AddCommands(commands ...*Command[Pipe]) *Task[Pipe] {
 
 // Runs the commands that are attached to this task as sequence.
 func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
-	return t.TL.RunJobs(t.GetCommandJobAsJobSequence())
+	return t.Plumber.RunJobs(t.GetCommandJobAsJobSequence())
 }
 
 // Runs the commands that are attached to this task as parallel.
 func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {
-	return t.TL.RunJobs(t.GetCommandJobAsJobParallel())
+	return t.Plumber.RunJobs(t.GetCommandJobAsJobParallel())
 }
 
 // Runs the commands that are attached to this task as parallel with the given wrapper.
 func (t *Task[Pipe]) RunCommandJob(fn TaskJobParserFn[Pipe]) error {
-	return t.TL.RunJobs(fn(t))
+	return t.Plumber.RunJobs(fn(t))
 }
