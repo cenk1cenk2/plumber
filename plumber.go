@@ -83,7 +83,8 @@ type DocumentationOptions struct {
 	MarkdownBehead              int
 	ExcludeFlags                bool
 	ExcludeEnvironmentVariables bool
-	ExcludeHelpCommand          bool
+	IncludeDefaultCommands      bool
+	IncludeDefaultFlags         bool
 }
 
 type DeprecationNotice struct {
@@ -234,12 +235,6 @@ func (p *Plumber) SetFormatter(formatter *logger.Formatter) *Plumber {
 	p.Log.SetFormatter(formatter)
 
 	return p
-}
-
-// Appends flags together.
-// @deprecated.
-func (p *Plumber) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
-	return CombineFlags(flags...)
 }
 
 // Adds sensitive information so that the logger will not log out the given secrets.

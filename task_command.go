@@ -1,17 +1,17 @@
 package plumber
 
 // Creates a NewCommand attached to the current task.
-func (t *Task[Pipe]) CreateCommand(command string, args ...string) *Command[Pipe] {
+func (t *Task) CreateCommand(command string, args ...string) *Command {
 	return NewCommand(t, command, args...)
 }
 
 // Returns the attached commands to this task.
-func (t *Task[Pipe]) GetCommands() []*Command[Pipe] {
+func (t *Task) GetCommands() []*Command {
 	return t.commands
 }
 
 // Returns the attached commands to this task as a slice of jobs.
-func (t *Task[Pipe]) GetCommandJobs() []Job {
+func (t *Task) GetCommandJobs() []Job {
 	j := []Job{}
 	for _, c := range t.commands {
 		j = append(j, c.Job())
@@ -21,7 +21,7 @@ func (t *Task[Pipe]) GetCommandJobs() []Job {
 }
 
 // Returns the attached commands to this task as a job to run as sequence depending on their definition order.
-func (t *Task[Pipe]) GetCommandJobAsJobSequence() Job {
+func (t *Task) GetCommandJobAsJobSequence() Job {
 	j := t.GetCommandJobs()
 
 	if len(j) == 0 {
@@ -32,7 +32,7 @@ func (t *Task[Pipe]) GetCommandJobAsJobSequence() Job {
 }
 
 // Returns the attached commands to this task as a job to run as parallel depending on their definition order.
-func (t *Task[Pipe]) GetCommandJobAsJobParallel() Job {
+func (t *Task) GetCommandJobAsJobParallel() Job {
 	j := t.GetCommandJobs()
 
 	if len(j) == 0 {
@@ -43,7 +43,7 @@ func (t *Task[Pipe]) GetCommandJobAsJobParallel() Job {
 }
 
 // Attaches existing commands to this task.
-func (t *Task[Pipe]) AddCommands(commands ...*Command[Pipe]) *Task[Pipe] {
+func (t *Task) AddCommands(commands ...*Command) *Task {
 	t.taskLock.Lock()
 	t.commands = append(t.commands, commands...)
 	t.taskLock.Unlock()
@@ -52,16 +52,16 @@ func (t *Task[Pipe]) AddCommands(commands ...*Command[Pipe]) *Task[Pipe] {
 }
 
 // Runs the commands that are attached to this task as sequence.
-func (t *Task[Pipe]) RunCommandJobAsJobSequence() error {
+func (t *Task) RunCommandJobAsJobSequence() error {
 	return t.Plumber.RunJobs(t.GetCommandJobAsJobSequence())
 }
 
 // Runs the commands that are attached to this task as parallel.
-func (t *Task[Pipe]) RunCommandJobAsJobParallel() error {
+func (t *Task) RunCommandJobAsJobParallel() error {
 	return t.Plumber.RunJobs(t.GetCommandJobAsJobParallel())
 }
 
 // Runs the commands that are attached to this task as parallel with the given wrapper.
-func (t *Task[Pipe]) RunCommandJob(fn TaskJobParserFn[Pipe]) error {
+func (t *Task) RunCommandJob(fn TaskJobParserFn) error {
 	return t.Plumber.RunJobs(fn(t))
 }
