@@ -29,6 +29,7 @@ type templateFlag struct {
 	Default     string
 	Category    string
 	Multiple    bool
+	TakesValue  bool
 	Format      string
 }
 
@@ -164,7 +165,7 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*tem
 			Level:       level,
 		}
 
-		if p.options.documentation.ExcludeHelpCommand && parsed.Name == "help" {
+		if p.options.documentation.ExcludeHelpCommand && command.Name == "help" {
 			continue
 		}
 
@@ -244,7 +245,8 @@ func (p *Plumber) generateDocFlags(
 			//nolint: errcheck
 			Category: current.(cli.CategorizableFlag).GetCategory(),
 			//nolint: errcheck
-			Multiple: current.(cli.DocGenerationMultiValueFlag).IsMultiValueFlag(),
+			Multiple:   current.(cli.DocGenerationMultiValueFlag).IsMultiValueFlag(),
+			TakesValue: current.TakesValue(),
 		}
 
 		if len(parsed.Name) == 0 {

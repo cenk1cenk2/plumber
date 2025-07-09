@@ -282,6 +282,8 @@ func (p *Plumber) SendExit(code int) *Plumber {
 
 	p.Channel.Exit.Submit(code)
 
+	p.cancel()
+
 	return p
 }
 

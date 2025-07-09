@@ -152,7 +152,7 @@ func (tl *TaskList[Pipe]) CreateTask(name ...string) *Task[Pipe] {
 }
 
 // Sets the CLI context for urfave/cli that is coming from the action function.
-func (tl *TaskList[Pipe]) SetCliContext(command *cli.Command) *TaskList[Pipe] {
+func (tl *TaskList[Pipe]) SetCli(command *cli.Command) *TaskList[Pipe] {
 	tl.Lock.Lock()
 	tl.Cli = command
 	tl.Lock.Unlock()
