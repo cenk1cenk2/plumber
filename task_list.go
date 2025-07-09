@@ -11,14 +11,7 @@ import (
 	"github.com/workanator/go-floc/v3"
 
 	"fmt"
-
-	"github.com/creasty/defaults"
-	validator "github.com/go-playground/validator/v10"
 )
-
-type TaskListData interface {
-	any
-}
 
 type TaskList struct {
 	Plumber *Plumber
@@ -141,37 +134,6 @@ func (p *TaskList) SetRuntimeDepth(depth int) *TaskList {
 	p.setupLogger()
 
 	return p
-}
-
-// Validates the current pipe of the task list.
-func (p *TaskList) Validate(data TaskListData) error {
-	if err := defaults.Set(data); err != nil {
-		return fmt.Errorf("Can not set defaults: %w", err)
-	}
-
-	err := p.Plumber.Validator.Struct(data)
-
-	if err != nil {
-		//nolint:errcheck, errorlint
-		for _, err := range err.(validator.ValidationErrors) {
-			e := fmt.Sprintf(
-				`"%s" field failed validation: %s`,
-				err.Namespace(),
-				err.Tag(),
-			)
-
-			param := err.Param()
-			if param != "" {
-				e = fmt.Sprintf("%s > %s", e, param)
-			}
-
-			p.Log.Errorln(e)
-		}
-
-		return fmt.Errorf("Validation failed.")
-	}
-
-	return nil
 }
 
 // Runs the current task list.

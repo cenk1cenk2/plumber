@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/creasty/defaults"
 	validator "github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -432,6 +433,37 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 	p.Terminator.Terminated.Submit(true)
 
 	return p
+}
+
+// Validates the current pipe of the task list.
+func (p *Plumber) Validate(data any) error {
+	if err := defaults.Set(data); err != nil {
+		return fmt.Errorf("Can not set defaults: %w", err)
+	}
+
+	err := p.Validator.Struct(data)
+
+	if err != nil {
+		//nolint:errcheck, errorlint
+		for _, err := range err.(validator.ValidationErrors) {
+			e := fmt.Sprintf(
+				`"%s" field failed validation: %s`,
+				err.Namespace(),
+				err.Tag(),
+			)
+
+			param := err.Param()
+			if param != "" {
+				e = fmt.Sprintf("%s > %s", e, param)
+			}
+
+			p.Log.Errorln(e)
+		}
+
+		return fmt.Errorf("Validation failed.")
+	}
+
+	return nil
 }
 
 // Runs a the provided job.
