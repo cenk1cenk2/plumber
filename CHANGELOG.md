@@ -1,3 +1,27 @@
+# [6.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.6...v6.0.0) (2025-07-11)
+
+
+### Bug Fixes
+
+* documentation ([241c7bd](https://gitlab.kilic.dev/libraries/plumber/commit/241c7bd98d8c840299a0f7bb5e7c4f3e44242542))
+* move validation logic to plumber ([1a4eec5](https://gitlab.kilic.dev/libraries/plumber/commit/1a4eec564701ae08517a103cd91ad4fa8fa550d2))
+* refactor floc handling ([5476b5a](https://gitlab.kilic.dev/libraries/plumber/commit/5476b5aa3b3a791f675e70ecc4905e9122d0feb4))
+* update configuration for document generation ([baed0f0](https://gitlab.kilic.dev/libraries/plumber/commit/baed0f0b367141c444b66c64510463ed3aed4f1b))
+* update documentation publishing ([d04fcf9](https://gitlab.kilic.dev/libraries/plumber/commit/d04fcf9c12328430a646dc89a2972a61fc1c94d3))
+* update override for documentation ([2655f0e](https://gitlab.kilic.dev/libraries/plumber/commit/2655f0e56203dd506b01c450c51d9e7d036a9e54))
+
+
+### Performance Improvements
+
+* get rid of generics ([b7141b9](https://gitlab.kilic.dev/libraries/plumber/commit/b7141b9aa08f8897bc0f07170b7203a42b1b0872))
+* update to urfave/cli/v3 ([b70896b](https://gitlab.kilic.dev/libraries/plumber/commit/b70896bfe6f0bde3c3ba763d69e4207df12502cf))
+
+
+### BREAKING CHANGES
+
+* This breaks the old behavior of having generics.
+* This is a major update.
+
 ## [5.6.6](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.5...v5.6.6) (2025-07-09)
 
 
