@@ -16,22 +16,22 @@ import (
 	"gitlab.kilic.dev/libraries/go-utils/v2/utils"
 )
 
-type Command[Pipe TaskListData] struct {
+type Command struct {
 	Plumber *Plumber
-	T       *Task[Pipe]
-	TL      *TaskList[Pipe]
+	T       *Task
+	TL      *TaskList
 	Log     *logrus.Entry
 
 	Command  *exec.Cmd
-	scriptFn CommandScriptFn[Pipe]
-	options  CommandOptions[Pipe]
+	scriptFn CommandScriptFn
+	options  CommandOptions
 
-	shouldRunBeforeFn CommandFn[Pipe]
-	fn                CommandFn[Pipe]
-	shouldRunAfterFn  CommandFn[Pipe]
-	onTerminatorFn    CommandFn[Pipe]
-	jobWrapperFn      CommandJobWrapperFn[Pipe]
-	credentialFn      CommandCredentialFn[Pipe]
+	shouldRunBeforeFn CommandFn
+	fn                CommandFn
+	shouldRunAfterFn  CommandFn
+	onTerminatorFn    CommandFn
+	jobWrapperFn      CommandJobWrapperFn
+	credentialFn      CommandCredentialFn
 
 	stdoutLevel   LogLevel
 	stderrLevel   LogLevel
@@ -39,7 +39,7 @@ type Command[Pipe TaskListData] struct {
 
 	stdout         output
 	stderr         output
-	stdinFn        CommandStdinFn[Pipe]
+	stdinFn        CommandStdinFn
 	stdoutStream   []string
 	stderrStream   []string
 	combinedStream []string
@@ -48,18 +48,8 @@ type Command[Pipe TaskListData] struct {
 	status CommandStatus
 }
 
-type CommandCtx struct {
-	TL *TaskListCtx
-	T  *TaskCtx
-
-	Plumber *Plumber
-	Log     *logrus.Entry
-
-	Command *exec.Cmd
-}
-
-type CommandOptions[Pipe TaskListData] struct {
-	disablePredicateFn TaskPredicateFn[Pipe]
+type CommandOptions struct {
+	disablePredicateFn TaskPredicateFn
 	ignoreError        bool
 	recordStream       bool
 	ensureIsAlive      bool
@@ -85,11 +75,11 @@ type CommandRetry struct {
 }
 
 type (
-	CommandFn[Pipe TaskListData]           func(*Command[Pipe]) error
-	CommandJobWrapperFn[Pipe TaskListData] func(job Job, c *Command[Pipe]) Job
-	CommandStdinFn[Pipe TaskListData]      func(c *Command[Pipe]) io.Reader
-	CommandScriptFn[Pipe TaskListData]     func(c *Command[Pipe]) *CommandScript
-	CommandCredentialFn[Pipe TaskListData] func(c *Command[Pipe], credential *syscall.Credential) *syscall.Credential
+	CommandFn           func(*Command) error
+	CommandJobWrapperFn func(job Job, c *Command) Job
+	CommandStdinFn      func(c *Command) io.Reader
+	CommandScriptFn     func(c *Command) *CommandScript
+	CommandCredentialFn func(c *Command, credential *syscall.Credential) *syscall.Credential
 )
 
 type (
@@ -107,12 +97,12 @@ const (
 )
 
 // NewCommand Creates a new command to be run as a job.
-func NewCommand[Pipe TaskListData](
-	task *Task[Pipe],
+func NewCommand(
+	task *Task,
 	command string,
 	args ...string,
-) *Command[Pipe] {
-	c := &Command[Pipe]{
+) *Command {
+	c := &Command{
 		Command: exec.Command(command, args...),
 		Plumber: task.Plumber,
 		T:       task,
@@ -128,28 +118,28 @@ func NewCommand[Pipe TaskListData](
 }
 
 // Sets the function that should manipulate the command depending on the pipe variables.
-func (c *Command[Pipe]) Set(fn CommandFn[Pipe]) *Command[Pipe] {
+func (c *Command) Set(fn CommandFn) *Command {
 	c.fn = fn
 
 	return c
 }
 
 // Sets a function that should run after the main command has exited successfully.
-func (c *Command[Pipe]) ShouldRunBefore(fn CommandFn[Pipe]) *Command[Pipe] {
+func (c *Command) ShouldRunBefore(fn CommandFn) *Command {
 	c.shouldRunBeforeFn = fn
 
 	return c
 }
 
 // Sets a function that should run after the main command has exited successfully.
-func (c *Command[Pipe]) ShouldRunAfter(fn CommandFn[Pipe]) *Command[Pipe] {
+func (c *Command) ShouldRunAfter(fn CommandFn) *Command {
 	c.shouldRunAfterFn = fn
 
 	return c
 }
 
 // Checks whether current command is disabled.
-func (c *Command[Pipe]) IsDisabled() bool {
+func (c *Command) IsDisabled() bool {
 	if c.options.disablePredicateFn == nil {
 		return false
 	}
@@ -158,14 +148,14 @@ func (c *Command[Pipe]) IsDisabled() bool {
 }
 
 // Adds a predicate to check whether this command should be disabled depending on the pipe variables.
-func (c *Command[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Command[Pipe] {
+func (c *Command) ShouldDisable(fn TaskPredicateFn) *Command {
 	c.options.disablePredicateFn = fn
 
 	return c
 }
 
 // Enables global plumber terminator on this command to terminate the current command when the application is terminated.
-func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
+func (c *Command) EnableTerminator() *Command {
 	c.Log.Tracef("Registered terminator: %s", c.GetFormattedCommand())
 	c.Plumber.RegisterTerminator()
 
@@ -175,32 +165,32 @@ func (c *Command[Pipe]) EnableTerminator() *Command[Pipe] {
 }
 
 // Sets a function that fires on when the application is globally terminated through plumber.
-func (c *Command[Pipe]) SetOnTerminator(fn CommandFn[Pipe]) *Command[Pipe] {
+func (c *Command) SetOnTerminator(fn CommandFn) *Command {
 	c.onTerminatorFn = fn
 
 	return c
 }
 
-func (c *Command[Pipe]) SetScript(fn CommandScriptFn[Pipe]) *Command[Pipe] {
+func (c *Command) SetScript(fn CommandScriptFn) *Command {
 	c.scriptFn = fn
 
 	return c
 }
 
-func (c *Command[Pipe]) SetCredential(fn CommandCredentialFn[Pipe]) *Command[Pipe] {
+func (c *Command) SetCredential(fn CommandCredentialFn) *Command {
 	c.credentialFn = fn
 
 	return c
 }
 
-func (c *Command[Pipe]) SetStdin(fn CommandStdinFn[Pipe]) *Command[Pipe] {
+func (c *Command) SetStdin(fn CommandStdinFn) *Command {
 	c.stdinFn = fn
 
 	return c
 }
 
 // Appends arguments to the command.
-func (c *Command[Pipe]) AppendArgs(args ...string) *Command[Pipe] {
+func (c *Command) AppendArgs(args ...string) *Command {
 	for _, a := range args {
 		c.Command.Args = append(
 			c.Command.Args,
@@ -211,7 +201,7 @@ func (c *Command[Pipe]) AppendArgs(args ...string) *Command[Pipe] {
 }
 
 // Appends environment variables to command as map.
-func (c *Command[Pipe]) AppendEnvironment(environment map[string]string) *Command[Pipe] {
+func (c *Command) AppendEnvironment(environment map[string]string) *Command {
 	for k, v := range environment {
 		c.AppendDirectEnvironment(fmt.Sprintf("%s=%s", k, v))
 	}
@@ -220,18 +210,18 @@ func (c *Command[Pipe]) AppendEnvironment(environment map[string]string) *Comman
 }
 
 // Appends environment variables to command directly.
-func (c *Command[Pipe]) AppendDirectEnvironment(environment ...string) *Command[Pipe] {
+func (c *Command) AppendDirectEnvironment(environment ...string) *Command {
 	c.Command.Env = append(c.Command.Env, environment...)
 
 	return c
 }
 
 // Sets the log level specific to this command.
-func (c *Command[Pipe]) SetLogLevel(
+func (c *Command) SetLogLevel(
 	stdout LogLevel,
 	stderr LogLevel,
 	lifetime LogLevel,
-) *Command[Pipe] {
+) *Command {
 	if stdout == 0 {
 		c.stdoutLevel = logrus.InfoLevel
 	} else {
@@ -254,49 +244,49 @@ func (c *Command[Pipe]) SetLogLevel(
 }
 
 // Sets the current directory where the command will be executed.
-func (c *Command[Pipe]) SetDir(dir string) *Command[Pipe] {
+func (c *Command) SetDir(dir string) *Command {
 	c.Command.Dir = dir
 
 	return c
 }
 
 // Sets the current directory where the command will be executed.
-func (c *Command[Pipe]) SetPath(dir string) *Command[Pipe] {
+func (c *Command) SetPath(dir string) *Command {
 	c.Command.Path = dir
 
 	return c
 }
 
 // Sets the option to ignore errors raised by this command therefore a failing command will not fail the application.
-func (c *Command[Pipe]) SetIgnoreError() *Command[Pipe] {
+func (c *Command) SetIgnoreError() *Command {
 	c.options.ignoreError = true
 
 	return c
 }
 
 // Sets the option where underlying environment variables are not passed to the command.
-func (c *Command[Pipe]) SetMaskOsEnvironment() *Command[Pipe] {
+func (c *Command) SetMaskOsEnvironment() *Command {
 	c.options.maskOsEnvironment = true
 
 	return c
 }
 
 // Sets the option to retry the command if failed.
-func (c *Command[Pipe]) SetRetries(retry *CommandRetry) *Command[Pipe] {
+func (c *Command) SetRetries(retry *CommandRetry) *Command {
 	c.options.retry = retry
 
 	return c
 }
 
 // Extend the job of the current task.
-func (c *Command[Pipe]) SetJobWrapper(fn CommandJobWrapperFn[Pipe]) *Command[Pipe] {
+func (c *Command) SetJobWrapper(fn CommandJobWrapperFn) *Command {
 	c.jobWrapperFn = fn
 
 	return c
 }
 
 // Sets the option where this command will save its output to be later accessed in the shouldRunAfterFn.
-func (c *Command[Pipe]) EnableStreamRecording() *Command[Pipe] {
+func (c *Command) EnableStreamRecording() *Command {
 	c.options.recordStream = true
 	c.lockStream = &sync.RWMutex{}
 
@@ -304,7 +294,7 @@ func (c *Command[Pipe]) EnableStreamRecording() *Command[Pipe] {
 }
 
 // Sets the option where it will raise an error if the underlying command stops.
-func (c *Command[Pipe]) EnsureIsAlive() *Command[Pipe] {
+func (c *Command) EnsureIsAlive() *Command {
 	c.options.ensureIsAlive = true
 
 	return c
@@ -312,7 +302,7 @@ func (c *Command[Pipe]) EnsureIsAlive() *Command[Pipe] {
 
 // Fetches the saved stdout stream that is recorded.
 // Should have the Command.options.recordStream enabled.
-func (c *Command[Pipe]) GetStdoutStream() []string {
+func (c *Command) GetStdoutStream() []string {
 	if !c.options.recordStream {
 		c.T.SendFatal(
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
@@ -328,7 +318,7 @@ func (c *Command[Pipe]) GetStdoutStream() []string {
 
 // Fetches the saved stderr stream that is recorded.
 // Should have the Command.options.recordStream enabled.
-func (c *Command[Pipe]) GetStderrStream() []string {
+func (c *Command) GetStderrStream() []string {
 	if !c.options.recordStream {
 		c.T.SendFatal(
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
@@ -344,7 +334,7 @@ func (c *Command[Pipe]) GetStderrStream() []string {
 
 // Fetches the saved streams that is recorded.
 // Should have the Command.options.recordStream enabled.
-func (c *Command[Pipe]) GetCombinedStream() []string {
+func (c *Command) GetCombinedStream() []string {
 	if !c.options.recordStream {
 		c.T.SendFatal(
 			fmt.Errorf("Stream recording should be enabled to fetch the command output stream."),
@@ -359,22 +349,22 @@ func (c *Command[Pipe]) GetCombinedStream() []string {
 }
 
 // Returns whether the command has failed or not.
-func (c *Command[Pipe]) HasFailed() bool {
+func (c *Command) HasFailed() bool {
 	return !c.Command.ProcessState.Success()
 }
 
 // Returns whether the command has exited properly or not.
-func (c *Command[Pipe]) HasExited() bool {
+func (c *Command) HasExited() bool {
 	return !c.Command.ProcessState.Exited()
 }
 
 // Fetches the name of this command, that is formatted for the logger.
-func (c *Command[Pipe]) GetFormattedCommand() string {
+func (c *Command) GetFormattedCommand() string {
 	return fmt.Sprintf("$ %s", strings.Join(c.Command.Args, " "))
 }
 
 // Run the command as defined.
-func (c *Command[Pipe]) Run() error {
+func (c *Command) Run() error {
 	if stop := c.handleStopCases(); stop {
 		return nil
 	}
@@ -423,55 +413,43 @@ func (c *Command[Pipe]) Run() error {
 }
 
 // Convert Command.Run to a floc job.
-func (c *Command[Pipe]) Job() Job {
-	return c.T.TL.JobIfNot(
-		c.T.TL.Predicate(func(_ *TaskList[Pipe]) bool {
+func (c *Command) Job() Job {
+	return JobIfNot(
+		Predicate(func() bool {
 			return c.handleStopCases()
 		}),
-		c.T.TL.CreateJob(func(tl *TaskList[Pipe]) error {
+		CreateJob(func() error {
 			if c.jobWrapperFn != nil {
-				return tl.RunJobs(c.jobWrapperFn(
-					tl.CreateBasicJob(c.Run),
+				return c.Plumber.RunJobs(c.jobWrapperFn(
+					CreateBasicJob(c.Run),
 					c,
 				))
 			}
 
 			return c.Run()
 		}),
-		c.T.TL.CreateJob(func(_ *TaskList[Pipe]) error {
+		CreateJob(func() error {
 			return nil
 		}),
 	)
 }
 
 // Adds the current command to the parent task.
-func (c *Command[Pipe]) AddSelfToTheTask() *Command[Pipe] {
+func (c *Command) AddSelfToTheTask() *Command {
 	c.T.AddCommands(c)
 
 	return c
 }
 
 // Adds the current command to the task with a wrapper.
-func (c *Command[Pipe]) AddSelfToTheParentTask(pt *Task[Pipe]) *Command[Pipe] {
+func (c *Command) AddSelfToTheParentTask(pt *Task) *Command {
 	pt.AddCommands(c)
 
 	return c
 }
 
-// Converts the command to a command context.
-func (c *Command[Pipe]) ToCtx() *CommandCtx {
-	return &CommandCtx{
-		TL: c.TL.ToCtx(),
-		T:  c.T.ToCtx(),
-
-		Plumber: c.Plumber,
-		Log:     c.Log,
-		Command: c.Command,
-	}
-}
-
 // Executes the command and pipes the output through the logger.
-func (c *Command[Pipe]) pipe() error {
+func (c *Command) pipe() error {
 	// clone command to be able to retry, elsewise os.exec will throw since this command is already started
 	command := exec.Command(c.Command.Args[0], c.Command.Args[1:]...) //nolint:gosec
 	command.Dir = c.Command.Dir
@@ -554,7 +532,7 @@ func (c *Command[Pipe]) pipe() error {
 }
 
 // Handles the error depending on the options.
-func (c *Command[Pipe]) handleError(err error) error {
+func (c *Command) handleError(err error) error {
 	if c.options.ignoreError {
 		c.Log.Debugf("%s -> Error ignored: %s", c.GetFormattedCommand(), err.Error())
 
@@ -565,7 +543,7 @@ func (c *Command[Pipe]) handleError(err error) error {
 }
 
 // Retries the task with the given options.
-func (c *Command[Pipe]) retry(err error) error {
+func (c *Command) retry(err error) error {
 	if c.options.retry == nil || !c.options.retry.Always && c.options.retry.Tries <= 0 {
 		return c.handleError(err)
 	}
@@ -591,7 +569,7 @@ func (c *Command[Pipe]) retry(err error) error {
 }
 
 // Creates closers and readers for stdout and stderr.
-func (c *Command[Pipe]) createReaders(command *exec.Cmd) error {
+func (c *Command) createReaders(command *exec.Cmd) error {
 	closer, err := command.StdoutPipe()
 
 	if err != nil {
@@ -616,7 +594,7 @@ func (c *Command[Pipe]) createReaders(command *exec.Cmd) error {
 }
 
 // Handles incoming data stream from a command.
-func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
+func (c *Command) handleStream(output output, level LogLevel) {
 	log := c.Log.WithFields(logrus.Fields{})
 
 	defer output.closer.Close()
@@ -654,7 +632,7 @@ func (c *Command[Pipe]) handleStream(output output, level LogLevel) {
 }
 
 // Handles the stop cases for command.
-func (c *Command[Pipe]) handleStopCases() bool {
+func (c *Command) handleStopCases() bool {
 	if c.status.stopCases.handled {
 		return c.status.stopCases.result
 	}
@@ -674,7 +652,7 @@ func (c *Command[Pipe]) handleStopCases() bool {
 }
 
 // Handles the global plumber terminator to stop execution of the command and forwards the terminate signal if running.
-func (c *Command[Pipe]) handleTerminator() {
+func (c *Command) handleTerminator() {
 	if c.IsDisabled() {
 		c.Log.Tracef(
 			"Deregister terminator directly because the command is already not available: %s",
@@ -714,7 +692,7 @@ func (c *Command[Pipe]) handleTerminator() {
 	c.Plumber.RegisterTerminated()
 }
 
-func (c *Command[Pipe]) templateScript(command *exec.Cmd, script *CommandScript, tmpl string) error {
+func (c *Command) templateScript(command *exec.Cmd, script *CommandScript, tmpl string) error {
 	tpl, err := InlineTemplate(tmpl, script.Ctx, script.Funcs...)
 
 	if err != nil {

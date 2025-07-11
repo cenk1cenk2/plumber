@@ -1,7 +1,6 @@
 package plumber
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -12,44 +11,32 @@ import (
 	"gitlab.kilic.dev/libraries/go-utils/v2/utils"
 )
 
-type Task[Pipe TaskListData] struct {
+type Task struct {
 	Plumber *Plumber
-	TL      *TaskList[Pipe]
+	TL      *TaskList
 	Log     *logrus.Entry
 	Channel *AppChannel
-	Pipe    *Pipe
-	Control floc.Control
 	Name    string
 
 	Lock     *sync.RWMutex
 	taskLock *sync.RWMutex
 
-	options           TaskOptions[Pipe]
-	commands          []*Command[Pipe]
-	parent            *Task[Pipe]
+	options           TaskOptions
+	commands          []*Command
+	parent            *Task
 	subtask           Job
 	emptyJob          Job
-	fn                TaskFn[Pipe]
-	shouldRunBeforeFn TaskFn[Pipe]
-	shouldRunAfterFn  TaskFn[Pipe]
-	onTerminatorFn    TaskFn[Pipe]
-	jobWrapperFn      TaskJobWrapperFn[Pipe]
+	fn                TaskFn
+	shouldRunBeforeFn TaskFn
+	shouldRunAfterFn  TaskFn
+	onTerminatorFn    TaskFn
+	jobWrapperFn      TaskJobWrapperFn
 	status            TaskStatus
 }
 
-type TaskCtx struct {
-	Plumber *Plumber
-	TL      *TaskListCtx
-	Log     *logrus.Entry
-
-	Name string
-
-	Lock *sync.RWMutex
-}
-
-type TaskOptions[Pipe TaskListData] struct {
-	skipPredicateFn    TaskPredicateFn[Pipe]
-	disablePredicateFn TaskPredicateFn[Pipe]
+type TaskOptions struct {
+	skipPredicateFn    TaskPredicateFn
+	disablePredicateFn TaskPredicateFn
 }
 
 type TaskStatus struct {
@@ -57,28 +44,26 @@ type TaskStatus struct {
 }
 
 type (
-	TaskFn[Pipe TaskListData]           func(t *Task[Pipe]) error
-	TaskPredicateFn[Pipe TaskListData]  func(t *Task[Pipe]) bool
-	TaskJobWrapperFn[Pipe TaskListData] func(job Job, t *Task[Pipe]) Job
-	TaskJobParserFn[Pipe TaskListData]  func(t *Task[Pipe]) Job
+	TaskFn           func(t *Task) error
+	TaskPredicateFn  func(t *Task) bool
+	TaskJobWrapperFn func(job Job, t *Task) Job
+	TaskJobParserFn  func(t *Task) Job
 )
 
 // NewTask Creates a new task to be run as a job.
-func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] {
-	t := &Task[Pipe]{
+func NewTask(tl *TaskList, name ...string) *Task {
+	t := &Task{
 		Name:     strings.Join(utils.DeleteEmptyStringsFromSlice(name), tl.Plumber.options.delimiter),
 		TL:       tl,
 		Plumber:  tl.Plumber,
 		Lock:     tl.Lock,
 		taskLock: &sync.RWMutex{},
 		Channel:  tl.Channel,
-		Pipe:     &tl.Pipe,
-		Control:  tl.Control,
 	}
 
 	t.Log = tl.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
 
-	t.emptyJob = tl.JobIf(tl.Predicate(func(_ *TaskList[Pipe]) bool {
+	t.emptyJob = JobIf(Predicate(func() bool {
 		return false
 	}),
 		func(_ floc.Context, _ floc.Control) error {
@@ -91,35 +76,35 @@ func NewTask[Pipe TaskListData](tl *TaskList[Pipe], name ...string) *Task[Pipe] 
 }
 
 // Sets the function that should run before the task.
-func (t *Task[Pipe]) ShouldRunBefore(fn TaskFn[Pipe]) *Task[Pipe] {
+func (t *Task) ShouldRunBefore(fn TaskFn) *Task {
 	t.shouldRunBeforeFn = fn
 
 	return t
 }
 
 // Sets the function that should run as task.
-func (t *Task[Pipe]) Set(fn TaskFn[Pipe]) *Task[Pipe] {
+func (t *Task) Set(fn TaskFn) *Task {
 	t.fn = fn
 
 	return t
 }
 
 // Sets the function that should run after the task.
-func (t *Task[Pipe]) ShouldRunAfter(fn TaskFn[Pipe]) *Task[Pipe] {
+func (t *Task) ShouldRunAfter(fn TaskFn) *Task {
 	t.shouldRunAfterFn = fn
 
 	return t
 }
 
 // Sets the predicate that should conditionally disable the task depending on the pipe variables.
-func (t *Task[Pipe]) ShouldDisable(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
+func (t *Task) ShouldDisable(fn TaskPredicateFn) *Task {
 	t.options.disablePredicateFn = fn
 
 	return t
 }
 
 // Checks whether the current task is disabled or not.
-func (t *Task[Pipe]) IsDisabled() bool {
+func (t *Task) IsDisabled() bool {
 	if t.options.disablePredicateFn == nil {
 		return false
 	}
@@ -128,14 +113,14 @@ func (t *Task[Pipe]) IsDisabled() bool {
 }
 
 // Sets the predicate that should conditionally skip the task depending on the pipe variables.
-func (t *Task[Pipe]) ShouldSkip(fn TaskPredicateFn[Pipe]) *Task[Pipe] {
+func (t *Task) ShouldSkip(fn TaskPredicateFn) *Task {
 	t.options.skipPredicateFn = fn
 
 	return t
 }
 
 // Checks whether the current task is skipped or not.
-func (t *Task[Pipe]) IsSkipped() bool {
+func (t *Task) IsSkipped() bool {
 	if t.options.skipPredicateFn == nil {
 		return false
 	}
@@ -144,7 +129,7 @@ func (t *Task[Pipe]) IsSkipped() bool {
 }
 
 // Enables global plumber terminator on this task.
-func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
+func (t *Task) EnableTerminator() *Task {
 	t.Log.Tracef("Registered terminator.")
 	t.Plumber.RegisterTerminator()
 
@@ -154,21 +139,21 @@ func (t *Task[Pipe]) EnableTerminator() *Task[Pipe] {
 }
 
 // Sets the function that should fire whenever the application is globally terminated.
-func (t *Task[Pipe]) SetOnTerminator(fn TaskFn[Pipe]) *Task[Pipe] {
+func (t *Task) SetOnTerminator(fn TaskFn) *Task {
 	t.onTerminatorFn = fn
 
 	return t
 }
 
 // Extend the job of the current task.
-func (t *Task[Pipe]) SetJobWrapper(fn TaskJobWrapperFn[Pipe]) *Task[Pipe] {
+func (t *Task) SetJobWrapper(fn TaskJobWrapperFn) *Task {
 	t.jobWrapperFn = fn
 
 	return t
 }
 
 // Runs the current task.
-func (t *Task[Pipe]) Run() error {
+func (t *Task) Run() error {
 	if stop := t.handleStopCases(); stop {
 		return nil
 	}
@@ -206,65 +191,50 @@ func (t *Task[Pipe]) Run() error {
 }
 
 // Runs the current task as a job.
-func (t *Task[Pipe]) Job() Job {
-	return t.TL.JobIfNot(
-		t.TL.Predicate(func(_ *TaskList[Pipe]) bool {
+func (t *Task) Job() Job {
+	return JobIfNot(
+		Predicate(func() bool {
 			return t.handleStopCases()
 		}),
-		t.TL.CreateJob(func(tl *TaskList[Pipe]) error {
+		CreateJob(func() error {
 			if t.jobWrapperFn != nil {
-				return tl.RunJobs(t.jobWrapperFn(
-					tl.CreateBasicJob(t.Run),
+				return t.Plumber.RunJobs(t.jobWrapperFn(
+					CreateBasicJob(t.Run),
 					t,
 				))
 			}
 
 			return t.Run()
 		}),
-		t.TL.CreateJob(func(_ *TaskList[Pipe]) error {
+		CreateJob(func() error {
 			return nil
 		}),
 	)
 }
 
 // Send the error message to plumber while running inside a routine.
-func (t *Task[Pipe]) SendError(err error) *Task[Pipe] {
-	t.Plumber.SendCustomError(t.Log, err)
+func (t *Task) SendError(err error) *Task {
+	t.Plumber.SendError(t.Log, err)
 
 	return t
 }
 
 // Send the fatal error message to plumber while running inside a routine.
-func (t *Task[Pipe]) SendFatal(err error) *Task[Pipe] {
-	t.Control.Cancel(err)
-	t.Plumber.SendCustomFatal(t.Log, err)
+func (t *Task) SendFatal(err error) *Task {
+	t.Plumber.SendFatal(t.Log, err)
 
 	return t
 }
 
 // Trigger the exit protocol of plumber.
-func (t *Task[Pipe]) SendExit(code int) *Task[Pipe] {
-	t.Control.Cancel(fmt.Sprintf("Will exit with code: %d", code))
+func (t *Task) SendExit(code int) *Task {
 	t.Plumber.SendExit(code)
 
 	return t
 }
 
-// Convert the task into task context.
-
-func (t *Task[Pipe]) ToCtx() *TaskCtx {
-	return &TaskCtx{
-		TL: t.TL.ToCtx(),
-
-		Plumber: t.Plumber,
-		Log:     t.Log,
-		Name:    t.Name,
-		Lock:    t.Lock,
-	}
-}
-
 // Handles the stop cases of the task.
-func (t *Task[Pipe]) handleStopCases() bool {
+func (t *Task) handleStopCases() bool {
 	if t.status.stopCases.handled {
 		return t.status.stopCases.result
 	}
@@ -290,14 +260,14 @@ func (t *Task[Pipe]) handleStopCases() bool {
 }
 
 // Handles the errors from the current task.
-func (t *Task[Pipe]) handleErrors(err error) error {
+func (t *Task) handleErrors(err error) error {
 	t.SendFatal(err)
 
 	return err
 }
 
 // Handles the plumber terminator when terminator is triggered.
-func (t *Task[Pipe]) handleTerminator() {
+func (t *Task) handleTerminator() {
 	if t.IsDisabled() || t.IsSkipped() {
 		t.Log.Traceln("Sending terminated directly because the task is already not available.")
 

@@ -4,11 +4,10 @@ import (
 	"embed"
 	"fmt"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 type parsedFlags = map[string][]*templateFlag
@@ -29,11 +28,13 @@ type templateFlag struct {
 	Required    bool
 	Default     string
 	Category    string
+	Multiple    bool
+	TakesValue  bool
 	Format      string
 }
 
 type markdownTemplateInput struct {
-	App         *cli.App
+	App         *cli.Command
 	GlobalFlags parsedFlags
 	Commands    []*templateCommand
 	Behead      int
@@ -164,18 +165,18 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*tem
 			Level:       level,
 		}
 
-		if p.options.documentation.ExcludeHelpCommand && parsed.Name == "help" {
-			continue
+		if !p.options.documentation.IncludeDefaultCommands && (command.Name == "help" || command.Name == "version") {
+			break
 		}
 
 		processed = append(processed, parsed)
 
 		p.Log.Debugf("Processed command: %+v", parsed)
 
-		if len(command.Subcommands) > 0 {
+		if len(command.Commands) > 0 {
 			processed = append(
 				processed,
-				p.generateDocCommands(command.Subcommands, level+1)...,
+				p.generateDocCommands(command.Commands, level+1)...,
 			)
 		}
 	}
@@ -200,7 +201,11 @@ func (p *Plumber) generateDocFlags(
 
 		names := []string{}
 		if !p.options.documentation.ExcludeFlags {
-			for _, s := range current.Names() {
+			for _, s := range f.Names() {
+				if !p.options.documentation.IncludeDefaultFlags && (s == "help" || s == "version") {
+					break
+				}
+
 				trimmed := strings.TrimSpace(s)
 
 				if len(trimmed) > 1 {
@@ -236,13 +241,16 @@ func (p *Plumber) generateDocFlags(
 		parsed := &templateFlag{
 			Name:        names,
 			Description: description,
-			Type:        strings.ReplaceAll(strings.ReplaceAll(reflect.TypeOf(f).String(), "*cli.", ""), "Flag", ""),
+			Type:        current.TypeName(),
 			Format:      format,
 			Default:     text,
 			//nolint: errcheck
 			Required: current.(cli.RequiredFlag).IsRequired(),
 			//nolint: errcheck
 			Category: current.(cli.CategorizableFlag).GetCategory(),
+			//nolint: errcheck
+			Multiple:   current.(cli.DocGenerationMultiValueFlag).IsMultiValueFlag(),
+			TakesValue: current.TakesValue(),
 		}
 
 		if len(parsed.Name) == 0 {

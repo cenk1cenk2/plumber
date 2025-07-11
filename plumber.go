@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,22 +10,29 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/creasty/defaults"
 	validator "github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
+	"github.com/workanator/go-floc/v3"
 	"gitlab.kilic.dev/libraries/go-broadcaster"
 	"gitlab.kilic.dev/libraries/go-utils/v2/logger"
 	"golang.org/x/exp/slices"
 )
 
 type Plumber struct {
-	Cli         *cli.App
+	Cli         *cli.Command
 	Log         *logrus.Logger
 	Environment AppEnvironment
 	Channel     AppChannel
 	Terminator
 	Validator *validator.Validate
+
+	context     context.Context
+	cancel      context.CancelFunc
+	flocControl floc.Control
+	flocContext floc.Context
 
 	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
@@ -44,7 +52,7 @@ type AppEnvironment struct {
 	CI    bool
 }
 
-type ErrorWithLogger struct {
+type PlumberError struct {
 	Log *logrus.Entry
 	Err error
 }
@@ -61,13 +69,9 @@ type Terminator struct {
 
 type AppChannel struct {
 	// to communicate the errors while not blocking
-	Err chan error
+	Err chan PlumberError
 	// to communicate the errors while not blocking
-	CustomErr chan ErrorWithLogger
-	// Fatal errors
-	Fatal chan error
-	// to communicate the errors while not blocking
-	CustomFatal chan ErrorWithLogger
+	Fatal chan PlumberError
 	// terminate channel
 	Interrupt chan os.Signal
 	// exit channel
@@ -80,7 +84,8 @@ type DocumentationOptions struct {
 	MarkdownBehead              int
 	ExcludeFlags                bool
 	ExcludeEnvironmentVariables bool
-	ExcludeHelpCommand          bool
+	IncludeDefaultCommands      bool
+	IncludeDefaultFlags         bool
 }
 
 type DeprecationNotice struct {
@@ -92,8 +97,9 @@ type DeprecationNotice struct {
 
 type (
 	PlumberOnTerminateFn func() error
-	PlumberNewFn         func(p *Plumber) *cli.App
+	PlumberNewFn         func(p *Plumber) *cli.Command
 	PlumberFn            func(p *Plumber) error
+	PlumberPredicate     func(p *Plumber) bool
 )
 
 const (
@@ -107,26 +113,14 @@ const (
 func NewPlumber(fn PlumberNewFn) *Plumber {
 	p := &Plumber{}
 
-	return p.New(fn)
-}
+	p.context, p.cancel = context.WithCancel(context.Background())
 
-// Creates a new plumber.
-func (p *Plumber) New(
-	fn PlumberNewFn,
-) *Plumber {
+	p.flocContext = floc.NewContext()
+	p.flocControl = floc.NewControl(p.flocContext)
+
 	p.Cli = fn(p)
 
-	// have to this here too, to catch cli errors, but it is singleton so not much harm
-	p.Log = logger.InitiateLogger(logrus.InfoLevel)
-	p.setupLogger(logrus.InfoLevel)
-
 	p.Cli.Before = p.setup(p.Cli.Before)
-
-	if p.Cli.Action == nil {
-		p.Cli.Action = p.defaultAction()
-
-		p.Log.Traceln("There was no action set so using the default one.")
-	}
 
 	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
 
@@ -134,19 +128,16 @@ func (p *Plumber) New(
 
 	// create error channels
 	p.Channel = AppChannel{
-		Err:         make(chan error),
-		CustomErr:   make(chan ErrorWithLogger),
-		Fatal:       make(chan error),
-		CustomFatal: make(chan ErrorWithLogger),
-		Interrupt:   make(chan os.Signal),
-		Exit:        broadcaster.NewBroadcaster[int](0),
+		Err:       make(chan PlumberError),
+		Fatal:     make(chan PlumberError),
+		Interrupt: make(chan os.Signal),
+		Exit:      broadcaster.NewBroadcaster[int](0),
 	}
 
 	p.Terminator = Terminator{
 		Enabled: false,
 	}
 
-	p.options.delimiter = ":"
 	p.options = PlumberOptions{
 		delimiter: ":",
 		timeout:   time.Second * 5,
@@ -161,7 +152,7 @@ func (p *Plumber) New(
 // Sets additional configuration fields.
 func (p *Plumber) Set(fn PlumberFn) *Plumber {
 	if err := fn(p); err != nil {
-		p.SendFatal(err)
+		p.SendFatal(nil, err)
 	}
 
 	return p
@@ -247,12 +238,6 @@ func (p *Plumber) SetFormatter(formatter *logger.Formatter) *Plumber {
 	return p
 }
 
-// Appends flags together.
-// @deprecated.
-func (p *Plumber) AppendFlags(flags ...[]cli.Flag) []cli.Flag {
-	return CombineFlags(flags...)
-}
-
 // Adds sensitive information so that the logger will not log out the given secrets.
 func (p *Plumber) AppendSecrets(secrets ...string) *Plumber {
 	p.secrets = append(p.secrets, secrets...)
@@ -260,48 +245,52 @@ func (p *Plumber) AppendSecrets(secrets ...string) *Plumber {
 	return p
 }
 
-// Sends an error through the channel.
-func (p *Plumber) SendError(err error) *Plumber {
-	p.Channel.Err <- err
-
-	return p
-}
-
 // Sends an error with its custom instance of logger through the channel.
-func (p *Plumber) SendCustomError(log *logrus.Entry, err error) *Plumber {
-	p.Channel.CustomErr <- ErrorWithLogger{
+func (p *Plumber) SendError(log *logrus.Entry, err error) *Plumber {
+	e := PlumberError{
 		Err: err,
 		Log: log,
 	}
 
-	return p
-}
+	if e.Log == nil {
+		e.Log = p.Log.WithFields(logrus.Fields{})
+	}
 
-// Sends an fatal error through the channel.
-func (p *Plumber) SendFatal(err error) *Plumber {
-	p.Channel.Fatal <- err
+	p.Channel.Err <- e
 
 	return p
 }
 
 // Sends an fatal error with its custom instance of logger through the channel.
-func (p *Plumber) SendCustomFatal(log *logrus.Entry, err error) *Plumber {
-	p.Channel.CustomFatal <- ErrorWithLogger{
+func (p *Plumber) SendFatal(log *logrus.Entry, err error) *Plumber {
+	p.flocControl.Cancel(err)
+
+	e := PlumberError{
 		Err: err,
 		Log: log,
 	}
+
+	if e.Log == nil {
+		e.Log = p.Log.WithFields(logrus.Fields{})
+	}
+
+	p.Channel.Fatal <- e
 
 	return p
 }
 
 // Sends exit code to terminate the application.
 func (p *Plumber) SendExit(code int) *Plumber {
+	p.flocControl.Cancel(fmt.Sprintf("Will exit with code: %d", code))
+
 	p.Log.WithFields(logrus.Fields{
 		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_exit,
 	}).Traceln(code)
 
 	p.Channel.Exit.Submit(code)
+
+	p.cancel()
 
 	return p
 }
@@ -365,7 +354,7 @@ func (p *Plumber) Terminate(code int) {
 				log.Warnf("Forcefully terminated since hooks did not finish in time: %d of %d", p.Terminator.terminated, p.Terminator.registered)
 
 				if p.onTerminateFn != nil {
-					p.SendError(p.onTerminateFn())
+					p.SendError(nil, p.onTerminateFn())
 					p.onTerminateFn = nil
 				}
 
@@ -379,7 +368,7 @@ func (p *Plumber) Terminate(code int) {
 	}
 
 	if p.onTerminateFn != nil {
-		p.SendError(p.onTerminateFn())
+		p.SendError(nil, p.onTerminateFn())
 		p.onTerminateFn = nil
 	}
 
@@ -389,7 +378,7 @@ func (p *Plumber) Terminate(code int) {
 // Registers a new component that should be handled by the terminator.
 func (p *Plumber) RegisterTerminator() *Plumber {
 	if !p.Terminator.Enabled {
-		p.SendFatal(fmt.Errorf("Plumber does not have the Terminator enabled."))
+		p.SendFatal(nil, fmt.Errorf("Plumber does not have the Terminator enabled."))
 
 		return p
 	}
@@ -403,7 +392,7 @@ func (p *Plumber) RegisterTerminator() *Plumber {
 
 func (p *Plumber) DeregisterTerminator() *Plumber {
 	if !p.Terminator.Enabled {
-		p.SendFatal(fmt.Errorf("Plumber does not have the Terminator enabled."))
+		p.SendFatal(nil, fmt.Errorf("Plumber does not have the Terminator enabled."))
 
 		return p
 	}
@@ -418,7 +407,7 @@ func (p *Plumber) DeregisterTerminator() *Plumber {
 // Register a component as successfully terminated.
 func (p *Plumber) RegisterTerminated() *Plumber {
 	if !p.Terminator.Enabled {
-		p.SendFatal(fmt.Errorf("Plumber does not have the Terminator enabled."))
+		p.SendFatal(nil, fmt.Errorf("Plumber does not have the Terminator enabled."))
 
 		return p
 	}
@@ -446,53 +435,92 @@ func (p *Plumber) RegisterTerminated() *Plumber {
 	return p
 }
 
-// Starts the application.
-func (p *Plumber) Run() {
-	p.Cli.Setup()
-
-	if p.options.greeter != nil {
-		if err := p.options.greeter(p); err != nil {
-			p.SendFatal(err)
-		}
+// Validates the current pipe of the task list.
+func (p *Plumber) Validate(data any) error {
+	if err := defaults.Set(data); err != nil {
+		return fmt.Errorf("Can not set defaults: %w", err)
 	}
 
-	p.registerHandlers()
+	err := p.Validator.Struct(data)
 
+	if err != nil {
+		//nolint:errcheck, errorlint
+		for _, err := range err.(validator.ValidationErrors) {
+			e := fmt.Sprintf(
+				`"%s" field failed validation: %s`,
+				err.Namespace(),
+				err.Tag(),
+			)
+
+			param := err.Param()
+			if param != "" {
+				e = fmt.Sprintf("%s > %s", e, param)
+			}
+
+			p.Log.Errorln(e)
+		}
+
+		return fmt.Errorf("Validation failed.")
+	}
+
+	return nil
+}
+
+// Runs a the provided job.
+func (p *Plumber) RunJobs(job Job) error {
+	if job == nil {
+		return nil
+	}
+
+	result, data, err := floc.RunWith(p.flocContext, p.flocControl, job)
+
+	if err != nil {
+		return err
+	}
+
+	return p.handleFloc(result, data)
+}
+
+// Handles output coming from floc.
+func (p *Plumber) handleFloc(_ floc.Result, _ interface{}) error {
+	return nil
+}
+
+// Starts the application.
+func (p *Plumber) Run() {
 	ch := make(chan int, 1)
 	p.Channel.Exit.Register(ch)
 
-	if slices.Contains(os.Args, "MARKDOWN_DOC") {
-		p.setupBasic()
+	if slices.Contains(os.Args, "MARKDOWN_DOC") ||
+		slices.Contains(os.Args, "MARKDOWN_EMBED") {
+		p.Cli.Flags = CliDefaultFlags
 
-		p.Log.Infoln("Only running the documentation generation without the CLI.")
+		p.Cli.Commands = []*cli.Command{
+			{
+				Name:            "MARKDOWN_DOC",
+				Hidden:          true,
+				SkipFlagParsing: true,
+				Action: func(_ context.Context, _ *cli.Command) error {
+					p.Log.Infoln("Only running the documentation generation without the CLI.")
 
-		if err := p.generateMarkdownDocumentation(); err != nil {
-			p.SendFatal(err)
+					return p.generateMarkdownDocumentation()
+				},
+			},
+			{
+				Name:            "MARKDOWN_EMBED",
+				Hidden:          true,
+				SkipFlagParsing: true,
+				Action: func(_ context.Context, _ *cli.Command) error {
+					p.Log.Infoln("Only running the documentation generation to embed to file without the CLI.")
 
-			for {
-				<-ch
-			}
+					return p.embedMarkdownDocumentation()
+				},
+			},
 		}
-
-		return
-	} else if slices.Contains(os.Args, "MARKDOWN_EMBED") {
-		p.setupBasic()
-
-		p.Log.Infoln("Only running the documentation generation to embed to file without the CLI.")
-
-		if err := p.embedMarkdownDocumentation(); err != nil {
-			p.SendFatal(err)
-
-			for {
-				<-ch
-			}
-		}
-
-		return
 	}
 
-	if err := p.Cli.Run(append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
-		p.SendFatal(err)
+	if err := p.Cli.Run(p.context, append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
+		p.SendFatal(nil, err)
 
 		for {
 			<-ch
@@ -562,8 +590,8 @@ func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
 }
 
 // Loads the given environment file to the application.
-func (p *Plumber) loadEnvironment(ctx *cli.Context) error {
-	if env := ctx.StringSlice("env-file"); len(env) != 0 {
+func (p *Plumber) loadEnvironment(command *cli.Command) error {
+	if env := command.StringSlice("env-file"); len(env) != 0 {
 		if err := godotenv.Load(env...); err != nil {
 			return err
 		}
@@ -580,64 +608,65 @@ func (p *Plumber) loadEnvironment(ctx *cli.Context) error {
 
 // Before function for the CLI that gets executed setup the action.
 func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
-	return func(ctx *cli.Context) error {
-		if err := p.loadEnvironment(ctx); err != nil {
-			return err
+	return func(ctx context.Context, command *cli.Command) (context.Context, error) {
+		if p.options.greeter != nil {
+			if err := p.options.greeter(p); err != nil {
+				return nil, err
+			}
 		}
 
-		level, err := logrus.ParseLevel(ctx.String("log-level"))
-
-		if err != nil {
-			level = logrus.InfoLevel
+		if err := p.setupLogger(command); err != nil {
+			return nil, err
 		}
 
-		if ctx.Bool("debug") {
-			level = logrus.DebugLevel
+		if err := p.registerHandlers(); err != nil {
+			return nil, err
 		}
 
-		p.setupLogger(level)
+		if err := p.loadEnvironment(command); err != nil {
+			return nil, err
+		}
 
 		log := p.Log.WithFields(logrus.Fields{
-			LOG_FIELD_CONTEXT: p.Cli.Name,
+			LOG_FIELD_CONTEXT: command.Name,
 			LOG_FIELD_STATUS:  log_status_plumber_setup,
 		})
 
-		if ctx.Bool("debug") || level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE {
-			log.Traceln("Running in debug mode.")
-
-			p.Environment.Debug = true
-		}
-
-		if ctx.Bool("ci") {
+		if command.Bool("ci") {
 			log.Traceln("Running inside CI.")
 
 			p.Environment.CI = true
 		}
 
 		if before != nil {
-			if err := before(ctx); err != nil {
-				return err
+			if ctx, err := before(ctx, command); err != nil {
+				return ctx, err
 			}
 		}
 
-		return p.deprecationNoticeHandler()
+		if err := p.deprecationNoticeHandler(); err != nil {
+			return ctx, err
+		}
+
+		return ctx, nil
 	}
 }
 
-// Setups the basic application to perform tasks outside of the CLI context.
-func (p *Plumber) setupBasic() {
-	level, err := logrus.ParseLevel(os.Getenv("LOG_LEVEL"))
+// Sets up logger for the application.
+//
+//nolint:unparam
+func (p *Plumber) setupLogger(command *cli.Command) error {
+	level, err := logrus.ParseLevel(command.String("log-level"))
 
 	if err != nil {
 		level = logrus.InfoLevel
 	}
 
-	p.setupLogger(level)
-}
+	if command.Bool("debug") {
+		level = logrus.DebugLevel
+	}
 
-// Sets up logger for the application.
-func (p *Plumber) setupLogger(level LogLevel) {
-	p.Log.Level = level
+	p.Log = logger.InitiateLogger(level)
 
 	p.SetFormatter(
 		&logger.Formatter{
@@ -658,22 +687,20 @@ func (p *Plumber) setupLogger(level LogLevel) {
 
 	p.Log.ExitFunc = p.Terminate
 
-	p.Log.WithFields(logrus.Fields{
+	log := p.Log.WithFields(logrus.Fields{
 		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_plumber_setup,
-	}).
-		Tracef("Logger has been setup with level: %d", level)
-}
+	})
 
-// When there is no action defined, it will show help.
-func (p *Plumber) defaultAction() cli.ActionFunc {
-	return func(ctx *cli.Context) error {
-		if err := cli.ShowAppHelp(ctx); err != nil {
-			return err
-		}
+	log.Tracef("Logger has been setup with level: %s", p.Log.GetLevel().String())
 
-		return fmt.Errorf("Application needs a subcommand to run.")
+	if command.Bool("debug") || level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE {
+		log.Traceln("Running in debug mode.")
+
+		p.Environment.Debug = true
 	}
+
+	return nil
 }
 
 // Registers the os.Signal listener for the application.
@@ -694,12 +721,12 @@ func (p *Plumber) registerInterruptHandler(registered chan string) {
 	p.SendTerminate(interrupt, 127)
 }
 
-func (p *Plumber) registerHandlers() {
+//nolint:unparam
+func (p *Plumber) registerHandlers() error {
 	registered := make(chan string, 4)
 	count := 0
 
 	go p.registerErrorHandler(registered)
-	go p.registerFatalErrorHandler(registered)
 	go p.registerInterruptHandler(registered)
 	go p.registerExitHandler(registered)
 
@@ -707,7 +734,7 @@ func (p *Plumber) registerHandlers() {
 		<-registered
 		count++
 
-		if count >= 4 {
+		if count >= 3 {
 			break
 		}
 	}
@@ -717,6 +744,8 @@ func (p *Plumber) registerHandlers() {
 		LOG_FIELD_STATUS:  log_status_plumber_setup,
 	}).Traceln("Registered handlers.")
 	close(registered)
+
+	return nil
 }
 
 // Registers the error handlers for the runtime errors, this will not terminate application.
@@ -726,42 +755,12 @@ func (p *Plumber) registerErrorHandler(registered chan string) {
 	for {
 		select {
 		case err := <-p.Channel.Err:
-			if err == nil {
-				continue
-			}
-
-			if p.Log == nil {
-				panic(err.Error())
-			}
-
-			p.Log.Errorln(err)
-		case err := <-p.Channel.CustomErr:
 			if err.Err == nil {
 				continue
 			}
 
 			err.Log.Errorln(err.Err)
-		}
-	}
-}
-
-// Registers the error handler for fatal errors, this will terminate the application.
-func (p *Plumber) registerFatalErrorHandler(registered chan string) {
-	registered <- "fatal-error-handler"
-
-	for {
-		select {
 		case err := <-p.Channel.Fatal:
-			if err == nil {
-				continue
-			}
-
-			if p.Log == nil {
-				panic(err.Error())
-			}
-
-			p.Log.Fatalln(err)
-		case err := <-p.Channel.CustomFatal:
 			if err.Err == nil {
 				continue
 			}
@@ -791,9 +790,7 @@ func (p *Plumber) registerExitHandler(registered chan string) {
 
 	close(p.Channel.Interrupt)
 	close(p.Channel.Err)
-	close(p.Channel.CustomErr)
 	close(p.Channel.Fatal)
-	close(p.Channel.CustomFatal)
 
 	os.Exit(code)
 }
@@ -802,9 +799,9 @@ func (p *Plumber) registerExitHandler(registered chan string) {
 func greeter(p *Plumber) error {
 	var version = p.Cli.Version
 
-	if version == "latest" || version == "" {
-		version = fmt.Sprintf("BUILD.%s", p.Cli.Compiled.UTC().Format("20060102Z1504"))
-	}
+	// if version == "latest" || version == "" {
+	// 	version = fmt.Sprintf("BUILD.%s", p.Cli.Compiled.UTC().Format("20060102Z1504"))
+	// }
 
 	name := fmt.Sprintf("%s - %s", p.Cli.Name, version)
 	//revive:disable:unhandled-error

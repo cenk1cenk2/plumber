@@ -5,11 +5,11 @@ import (
 )
 
 type (
-	SubtaskExtendFn[Pipe TaskListData] func(pt *Task[Pipe], st *Task[Pipe])
+	SubtaskExtendFn func(pt *Task, st *Task)
 )
 
 // Creates a subtask that is attached to the current task.
-func (t *Task[Pipe]) CreateSubtask(name ...string) *Task[Pipe] {
+func (t *Task) CreateSubtask(name ...string) *Task {
 	parsed := append([]string{t.Name}, name...)
 
 	st := NewTask(t.TL, parsed...)
@@ -21,12 +21,12 @@ func (t *Task[Pipe]) CreateSubtask(name ...string) *Task[Pipe] {
 }
 
 // Checks whether this task has a parent task.
-func (t *Task[Pipe]) HasParent() bool {
+func (t *Task) HasParent() bool {
 	return t.parent != nil
 }
 
 // Extends the subtask of the current task with a wrapper.
-func (t *Task[Pipe]) ExtendSubtask(fn JobFn) *Task[Pipe] {
+func (t *Task) ExtendSubtask(fn JobFn) *Task {
 	t.taskLock.Lock()
 	t.subtask = fn(t.subtask)
 	t.taskLock.Unlock()
@@ -35,10 +35,10 @@ func (t *Task[Pipe]) ExtendSubtask(fn JobFn) *Task[Pipe] {
 }
 
 // Attaches this task to a arbitatary given parent task.
-func (t *Task[Pipe]) ToParent(
-	parent *Task[Pipe],
-	fn SubtaskExtendFn[Pipe],
-) *Task[Pipe] {
+func (t *Task) ToParent(
+	parent *Task,
+	fn SubtaskExtendFn,
+) *Task {
 	t.parent.taskLock.Lock()
 
 	fn(parent, t)
@@ -49,9 +49,9 @@ func (t *Task[Pipe]) ToParent(
 }
 
 // Attaches this task to the parent task with a wrapper.
-func (t *Task[Pipe]) AddSelfToTheParent(
-	fn SubtaskExtendFn[Pipe],
-) *Task[Pipe] {
+func (t *Task) AddSelfToTheParent(
+	fn SubtaskExtendFn,
+) *Task {
 	if !t.HasParent() {
 		t.SendFatal(fmt.Errorf("Task has no parent value set."))
 
@@ -66,7 +66,7 @@ func (t *Task[Pipe]) AddSelfToTheParent(
 }
 
 // Attaches this task to the parent task in sequence.
-func (t *Task[Pipe]) AddSelfToTheParentAsSequence() *Task[Pipe] {
+func (t *Task) AddSelfToTheParentAsSequence() *Task {
 	if !t.HasParent() {
 		t.SendFatal(fmt.Errorf("Task has no parent value set."))
 
@@ -75,7 +75,7 @@ func (t *Task[Pipe]) AddSelfToTheParentAsSequence() *Task[Pipe] {
 
 	t.parent.Lock.Lock()
 	t.parent.ExtendSubtask(func(job Job) Job {
-		return t.TL.JobSequence(job, t.Job())
+		return JobSequence(job, t.Job())
 	})
 	t.parent.Lock.Unlock()
 
@@ -83,7 +83,7 @@ func (t *Task[Pipe]) AddSelfToTheParentAsSequence() *Task[Pipe] {
 }
 
 // Attaches this task to the parent task in parallel.
-func (t *Task[Pipe]) AddSelfToTheParentAsParallel() *Task[Pipe] {
+func (t *Task) AddSelfToTheParentAsParallel() *Task {
 	if !t.HasParent() {
 		t.SendFatal(fmt.Errorf("Task has no parent value set."))
 
@@ -92,7 +92,7 @@ func (t *Task[Pipe]) AddSelfToTheParentAsParallel() *Task[Pipe] {
 
 	t.parent.Lock.Lock()
 	t.parent.ExtendSubtask(func(job Job) Job {
-		return t.TL.JobParallel(job, t.Job())
+		return JobParallel(job, t.Job())
 	})
 	t.parent.Lock.Unlock()
 
@@ -100,12 +100,12 @@ func (t *Task[Pipe]) AddSelfToTheParentAsParallel() *Task[Pipe] {
 }
 
 // Returns the subtasks of this task.
-func (t *Task[Pipe]) GetSubtasks() Job {
+func (t *Task) GetSubtasks() Job {
 	return t.subtask
 }
 
 // Sets the subtask of this task directly.
-func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
+func (t *Task) SetSubtask(job Job) *Task {
 	if job == nil {
 		job = t.emptyJob
 	}
@@ -118,8 +118,8 @@ func (t *Task[Pipe]) SetSubtask(job Job) *Task[Pipe] {
 }
 
 // Runs the subtasks of the current task.
-func (t *Task[Pipe]) RunSubtasks() error {
-	err := t.TL.RunJobs(t.subtask)
+func (t *Task) RunSubtasks() error {
+	err := t.Plumber.RunJobs(t.subtask)
 
 	if err == nil {
 		t.SetSubtask(nil)
