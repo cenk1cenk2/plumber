@@ -1,3 +1,10 @@
+## [6.0.1](https://gitlab.kilic.dev/libraries/plumber/compare/v6.0.0...v6.0.1) (2025-07-11)
+
+
+### Bug Fixes
+
+* on debug mode automatically enable caller ([0b77238](https://gitlab.kilic.dev/libraries/plumber/commit/0b7723852ddf41610cf42b97f4f6eb17258eda6e))
+
 # [6.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v5.6.6...v6.0.0) (2025-07-11)
 
 
