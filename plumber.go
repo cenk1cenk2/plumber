@@ -784,7 +784,9 @@ func (p *Plumber) registerExitHandler(registered chan string) {
 	defer p.Channel.Exit.Close()
 
 	if p.Terminator.Enabled {
+		//nolint:errcheck
 		p.Terminator.ShouldTerminate.Close()
+		//nolint:errcheck
 		p.Terminator.Terminated.Close()
 	}
 
