@@ -666,24 +666,32 @@ func (p *Plumber) setupLogger(command *cli.Command) error {
 		level = logrus.DebugLevel
 	}
 
+	if command.Bool("debug") || level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE {
+		p.Environment.Debug = true
+	}
+
 	p.Log = logger.InitiateLogger(level)
 
-	p.SetFormatter(
-		&logger.Formatter{
-			FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
-			TimestampFormat:  "",
-			HideKeys:         true,
-			NoColors:         false,
-			NoFieldsColors:   false,
-			NoFieldsSpace:    false,
-			NoEmptyFields:    true,
-			ShowFullLevel:    false,
-			NoUppercaseLevel: false,
-			TrimMessages:     true,
-			CallerFirst:      false,
-			Secrets:          &p.secrets,
-		},
-	)
+	formatter := &logger.Formatter{
+		FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
+		TimestampFormat:  "",
+		HideKeys:         true,
+		NoColors:         false,
+		NoFieldsColors:   false,
+		NoFieldsSpace:    false,
+		NoEmptyFields:    true,
+		ShowFullLevel:    false,
+		NoUppercaseLevel: false,
+		TrimMessages:     true,
+		CallerFirst:      false,
+		Secrets:          &p.secrets,
+	}
+
+	if p.Environment.Debug {
+		formatter.CallerFirst = true
+	}
+
+	p.SetFormatter(formatter)
 
 	p.Log.ExitFunc = p.Terminate
 
@@ -694,10 +702,8 @@ func (p *Plumber) setupLogger(command *cli.Command) error {
 
 	log.Tracef("Logger has been setup with level: %s", p.Log.GetLevel().String())
 
-	if command.Bool("debug") || level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE {
+	if p.Environment.Debug {
 		log.Traceln("Running in debug mode.")
-
-		p.Environment.Debug = true
 	}
 
 	return nil
