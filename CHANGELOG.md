@@ -1,3 +1,10 @@
+## [6.1.1](https://gitlab.kilic.dev/libraries/plumber/compare/v6.1.0...v6.1.1) (2025-07-12)
+
+
+### Bug Fixes
+
+* update plumber configuration to not have nil pointers ([745e9aa](https://gitlab.kilic.dev/libraries/plumber/commit/745e9aa0e3d4ccd510a7c8014394757dcedf0e46))
+
 # [6.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.0.1...v6.1.0) (2025-07-12)
 
 
