@@ -1,3 +1,10 @@
+# [6.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.0.1...v6.1.0) (2025-07-12)
+
+
+### Features
+
+* skip flag parsing on documentation generate mode ([97a5cb8](https://gitlab.kilic.dev/libraries/plumber/commit/97a5cb804e6ab19f2d6535b76818d1fd98f348d1))
+
 ## [6.0.1](https://gitlab.kilic.dev/libraries/plumber/compare/v6.0.0...v6.0.1) (2025-07-11)
 
 
