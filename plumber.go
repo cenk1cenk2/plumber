@@ -493,31 +493,33 @@ func (p *Plumber) Run() {
 
 	if slices.Contains(os.Args, "MARKDOWN_DOC") ||
 		slices.Contains(os.Args, "MARKDOWN_EMBED") {
-		p.Cli.Flags = CliDefaultFlags
-
-		p.Cli.Commands = []*cli.Command{
-			{
-				Name:            "MARKDOWN_DOC",
-				Hidden:          true,
-				SkipFlagParsing: true,
-				Action: func(_ context.Context, _ *cli.Command) error {
-					p.Log.Infoln("Only running the documentation generation without the CLI.")
-
-					return p.generateMarkdownDocumentation()
-				},
-			},
-			{
-				Name:            "MARKDOWN_EMBED",
-				Hidden:          true,
-				SkipFlagParsing: true,
-				Action: func(_ context.Context, _ *cli.Command) error {
-					p.Log.Infoln("Only running the documentation generation to embed to file without the CLI.")
-
-					return p.embedMarkdownDocumentation()
-				},
-			},
-		}
+		p.Cli.SkipFlagParsing = true
 	}
+
+	p.Cli.Commands = append(
+		p.Cli.Commands,
+		&cli.Command{
+			Name:            "MARKDOWN_DOC",
+			Hidden:          true,
+			SkipFlagParsing: true,
+			Action: func(_ context.Context, _ *cli.Command) error {
+				p.Log.Infoln("Only running the documentation generation without the CLI.")
+
+				return p.generateMarkdownDocumentation()
+			},
+		},
+
+		&cli.Command{
+			Name:            "MARKDOWN_EMBED",
+			Hidden:          true,
+			SkipFlagParsing: true,
+			Action: func(_ context.Context, _ *cli.Command) error {
+				p.Log.Infoln("Only running the documentation generation to embed to file without the CLI.")
+
+				return p.embedMarkdownDocumentation()
+			},
+		},
+	)
 
 	if err := p.Cli.Run(p.context, append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
 		p.SendFatal(nil, err)
