@@ -120,18 +120,12 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 
 	p.Cli = fn(p)
 
-	p.Cli.Before = p.setup(p.Cli.Before)
-
-	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
-
-	p.Environment = AppEnvironment{}
-
 	// create error channels
 	p.Channel = AppChannel{
 		Err:       make(chan PlumberError),
 		Fatal:     make(chan PlumberError),
 		Interrupt: make(chan os.Signal),
-		Exit:      broadcaster.NewBroadcaster[int](0),
+		Exit:      broadcaster.NewBroadcaster[int](1),
 	}
 
 	p.Terminator = Terminator{
@@ -145,6 +139,33 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 	}
 
 	p.Validator = validator.New()
+
+	p.Cli.Before = p.setup(p.Cli.Before)
+
+	p.Cli.Flags = p.appendDefaultFlags(p.Cli.Flags)
+
+	p.Environment = AppEnvironment{}
+
+	// presetup logger to not have it nil in edge cases
+	p.Log = logger.InitiateLogger(logrus.InfoLevel)
+	// TODO: secrets in the formatter is a pointer and it is empty so it has to be fixed on the library
+	formatter := &logger.Formatter{
+		FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
+		TimestampFormat:  "",
+		HideKeys:         true,
+		NoColors:         false,
+		NoFieldsColors:   false,
+		NoFieldsSpace:    false,
+		NoEmptyFields:    true,
+		ShowFullLevel:    false,
+		NoUppercaseLevel: false,
+		TrimMessages:     true,
+		CallerFirst:      false,
+		Secrets:          &p.secrets,
+	}
+	p.SetFormatter(formatter)
+
+	p.registerHandlers()
 
 	return p
 }
@@ -521,6 +542,14 @@ func (p *Plumber) Run() {
 		},
 	)
 
+	if p.options.greeter != nil {
+		if err := p.options.greeter(p); err != nil {
+			p.SendFatal(nil, err)
+
+			return
+		}
+	}
+
 	if err := p.Cli.Run(p.context, append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
 		p.SendFatal(nil, err)
 
@@ -611,17 +640,7 @@ func (p *Plumber) loadEnvironment(command *cli.Command) error {
 // Before function for the CLI that gets executed setup the action.
 func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	return func(ctx context.Context, command *cli.Command) (context.Context, error) {
-		if p.options.greeter != nil {
-			if err := p.options.greeter(p); err != nil {
-				return nil, err
-			}
-		}
-
 		if err := p.setupLogger(command); err != nil {
-			return nil, err
-		}
-
-		if err := p.registerHandlers(); err != nil {
 			return nil, err
 		}
 
@@ -638,6 +657,10 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			log.Traceln("Running inside CI.")
 
 			p.Environment.CI = true
+		}
+
+		if command.Bool("debug") || p.Log.Level == LOG_LEVEL_DEBUG || p.Log.Level == LOG_LEVEL_TRACE {
+			p.Environment.Debug = true
 		}
 
 		if before != nil {
@@ -668,11 +691,8 @@ func (p *Plumber) setupLogger(command *cli.Command) error {
 		level = logrus.DebugLevel
 	}
 
-	if command.Bool("debug") || level == LOG_LEVEL_DEBUG || level == LOG_LEVEL_TRACE {
-		p.Environment.Debug = true
-	}
-
 	p.Log = logger.InitiateLogger(level)
+	p.Log.Level = level
 
 	formatter := &logger.Formatter{
 		FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
@@ -730,8 +750,8 @@ func (p *Plumber) registerInterruptHandler(registered chan string) {
 }
 
 //nolint:unparam
-func (p *Plumber) registerHandlers() error {
-	registered := make(chan string, 4)
+func (p *Plumber) registerHandlers() {
+	registered := make(chan string, 3)
 	count := 0
 
 	go p.registerErrorHandler(registered)
@@ -751,14 +771,13 @@ func (p *Plumber) registerHandlers() error {
 		LOG_FIELD_CONTEXT: p.Cli.Name,
 		LOG_FIELD_STATUS:  log_status_plumber_setup,
 	}).Traceln("Registered handlers.")
-	close(registered)
 
-	return nil
+	close(registered)
 }
 
 // Registers the error handlers for the runtime errors, this will not terminate application.
 func (p *Plumber) registerErrorHandler(registered chan string) {
-	registered <- "error-handler"
+	registered <- "error"
 
 	for {
 		select {
