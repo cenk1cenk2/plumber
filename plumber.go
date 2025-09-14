@@ -159,7 +159,7 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 		NoEmptyFields:    true,
 		ShowFullLevel:    false,
 		NoUppercaseLevel: false,
-		TrimMessages:     true,
+		TrimMessages:     false,
 		CallerFirst:      false,
 		Secrets:          &p.secrets,
 	}
@@ -704,7 +704,7 @@ func (p *Plumber) setupLogger(command *cli.Command) error {
 		NoEmptyFields:    true,
 		ShowFullLevel:    false,
 		NoUppercaseLevel: false,
-		TrimMessages:     true,
+		TrimMessages:     false,
 		CallerFirst:      false,
 		Secrets:          &p.secrets,
 	}
