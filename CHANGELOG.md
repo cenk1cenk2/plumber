@@ -1,3 +1,10 @@
+## [6.1.4](https://gitlab.kilic.dev/libraries/plumber/compare/v6.1.3...v6.1.4) (2025-09-14)
+
+
+### Bug Fixes
+
+* dont trim messages ([7cf1d4b](https://gitlab.kilic.dev/libraries/plumber/commit/7cf1d4bf0b4d7a271da044c3773ffa10ef9204d2))
+
 ## [6.1.3](https://gitlab.kilic.dev/libraries/plumber/compare/v6.1.2...v6.1.3) (2025-09-11)
 
 
