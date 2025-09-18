@@ -148,7 +148,6 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 
 	// presetup logger to not have it nil in edge cases
 	p.Log = logger.InitiateLogger(logrus.InfoLevel)
-	// TODO: secrets in the formatter is a pointer and it is empty so it has to be fixed on the library
 	formatter := &logger.Formatter{
 		FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
 		TimestampFormat:  "",
