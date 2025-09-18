@@ -66,5 +66,5 @@
 | Flag / Environment |  Description   |  Type    | Required | Default |
 |---------------- | --------------- | --------------- |  --------------- |  --------------- |
   {{- range $f := . }}
-| {{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ regexReplaceAll `\n` ($f.Description | trim) "<br />" }} | `{{ $f.Type }}{{ if $f.Multiple }}[]{{ end }}`{{ if $f.Format }}<br/>`{{ $f.Format | trim }}`{{ end }} | `{{ $f.Required }}` | {{ regexReplaceAll `\s\s\s\s` (regexReplaceAll `\n` $f.Default "<br />") "  " }} |{{- end }}
+| {{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br/>{{ end }}`{{ $name }}`{{ end }} | {{ regexReplaceAll `\n` ($f.Description | trim) "<br />" }} | `{{ $f.Type }}{{ if $f.Multiple }}[]{{ end }}`{{ if $f.Format }}<br/>`{{ $f.Format | trim }}`{{ end }} | `{{ $f.Required }}` | `{{ $f.Default | trim }}` |{{- end }}
 {{- end }}
