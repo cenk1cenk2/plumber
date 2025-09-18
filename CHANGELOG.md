@@ -1,3 +1,16 @@
+# [6.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.1.4...v6.2.0) (2025-09-18)
+
+
+### Bug Fixes
+
+* **deps:** update module gitlab.kilic.dev/libraries/go-utils/v2 to v2.2.0 ([66f8afa](https://gitlab.kilic.dev/libraries/plumber/commit/66f8afa80f40cacea9065bb227d0389eccb3fcfc))
+* update utils ([d52f47f](https://gitlab.kilic.dev/libraries/plumber/commit/d52f47fed5b3e848a1f5a2184da2bde7473ee7ad))
+
+
+### Features
+
+* split task list initiation and fix some common bugs ([dbf2b94](https://gitlab.kilic.dev/libraries/plumber/commit/dbf2b94fb43903c4f7b4815062e312fa1dfea761))
+
 ## [6.1.4](https://gitlab.kilic.dev/libraries/plumber/compare/v6.1.3...v6.1.4) (2025-09-14)
 
 
