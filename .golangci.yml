@@ -9,6 +9,9 @@ linters:
         source: ^//\s*go:generate\s
       - linters:
           - staticcheck
+        text: "ST1001:"
+      - linters:
+          - staticcheck
         text: "ST1005:"
       - linters:
           - staticcheck
@@ -17,6 +20,10 @@ linters:
           - errcheck
         source: \s*defer\s+
 formatters:
+  enable:
+    - gofmt
+    - goimports
+    - golines
   settings:
     golines:
       max-len: 180

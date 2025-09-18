@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/workanator/go-floc/v3"
 	"gitlab.kilic.dev/libraries/go-utils/v2/utils"
 )
 
@@ -25,7 +24,6 @@ type Task struct {
 	commands          []*Command
 	parent            *Task
 	subtask           Job
-	emptyJob          Job
 	fn                TaskFn
 	shouldRunBeforeFn TaskFn
 	shouldRunAfterFn  TaskFn
@@ -63,14 +61,7 @@ func NewTask(tl *TaskList, name ...string) *Task {
 
 	t.Log = tl.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
 
-	t.emptyJob = JobIf(Predicate(func() bool {
-		return false
-	}),
-		func(_ floc.Context, _ floc.Control) error {
-			return nil
-		},
-	)
-	t.subtask = t.emptyJob
+	t.subtask = CreateEmptyJob()
 
 	return t
 }

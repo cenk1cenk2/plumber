@@ -158,8 +158,8 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 		NoEmptyFields:    true,
 		ShowFullLevel:    false,
 		NoUppercaseLevel: false,
-		TrimMessages:     false,
-		CallerFirst:      false,
+		TrimMessages:     true,
+		CallerFirst:      true,
 		Secrets:          &p.secrets,
 	}
 	p.SetFormatter(formatter)
@@ -511,6 +511,10 @@ func (p *Plumber) Run() {
 	ch := make(chan int, 1)
 	p.Channel.Exit.Register(ch)
 
+	if err := p.loadEnvironment(); err != nil {
+		p.SendFatal(nil, err)
+	}
+
 	if slices.Contains(os.Args, "MARKDOWN_DOC") ||
 		slices.Contains(os.Args, "MARKDOWN_EMBED") {
 		p.Cli.SkipFlagParsing = true
@@ -620,17 +624,19 @@ func (p *Plumber) appendDefaultFlags(flags []cli.Flag) []cli.Flag {
 }
 
 // Loads the given environment file to the application.
-func (p *Plumber) loadEnvironment(command *cli.Command) error {
-	if env := command.StringSlice("env-file"); len(env) != 0 {
+func (p *Plumber) loadEnvironment() error {
+	if v, exists := os.LookupEnv("ENV_FILE"); exists {
+		env := strings.Split(v, ",")
 		if err := godotenv.Load(env...); err != nil {
-			return err
+			return fmt.Errorf("Can not load environment files: %w", err)
 		}
 
-		p.Log.WithFields(logrus.Fields{
-			LOG_FIELD_CONTEXT: p.Cli.Name,
-			LOG_FIELD_STATUS:  log_status_plumber_environment,
-		}).
-			Tracef("Environment files are loaded: %v", env)
+		// no need to long since we do this too early before logger level is properly set
+		// p.Log.WithFields(logrus.Fields{
+		// 	LOG_FIELD_CONTEXT: p.Cli.Name,
+		// 	LOG_FIELD_STATUS:  log_status_plumber_environment,
+		// }).
+		// 	Tracef("Environment files are loaded: %v", env)
 	}
 
 	return nil
@@ -639,11 +645,11 @@ func (p *Plumber) loadEnvironment(command *cli.Command) error {
 // Before function for the CLI that gets executed setup the action.
 func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	return func(ctx context.Context, command *cli.Command) (context.Context, error) {
-		if err := p.setupLogger(command); err != nil {
-			return nil, err
+		if command.Bool("debug") || p.Log.Level == LOG_LEVEL_DEBUG || p.Log.Level == LOG_LEVEL_TRACE {
+			p.Environment.Debug = true
 		}
 
-		if err := p.loadEnvironment(command); err != nil {
+		if err := p.setupLogger(command); err != nil {
 			return nil, err
 		}
 
@@ -656,10 +662,6 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			log.Traceln("Running inside CI.")
 
 			p.Environment.CI = true
-		}
-
-		if command.Bool("debug") || p.Log.Level == LOG_LEVEL_DEBUG || p.Log.Level == LOG_LEVEL_TRACE {
-			p.Environment.Debug = true
 		}
 
 		if before != nil {
@@ -690,29 +692,11 @@ func (p *Plumber) setupLogger(command *cli.Command) error {
 		level = logrus.DebugLevel
 	}
 
-	p.Log = logger.InitiateLogger(level)
-	p.Log.Level = level
-
-	formatter := &logger.Formatter{
-		FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
-		TimestampFormat:  "",
-		HideKeys:         true,
-		NoColors:         false,
-		NoFieldsColors:   false,
-		NoFieldsSpace:    false,
-		NoEmptyFields:    true,
-		ShowFullLevel:    false,
-		NoUppercaseLevel: false,
-		TrimMessages:     false,
-		CallerFirst:      false,
-		Secrets:          &p.secrets,
-	}
+	p.Log.SetLevel(level)
 
 	if p.Environment.Debug {
-		formatter.CallerFirst = true
+		p.Log.SetReportCaller(true)
 	}
-
-	p.SetFormatter(formatter)
 
 	p.Log.ExitFunc = p.Terminate
 

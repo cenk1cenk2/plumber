@@ -107,7 +107,7 @@ func (t *Task) GetSubtasks() Job {
 // Sets the subtask of this task directly.
 func (t *Task) SetSubtask(job Job) *Task {
 	if job == nil {
-		job = t.emptyJob
+		job = CreateEmptyJob()
 	}
 
 	t.taskLock.Lock()

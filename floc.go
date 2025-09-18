@@ -78,6 +78,17 @@ func CreateBasicJob(fn func() error) Job {
 	}
 }
 
+func CreateEmptyJob() Job {
+	return JobIf(
+		Predicate(func() bool {
+			return false
+		}),
+		func(_ floc.Context, _ floc.Control) error {
+			return nil
+		},
+	)
+}
+
 /*
 JobLoop repeats running the job forever.
 

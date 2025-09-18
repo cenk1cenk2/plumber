@@ -136,6 +136,27 @@ func (p *TaskList) SetRuntimeDepth(depth int) *TaskList {
 	return p
 }
 
+func (p *TaskList) RunBefore() error {
+	if stop := p.handleStopCases(); stop {
+		return nil
+	}
+
+	started := time.Now()
+
+	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunBefore: %s", p.Name)
+
+	if p.shouldRunBeforeFn != nil {
+		if err := p.shouldRunBeforeFn(p); err != nil {
+			return err
+		}
+	}
+
+	p.Log.WithField(LOG_FIELD_STATUS, log_status_end).
+		Tracef("ShouldRunBefore: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
+
+	return nil
+}
+
 // Runs the current task list.
 func (p *TaskList) Run() error {
 	if stop := p.handleStopCases(); stop {
@@ -144,13 +165,7 @@ func (p *TaskList) Run() error {
 
 	started := time.Now()
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln(p.Name)
-
-	if p.shouldRunBeforeFn != nil {
-		if err := p.shouldRunBeforeFn(p); err != nil {
-			return err
-		}
-	}
+	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("Run: %s", p.Name)
 
 	result, data, err := floc.RunWith(p.Plumber.flocContext, p.Plumber.flocControl, p.fn(p))
 
@@ -162,6 +177,21 @@ func (p *TaskList) Run() error {
 		return err
 	}
 
+	p.Log.WithField(LOG_FIELD_STATUS, log_status_end).
+		Tracef("Run: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
+
+	return nil
+}
+
+func (p *TaskList) RunAfter() error {
+	if stop := p.handleStopCases(); stop {
+		return nil
+	}
+
+	started := time.Now()
+
+	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunAfter: %s", p.Name)
+
 	if p.shouldRunAfterFn != nil {
 		if err := p.shouldRunAfterFn(p); err != nil {
 			return err
@@ -169,15 +199,27 @@ func (p *TaskList) Run() error {
 	}
 
 	p.Log.WithField(LOG_FIELD_STATUS, log_status_end).
-		Tracef("%s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
+		Tracef("ShouldRunAfter: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
 
 	return nil
+}
+
+func (p *TaskList) JobBefore() Job {
+	return func(_ floc.Context, _ floc.Control) error {
+		return p.RunBefore()
+	}
 }
 
 // Returns this task list as a job.
 func (p *TaskList) Job() Job {
 	return func(_ floc.Context, _ floc.Control) error {
 		return p.Run()
+	}
+}
+
+func (p *TaskList) JobAfter() Job {
+	return func(_ floc.Context, _ floc.Control) error {
+		return p.RunAfter()
 	}
 }
 
@@ -226,4 +268,22 @@ func (p *TaskList) setupLogger() {
 		p.Log = p.Plumber.Log.WithField(LOG_FIELD_CONTEXT, "TL")
 		p.Log.Tracef("Runtime caller has failed using default: %s", file)
 	}
+}
+
+func CombineTaskLists(tls ...*TaskList) Job {
+	before := []Job{}
+	job := []Job{}
+	after := []Job{}
+
+	for _, tl := range tls {
+		before = append(before, GuardResume(tl.JobBefore(), TASK_CANCELLED))
+		job = append(job, tl.Job())
+		after = append(after, GuardResume(tl.JobAfter(), TASK_CANCELLED))
+	}
+
+	return JobSequence(
+		JobParallel(before...),
+		JobSequence(job...),
+		JobParallel(after...),
+	)
 }
