@@ -1,3 +1,10 @@
+## [6.2.1](https://gitlab.kilic.dev/libraries/plumber/compare/v6.2.0...v6.2.1) (2025-09-18)
+
+
+### Bug Fixes
+
+* update documentation templates ([36a57af](https://gitlab.kilic.dev/libraries/plumber/commit/36a57afd2c0d4567c5234e65945402eb5862776c))
+
 # [6.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.1.4...v6.2.0) (2025-09-18)
 
 
