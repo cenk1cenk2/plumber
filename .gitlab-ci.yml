@@ -5,7 +5,7 @@ stages:
   - publish
 
 variables:
-  GO_VERSION: 1.24-alpine
+  GO_VERSION: 1.25-alpine
   TASK_X_REMOTE_TASKFILES: 1
   GO_COMMAND_RUNNER: task --yes
 
