@@ -224,7 +224,7 @@ func (p *Plumber) generateDocFlags(
 
 		description := current.GetUsage()
 
-		re := regexp.MustCompile(`(?s)((format|json|Template|RegExp|enum|multiple)\(.*\))`)
+		re := regexp.MustCompile(`(?s)((format|json|yaml|Template|RegExp|enum|multiple)\(.*\))`)
 
 		format := re.FindString(description)
 
@@ -233,7 +233,7 @@ func (p *Plumber) generateDocFlags(
 		text := current.GetValue()
 
 		if b, ok := current.(*cli.BoolFlag); text == "" && ok {
-			text = fmt.Sprintf("%v", b.Value)
+			text = fmt.Sprintf("%+v", b.Value)
 		} else if text == "" {
 			text = current.GetDefaultText()
 		}
