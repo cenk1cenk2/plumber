@@ -2,12 +2,12 @@ package plumber
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.kilic.dev/libraries/go-utils/v2/utils"
 )
 
 type Task struct {
@@ -51,7 +51,12 @@ type (
 // NewTask Creates a new task to be run as a job.
 func NewTask(tl *TaskList, name ...string) *Task {
 	t := &Task{
-		Name:     strings.Join(utils.DeleteEmptyStringsFromSlice(name), tl.Plumber.options.delimiter),
+		Name: strings.Join(
+			slices.DeleteFunc(name, func(v string) bool {
+				return v == ""
+			}),
+			tl.Plumber.options.delimiter,
+		),
 		TL:       tl,
 		Plumber:  tl.Plumber,
 		Lock:     tl.Lock,

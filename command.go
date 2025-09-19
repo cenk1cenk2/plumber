@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.kilic.dev/libraries/go-utils/v2/utils"
 )
 
 type Command struct {
@@ -191,11 +191,10 @@ func (c *Command) SetStdin(fn CommandStdinFn) *Command {
 
 // Appends arguments to the command.
 func (c *Command) AppendArgs(args ...string) *Command {
-	for _, a := range args {
-		c.Command.Args = append(
-			c.Command.Args,
-			utils.DeleteEmptyStringsFromSlice(strings.Split(a, " "))...)
-	}
+	c.Command.Args = append(
+		c.Command.Args,
+		args...,
+	)
 
 	return c
 }
@@ -376,7 +375,9 @@ func (c *Command) Run() error {
 		}
 	}
 
-	c.Command.Args = utils.DeleteEmptyStringsFromSlice(c.Command.Args)
+	c.Command.Args = slices.DeleteFunc(c.Command.Args, func(arg string) bool {
+		return arg == ""
+	})
 
 	if !c.options.maskOsEnvironment {
 		c.Command.Env = append(c.Command.Env, os.Environ()...)
