@@ -128,3 +128,14 @@ func CombineFlags(flags ...[]cli.Flag) []cli.Flag {
 
 	return f
 }
+
+// Combine arguments together.
+func CombineArguments(arguments ...[]cli.Argument) []cli.Argument {
+	a := []cli.Argument{}
+
+	for _, v := range arguments {
+		a = append(a, v...)
+	}
+
+	return a
+}
