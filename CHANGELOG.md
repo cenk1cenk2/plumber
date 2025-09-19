@@ -1,3 +1,10 @@
+# [6.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.2.2...v6.3.0) (2025-09-19)
+
+
+### Features
+
+* dont break arguments ([6c9aa97](https://gitlab.kilic.dev/libraries/plumber/commit/6c9aa97b21eec28cbc3b137d97b8a841928c3ee0))
+
 ## [6.2.2](https://gitlab.kilic.dev/libraries/plumber/compare/v6.2.1...v6.2.2) (2025-09-18)
 
 
