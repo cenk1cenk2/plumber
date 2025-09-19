@@ -1,3 +1,10 @@
+## [6.3.1](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.0...v6.3.1) (2025-09-19)
+
+
+### Bug Fixes
+
+* add option to combine arguments ([34c3ee1](https://gitlab.kilic.dev/libraries/plumber/commit/34c3ee1cb64bd2ec0df1970932eb0f092d749ca7))
+
 # [6.3.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.2.2...v6.3.0) (2025-09-19)
 
 
