@@ -4,9 +4,6 @@ stages:
   - build
   - publish
 
-variables:
-  GO_VERSION: 1.25-alpine
-
 include:
   - project: devops/pipelines
     ref: go@1.3.0
@@ -14,6 +11,8 @@ include:
       - /go/install.gitlab-ci.yml
       - /go/lint.gitlab-ci.yml
       - /go/build.gitlab-ci.yml
+    inputs:
+      version: 1.25-alpine
   - project: devops/pipelines
     ref: semantic-release@1.5.0
     file:
