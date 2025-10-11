@@ -1,3 +1,10 @@
+## [6.3.3](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.2...v6.3.3) (2025-10-11)
+
+
+### Bug Fixes
+
+* **deps:** update go all minor dependency updates ([8ddd411](https://gitlab.kilic.dev/libraries/plumber/commit/8ddd4113c725124b2aecef4f10511b364679c594))
+
 ## [6.3.2](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.1...v6.3.2) (2025-10-11)
 
 
