@@ -1,3 +1,11 @@
+## [6.3.4](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.3...v6.3.4) (2025-10-21)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 90e834f ([8a925fb](https://gitlab.kilic.dev/libraries/plumber/commit/8a925fb268456e9abc27fe67d899f43a8725bb8d))
+* **deps:** update module github.com/urfave/cli/v3 to v3.5.0 ([1388dab](https://gitlab.kilic.dev/libraries/plumber/commit/1388dabc49e9826fc80098e1e9e68d32c0220f90))
+
 ## [6.3.3](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.2...v6.3.3) (2025-10-11)
 
 
