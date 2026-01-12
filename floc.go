@@ -109,12 +109,10 @@ func JobLoop(job Job) Job {
 }
 
 func JobLoopWithWaitAfter(job Job, delay time.Duration) Job {
-	return run.Loop(
-		run.Sequence(
+	return JobLoop(
+		JobSequence(
 			job,
-			run.Delay(delay, CreateBasicJob(func() error {
-				return nil
-			})),
+			JobDelay(CreateEmptyJob(), delay),
 		),
 	)
 }
