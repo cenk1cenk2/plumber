@@ -1,3 +1,10 @@
+## [6.3.14](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.13...v6.3.14) (2026-01-12)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 716be56 ([9801d06](https://gitlab.kilic.dev/libraries/plumber/commit/9801d0643b55526f854b5e0ff029f7959603469f))
+
 ## [6.3.13](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.12...v6.3.13) (2025-12-24)
 
 
