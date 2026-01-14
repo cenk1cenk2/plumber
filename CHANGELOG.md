@@ -1,3 +1,10 @@
+## [6.3.15](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.14...v6.3.15) (2026-01-14)
+
+
+### Bug Fixes
+
+* update delay ([a333d4d](https://gitlab.kilic.dev/libraries/plumber/commit/a333d4d8176b2d663f011eac3144f85c0779bfed))
+
 ## [6.3.14](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.13...v6.3.14) (2026-01-12)
 
 
