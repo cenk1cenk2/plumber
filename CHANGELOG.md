@@ -1,3 +1,10 @@
+## [6.3.16](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.15...v6.3.16) (2026-01-15)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/sirupsen/logrus to v1.9.4 ([8c82aa0](https://gitlab.kilic.dev/libraries/plumber/commit/8c82aa0cf53eb2469aed0f2a5e6a9449c215b524))
+
 ## [6.3.15](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.14...v6.3.15) (2026-01-14)
 
 
