@@ -1,3 +1,10 @@
+## [6.3.17](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.16...v6.3.17) (2026-01-16)
+
+
+### Bug Fixes
+
+* **deps:** update module gitlab.kilic.dev/libraries/go-utils/v2 to v2.2.4 ([012916b](https://gitlab.kilic.dev/libraries/plumber/commit/012916b2219fc0cec4f55ed6be9f5ae2aa469249))
+
 ## [6.3.16](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.15...v6.3.16) (2026-01-15)
 
 
