@@ -1,3 +1,10 @@
+## [6.3.22](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.21...v6.3.22) (2026-02-18)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/exp digest to 3dfff04 ([832adf9](https://gitlab.kilic.dev/libraries/plumber/commit/832adf959365403bf2d5f22d15345d968f75230a))
+
 ## [6.3.21](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.20...v6.3.21) (2026-02-12)
 
 
