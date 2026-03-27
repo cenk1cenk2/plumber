@@ -1,3 +1,10 @@
+## [6.3.25](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.24...v6.3.25) (2026-03-27)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/urfave/cli/v3 to v3.8.0 ([19f4612](https://gitlab.kilic.dev/libraries/plumber/commit/19f4612672290b813e389335658e90b58c65db4b))
+
 ## [6.3.24](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.23...v6.3.24) (2026-03-12)
 
 
