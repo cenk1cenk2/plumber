@@ -1,3 +1,10 @@
+## [6.3.26](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.25...v6.3.26) (2026-04-05)
+
+
+### Bug Fixes
+
+* embed the libraries ([668589c](https://gitlab.kilic.dev/libraries/plumber/commit/668589cfe7f268ec8a20dd456fdc684fac2b4bd1))
+
 ## [6.3.25](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.24...v6.3.25) (2026-03-27)
 
 
