@@ -10,14 +10,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cenk1cenk2/plumber/v6/broadcaster"
+	"github.com/cenk1cenk2/plumber/v6/logger"
 	"github.com/creasty/defaults"
 	validator "github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 	"github.com/workanator/go-floc/v3"
-	"gitlab.kilic.dev/libraries/go-broadcaster"
-	"gitlab.kilic.dev/libraries/go-utils/v2/logger"
 	"golang.org/x/exp/slices"
 )
 
