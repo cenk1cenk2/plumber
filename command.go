@@ -494,6 +494,7 @@ func (c *Command) pipe() error {
 			c.Command.Process = process
 		},
 	})
+	c.Command.Process = nil
 	c.status.result = result
 	c.status.resultSet = result.Started || result.ProcessState != nil
 	c.Command.ProcessState = result.ProcessState

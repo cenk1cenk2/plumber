@@ -1,6 +1,7 @@
 package plumber_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,16 @@ import (
 
 type commandRunnerScope struct {
 	configure func(*plumber.Plumber, *plumber.TaskList, *plumber.Task, *plumbertests.TestingCommandRunner)
+}
+
+type commandRunnerFunc func(context.Context, plumber.CommandInvocation, plumber.CommandRuntime) (plumber.CommandResult, error)
+
+func (f commandRunnerFunc) Run(
+	ctx context.Context,
+	invocation plumber.CommandInvocation,
+	runtime plumber.CommandRuntime,
+) (plumber.CommandResult, error) {
+	return f(ctx, invocation, runtime)
 }
 
 var _ = Describe("command runners", func() {
@@ -176,6 +187,25 @@ var _ = Describe("command runners", func() {
 	})
 
 	Context("result handling", func() {
+		It("should clear tracked processes after the runner returns", func() {
+			process, err := os.FindProcess(os.Getpid())
+			Expect(err).ToNot(HaveOccurred())
+			runner := commandRunnerFunc(func(
+				_ context.Context,
+				_ plumber.CommandInvocation,
+				runtime plumber.CommandRuntime,
+			) (plumber.CommandResult, error) {
+				runtime.SetProcess(process)
+
+				return plumbertests.TestingCommandSuccess(), nil
+			})
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock")
+
+			Expect(command.RunWith(runner)).To(Succeed())
+			Expect(command.Command.Process).To(BeNil())
+		})
+
 		It("should convert failed command results into retryable errors", func() {
 			result := plumbertests.TestingCommandFailure(9)
 			runner := plumbertests.NewTestingCommandRunner().
