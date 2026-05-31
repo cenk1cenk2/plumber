@@ -384,8 +384,7 @@ func (c *Command) Run() error {
 	}
 
 	c.Log.WithField(LOG_FIELD_STATUS, log_status_run).
-		//nolint: govet
-		Logf(c.lifetimeLevel, c.GetFormattedCommand())
+		Log(c.lifetimeLevel, c.GetFormattedCommand())
 
 	if c.shouldRunBeforeFn != nil {
 		if err := c.shouldRunBeforeFn(c); err != nil {
@@ -407,8 +406,7 @@ func (c *Command) Run() error {
 	}
 
 	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).
-		//nolint: govet
-		Logf(c.lifetimeLevel, fmt.Sprintf("%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String()))
+		Logf(c.lifetimeLevel, "%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String())
 
 	return nil
 }

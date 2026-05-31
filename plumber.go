@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -18,7 +19,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 	"github.com/workanator/go-floc/v3"
-	"golang.org/x/exp/slices"
 )
 
 type Plumber struct {
