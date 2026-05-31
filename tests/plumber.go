@@ -47,7 +47,7 @@ func UseGinkgoLogger(app *plumber.Plumber) *plumber.Plumber {
 	GinkgoHelper()
 
 	app.Log.SetOutput(GinkgoWriter)
-	app.Log.SetLevel(logrus.DebugLevel)
+	app.Log.SetLevel(logrus.TraceLevel)
 	app.Log.SetReportCaller(false)
 
 	return app

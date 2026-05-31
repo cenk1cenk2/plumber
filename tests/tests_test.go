@@ -13,14 +13,14 @@ import (
 )
 
 var _ = Describe("test helpers", func() {
-	It("should create a plumber fixture with ginkgo debug logging", func() {
+	It("should create a plumber fixture with ginkgo trace logging", func() {
 		fixture := plumbertests.NewPlumber()
 
 		fixture.Plumber.Log.Info("hello")
 
 		Expect(fixture.Plumber.Cli.Name).To(Equal("plumber-test"))
 		Expect(fixture.Plumber.Log.Out).To(Equal(GinkgoWriter))
-		Expect(fixture.Plumber.Log.GetLevel()).To(Equal(logrus.DebugLevel))
+		Expect(fixture.Plumber.Log.GetLevel()).To(Equal(logrus.TraceLevel))
 	})
 
 	It("should set process arguments for the current spec", func() {
