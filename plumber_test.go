@@ -69,44 +69,72 @@ var _ = Describe("plumber", func() {
 			Name string `validate:"required"`
 		}
 
-		It("should apply defaults before validating data", func() {
-			fixture := plumbertests.NewPlumber()
-			config := &defaultedConfig{}
+		type validationCase struct {
+			build  func() any
+			assert func(error, any)
+		}
 
-			Expect(fixture.Plumber.Validate(config)).To(Succeed())
-			Expect(config.Name).To(Equal("worker"))
-		})
+		DescribeTable("should validate data",
+			func(tc validationCase) {
+				fixture := plumbertests.NewPlumber()
+				config := tc.build()
 
-		It("should return the current validation error message", func() {
-			fixture := plumbertests.NewPlumber()
-
-			Expect(fixture.Plumber.Validate(&invalidConfig{})).To(MatchError("Validation failed."))
-		})
+				tc.assert(fixture.Plumber.Validate(config), config)
+			},
+			Entry("apply defaults before validating", validationCase{
+				build: func() any {
+					return &defaultedConfig{}
+				},
+				assert: func(err error, config any) {
+					Expect(err).ToNot(HaveOccurred())
+					Expect(config.(*defaultedConfig).Name).To(Equal("worker"))
+				},
+			}),
+			Entry("return the current validation error message", validationCase{
+				build: func() any {
+					return &invalidConfig{}
+				},
+				assert: func(err error, _ any) {
+					Expect(err).To(MatchError("Validation failed."))
+				},
+			}),
+		)
 	})
 
 	Describe("templates", func() {
-		It("should execute slim sprig and custom template functions", func() {
-			result, err := plumber.InlineTemplate(
-				`{{ .Name | upper }} {{ shout .Suffix }}`,
-				map[string]string{
+		type inlineTemplateCase struct {
+			template string
+			ctx      any
+			funcs    []template.FuncMap
+			expected string
+		}
+
+		DescribeTable("should execute inline templates",
+			func(tc inlineTemplateCase) {
+				result, err := plumber.InlineTemplate(tc.template, tc.ctx, tc.funcs...)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(tc.expected))
+			},
+			Entry("slim sprig and custom template functions", inlineTemplateCase{
+				template: `{{ .Name | upper }} {{ shout .Suffix }}`,
+				ctx: map[string]string{
 					"Name":   "plumber",
 					"Suffix": "tests",
 				},
-				template.FuncMap{
-					"shout": strings.ToUpper,
+				funcs: []template.FuncMap{
+					{
+						"shout": strings.ToUpper,
+					},
 				},
-			)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal("PLUMBER TESTS"))
-		})
-
-		It("should return an empty string for empty templates", func() {
-			result, err := plumber.InlineTemplate("", map[string]string{})
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(BeEmpty())
-		})
+				expected: "PLUMBER TESTS",
+			}),
+			Entry("empty templates", inlineTemplateCase{
+				template: "",
+				ctx:      map[string]string{},
+				expected: "",
+			}),
+		)
 
 		It("should collect template errors while returning successful results", func() {
 			results, err := plumber.InlineTemplates([]string{
@@ -289,23 +317,31 @@ var _ = Describe("plumber", func() {
 	})
 
 	Describe("commands", func() {
-		var task *plumber.Task
-		var runner *plumbertests.TestingCommandRunner
+		newTask := func() *plumber.Task {
+			GinkgoHelper()
 
-		BeforeEach(func() {
 			fixture := plumbertests.NewPlumber()
-			runner = plumbertests.NewTestingCommandRunner()
+
+			return fixture.NewTaskList("commands").CreateTask("command")
+		}
+		newTaskWithRunner := func() (*plumber.Task, *plumbertests.TestingCommandRunner) {
+			GinkgoHelper()
+
+			fixture := plumbertests.NewPlumber()
+			runner := plumbertests.NewTestingCommandRunner()
 			fixture.Plumber.SetCommandRunner(runner.Runner())
-			task = fixture.NewTaskList("commands").CreateTask("command")
-		})
+
+			return fixture.NewTaskList("commands").CreateTask("command"), runner
+		}
 
 		It("should format commands with a shell prompt prefix", func() {
-			command := task.CreateCommand("echo", "hello")
+			command := newTask().CreateCommand("echo", "hello")
 
 			Expect(command.GetFormattedCommand()).To(Equal("$ echo hello"))
 		})
 
 		It("should record stdout, stderr, and combined streams", func() {
+			task, runner := newTaskWithRunner()
 			runner.Add(plumbertests.TestingCommandResponse{
 				Stdout: "out\n",
 				Stderr: "err\n",
@@ -321,6 +357,7 @@ var _ = Describe("plumber", func() {
 		})
 
 		It("should use explicitly appended environment when OS environment is masked", func() {
+			task, runner := newTaskWithRunner()
 			plumbertests.WithEnvironment(map[string]string{
 				"PLUMBER_TEST_COMMAND_ENV": "from-os",
 			})
@@ -337,38 +374,40 @@ var _ = Describe("plumber", func() {
 			Expect(runner.Invocations()[0].Env).To(Equal([]string{"PLUMBER_TEST_COMMAND_ENV=from-command"}))
 		})
 
-		It("should template inline scripts into stdin", func() {
-			command := task.
-				CreateCommand("cat").
-				SetScript(func(_ *plumber.Command) *plumber.CommandScript {
-					return &plumber.CommandScript{
-						Inline: "hello {{ .Name }}\n",
-						Ctx: map[string]string{
-							"Name": "plumber",
-						},
-					}
-				})
+		DescribeTable("should pass stdin to command invocations",
+			func(configure func(*plumber.Task) *plumber.Command, expected string) {
+				task, runner := newTaskWithRunner()
+				command := configure(task)
 
-			Expect(command.Run()).To(Succeed())
-			stdin, err := plumbertests.ReadInvocationStdin(runner.Invocations()[0])
-			Expect(err).ToNot(HaveOccurred())
-			Expect(stdin).To(Equal("hello plumber\n"))
-		})
-
-		It("should stream custom stdin when no script is configured", func() {
-			command := task.
-				CreateCommand("cat").
-				SetStdin(func(_ *plumber.Command) io.Reader {
-					return strings.NewReader("from stdin\n")
-				})
-
-			Expect(command.Run()).To(Succeed())
-			stdin, err := plumbertests.ReadInvocationStdin(runner.Invocations()[0])
-			Expect(err).ToNot(HaveOccurred())
-			Expect(stdin).To(Equal("from stdin\n"))
-		})
+				Expect(command.Run()).To(Succeed())
+				Expect(runner.Invocations()).To(HaveLen(1))
+				stdin, err := plumbertests.ReadInvocationStdin(runner.Invocations()[0])
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stdin).To(Equal(expected))
+			},
+			Entry("inline scripts", func(task *plumber.Task) *plumber.Command {
+				return task.
+					CreateCommand("cat").
+					SetScript(func(_ *plumber.Command) *plumber.CommandScript {
+						return &plumber.CommandScript{
+							Inline: "hello {{ .Name }}\n",
+							Ctx: map[string]string{
+								"Name": "plumber",
+							},
+						}
+					})
+			}, "hello plumber\n"),
+			Entry("custom stdin", func(task *plumber.Task) *plumber.Command {
+				return task.
+					CreateCommand("cat").
+					SetStdin(func(_ *plumber.Command) io.Reader {
+						return strings.NewReader("from stdin\n")
+					})
+			}, "from stdin\n"),
+		)
 
 		It("should ignore command errors when configured", func() {
+			task, runner := newTaskWithRunner()
 			result := plumbertests.TestingCommandFailure(7)
 			runner.Add(plumbertests.TestingCommandResponse{
 				Result: &result,
@@ -381,6 +420,7 @@ var _ = Describe("plumber", func() {
 		})
 
 		It("should retry failed commands until tries are exhausted", func() {
+			task, runner := newTaskWithRunner()
 			result := plumbertests.TestingCommandFailure(7)
 			runner.
 				Add(plumbertests.TestingCommandResponse{Result: &result}).
@@ -399,6 +439,7 @@ var _ = Describe("plumber", func() {
 		})
 
 		It("should run command hooks around the process", func() {
+			task, _ := newTaskWithRunner()
 			command := task.CreateCommand("mock")
 			order := []string{}
 
@@ -424,6 +465,7 @@ var _ = Describe("plumber", func() {
 		})
 
 		It("should skip disabled commands without executing hooks", func() {
+			task, runner := newTaskWithRunner()
 			command := task.CreateCommand("false")
 			order := []string{}
 
@@ -443,6 +485,7 @@ var _ = Describe("plumber", func() {
 		})
 
 		It("should remove empty command arguments before execution", func() {
+			task, runner := newTaskWithRunner()
 			command := task.
 				CreateCommand("mock", "", "-c", "", `printf 'ok\n'`)
 
@@ -452,7 +495,7 @@ var _ = Describe("plumber", func() {
 		})
 
 		It("should return an error when a script has no source", func() {
-			command := task.
+			command := newTask().
 				CreateCommand("cat").
 				SetScript(func(_ *plumber.Command) *plumber.CommandScript {
 					return &plumber.CommandScript{}

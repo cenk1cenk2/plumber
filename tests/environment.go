@@ -55,6 +55,26 @@ func WithEnvironment(environment map[string]string) {
 	}
 }
 
+func WithoutEnvironment(keys ...string) {
+	GinkgoHelper()
+
+	for _, key := range keys {
+		previousValue, existed := os.LookupEnv(key)
+
+		Expect(os.Unsetenv(key)).To(Succeed())
+
+		DeferCleanup(func() {
+			if existed {
+				Expect(os.Setenv(key, previousValue)).To(Succeed())
+
+				return
+			}
+
+			Expect(os.Unsetenv(key)).To(Succeed())
+		})
+	}
+}
+
 func WithPath(paths ...string) {
 	GinkgoHelper()
 

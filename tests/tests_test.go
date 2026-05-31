@@ -1,12 +1,15 @@
 package tests_test
 
 import (
+	"context"
 	"os"
 
+	"github.com/cenk1cenk2/plumber/v6"
 	plumbertests "github.com/cenk1cenk2/plumber/v6/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/mock"
 )
 
 var _ = Describe("test helpers", func() {
@@ -26,12 +29,47 @@ var _ = Describe("test helpers", func() {
 		Expect(os.Args).To(Equal([]string{"plumber", "test"}))
 	})
 
+	It("should create strict mockery command runners for the current spec", func() {
+		runner := plumbertests.NewMockCommandRunner()
+		result := plumbertests.TestingCommandSuccess()
+		runner.EXPECT().
+			Run(
+				mock.Anything,
+				mock.MatchedBy(func(invocation plumber.CommandInvocation) bool {
+					return invocation.Name == "mock"
+				}),
+				mock.Anything,
+			).
+			Return(result, nil).
+			Once()
+
+		actual, err := runner.Run(
+			context.Background(),
+			plumber.CommandInvocation{Name: "mock"},
+			plumber.CommandRuntime{},
+		)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(actual).To(Equal(result))
+	})
+
 	It("should set environment variables for the current spec", func() {
 		plumbertests.WithEnvironment(map[string]string{
 			"PLUMBER_TEST_HELPER": "enabled",
 		})
 
 		Expect(os.Getenv("PLUMBER_TEST_HELPER")).To(Equal("enabled"))
+	})
+
+	It("should unset environment variables for the current spec", func() {
+		plumbertests.WithEnvironment(map[string]string{
+			"PLUMBER_TEST_HELPER": "enabled",
+		})
+
+		plumbertests.WithoutEnvironment("PLUMBER_TEST_HELPER")
+
+		_, existed := os.LookupEnv("PLUMBER_TEST_HELPER")
+		Expect(existed).To(BeFalse())
 	})
 
 	It("should prepend paths for the current spec", func() {

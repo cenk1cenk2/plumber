@@ -14,6 +14,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type commandRunnerScope struct {
+	configure func(*plumber.Plumber, *plumber.TaskList, *plumber.Task, *plumbertests.TestingCommandRunner)
+}
+
 var _ = Describe("command runners", func() {
 	var fixture *plumbertests.PlumberFixture
 
@@ -21,172 +25,167 @@ var _ = Describe("command runners", func() {
 		fixture = plumbertests.NewPlumber()
 	})
 
-	It("should resolve runners from the nearest configured command scope", func() {
-		plumberRunner := plumbertests.NewTestingCommandRunner()
-		taskListRunner := plumbertests.NewTestingCommandRunner()
-		taskRunner := plumbertests.NewTestingCommandRunner()
-		commandRunner := plumbertests.NewTestingCommandRunner()
+	Context("scope resolution", func() {
+		It("should resolve runners from the nearest configured command scope", func() {
+			plumberRunner := plumbertests.NewTestingCommandRunner()
+			taskListRunner := plumbertests.NewTestingCommandRunner()
+			taskRunner := plumbertests.NewTestingCommandRunner()
+			commandRunner := plumbertests.NewTestingCommandRunner()
 
-		fixture.Plumber.SetCommandRunner(plumberRunner.Runner())
-		tl := fixture.NewTaskList("list").SetCommandRunner(taskListRunner.Runner())
-		task := tl.CreateTask("task").SetCommandRunner(taskRunner.Runner())
-		command := task.CreateCommand("mock").SetRunner(commandRunner.Runner())
+			fixture.Plumber.SetCommandRunner(plumberRunner.Runner())
+			tl := fixture.NewTaskList("list").SetCommandRunner(taskListRunner.Runner())
+			task := tl.CreateTask("task").SetCommandRunner(taskRunner.Runner())
+			command := task.CreateCommand("mock").SetRunner(commandRunner.Runner())
 
-		Expect(command.Run()).To(Succeed())
-		Expect(commandRunner.Invocations()).To(HaveLen(1))
-		Expect(taskRunner.Invocations()).To(BeEmpty())
-		Expect(taskListRunner.Invocations()).To(BeEmpty())
-		Expect(plumberRunner.Invocations()).To(BeEmpty())
-	})
+			Expect(command.Run()).To(Succeed())
+			Expect(commandRunner.Invocations()).To(HaveLen(1))
+			Expect(taskRunner.Invocations()).To(BeEmpty())
+			Expect(taskListRunner.Invocations()).To(BeEmpty())
+			Expect(plumberRunner.Invocations()).To(BeEmpty())
+		})
 
-	It("should resolve runners from task, task list, and plumber scopes", func() {
-		cases := []struct {
-			name      string
-			configure func(*plumber.Plumber, *plumber.TaskList, *plumber.Task, *plumbertests.TestingCommandRunner)
-			invokedBy func(*plumbertests.TestingCommandRunner) []plumber.CommandInvocation
-		}{
-			{
-				name: "task",
+		DescribeTable("should resolve runners from broader scopes",
+			func(scope commandRunnerScope) {
+				runner := plumbertests.NewTestingCommandRunner()
+				tl := fixture.NewTaskList("list")
+				task := tl.CreateTask("task")
+
+				scope.configure(fixture.Plumber, tl, task, runner)
+
+				Expect(task.CreateCommand("mock").Run()).To(Succeed())
+				Expect(runner.Invocations()).To(HaveLen(1))
+				Expect(runner.Invocations()[0].TaskName).To(Equal("task"))
+				Expect(runner.Invocations()[0].TaskListName).To(Equal("list"))
+				Expect(runner.Invocations()[0].PlumberName).To(Equal("plumber-test"))
+			},
+			Entry("task scope", commandRunnerScope{
 				configure: func(_ *plumber.Plumber, _ *plumber.TaskList, task *plumber.Task, runner *plumbertests.TestingCommandRunner) {
 					task.SetCommandRunner(runner.Runner())
 				},
-				invokedBy: func(runner *plumbertests.TestingCommandRunner) []plumber.CommandInvocation {
-					return runner.Invocations()
-				},
-			},
-			{
-				name: "task list",
+			}),
+			Entry("task list scope", commandRunnerScope{
 				configure: func(_ *plumber.Plumber, tl *plumber.TaskList, _ *plumber.Task, runner *plumbertests.TestingCommandRunner) {
 					tl.SetCommandRunner(runner.Runner())
 				},
-				invokedBy: func(runner *plumbertests.TestingCommandRunner) []plumber.CommandInvocation {
-					return runner.Invocations()
-				},
-			},
-			{
-				name: "plumber",
+			}),
+			Entry("plumber scope", commandRunnerScope{
 				configure: func(app *plumber.Plumber, _ *plumber.TaskList, _ *plumber.Task, runner *plumbertests.TestingCommandRunner) {
 					app.SetCommandRunner(runner.Runner())
 				},
-				invokedBy: func(runner *plumbertests.TestingCommandRunner) []plumber.CommandInvocation {
-					return runner.Invocations()
-				},
-			},
-		}
+			}),
+		)
+	})
 
-		for _, tc := range cases {
-			By(tc.name)
-
-			currentFixture := plumbertests.NewPlumber()
+	DescribeTable("should run dynamically created commands with RunWith",
+		func(run func(*plumbertests.PlumberFixture, *plumbertests.TestingCommandRunner) error, expected plumber.CommandInvocation) {
 			runner := plumbertests.NewTestingCommandRunner()
-			tl := currentFixture.NewTaskList("list")
-			task := tl.CreateTask("task")
 
-			tc.configure(currentFixture.Plumber, tl, task, runner)
+			Expect(run(fixture, runner)).To(Succeed())
+			Expect(runner.Invocations()).To(HaveLen(1))
+			Expect(runner.Invocations()[0].Name).To(Equal(expected.Name))
+			Expect(runner.Invocations()[0].Args).To(Equal(expected.Args))
+		},
+		Entry("task", func(fixture *plumbertests.PlumberFixture, runner *plumbertests.TestingCommandRunner) error {
+			task := fixture.NewTaskList("list").CreateTask("task").
+				Set(func(t *plumber.Task) error {
+					t.CreateCommand("mock", "arg").AddSelfToTheTask()
 
-			Expect(task.CreateCommand("mock").Run()).To(Succeed())
-			Expect(tc.invokedBy(runner)).To(HaveLen(1))
-			Expect(runner.Invocations()[0].TaskName).To(Equal("task"))
-			Expect(runner.Invocations()[0].TaskListName).To(Equal("list"))
-			Expect(runner.Invocations()[0].PlumberName).To(Equal("plumber-test"))
-		}
-	})
+					return nil
+				}).
+				ShouldRunAfter(func(t *plumber.Task) error {
+					return t.RunCommandJobAsJobSequence()
+				})
 
-	It("should run dynamically created task commands with RunWith", func() {
-		runner := plumbertests.NewTestingCommandRunner()
-		task := fixture.NewTaskList("list").CreateTask("task").
-			Set(func(t *plumber.Task) error {
-				t.CreateCommand("mock", "arg").AddSelfToTheTask()
+			return task.RunWith(runner.Runner())
+		}, plumber.CommandInvocation{Name: "mock", Args: []string{"arg"}}),
+		Entry("task list", func(fixture *plumbertests.PlumberFixture, runner *plumbertests.TestingCommandRunner) error {
+			tl := fixture.NewTaskList("list").
+				Set(func(tl *plumber.TaskList) plumber.Job {
+					return tl.CreateTask("task").
+						Set(func(t *plumber.Task) error {
+							t.CreateCommand("mock").AddSelfToTheTask()
 
-				return nil
-			}).
-			ShouldRunAfter(func(t *plumber.Task) error {
-				return t.RunCommandJobAsJobSequence()
-			})
+							return nil
+						}).
+						ShouldRunAfter(func(t *plumber.Task) error {
+							return t.RunCommandJobAsJobSequence()
+						}).
+						Job()
+				})
 
-		Expect(task.RunWith(runner.Runner())).To(Succeed())
-		Expect(runner.Invocations()).To(HaveLen(1))
-		Expect(runner.Invocations()[0].Name).To(Equal("mock"))
-		Expect(runner.Invocations()[0].Args).To(Equal([]string{"arg"}))
-	})
+			return tl.RunWith(runner.Runner())
+		}, plumber.CommandInvocation{Name: "mock", Args: []string{}}),
+	)
 
-	It("should run dynamically created task-list commands with RunWith", func() {
-		runner := plumbertests.NewTestingCommandRunner()
-		tl := fixture.NewTaskList("list").
-			Set(func(tl *plumber.TaskList) plumber.Job {
-				return tl.CreateTask("task").
-					Set(func(t *plumber.Task) error {
-						t.CreateCommand("mock").AddSelfToTheTask()
+	Context("result handling", func() {
+		It("should convert failed command results into retryable errors", func() {
+			result := plumbertests.TestingCommandFailure(9)
+			runner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Result: &result}).
+				Add(plumbertests.TestingCommandResponse{})
+			retry := &plumber.CommandRetry{
+				Tries: 1,
+				Delay: time.Millisecond,
+			}
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock").
+				SetRetries(retry)
 
-						return nil
-					}).
-					ShouldRunAfter(func(t *plumber.Task) error {
-						return t.RunCommandJobAsJobSequence()
-					}).
-					Job()
-			})
+			Expect(command.RunWith(runner.Runner())).To(Succeed())
+			Expect(runner.Invocations()).To(HaveLen(2))
+			Expect(retry.Tries).To(BeEquivalentTo(0))
+		})
 
-		Expect(tl.RunWith(runner.Runner())).To(Succeed())
-		Expect(runner.Invocations()).To(HaveLen(1))
-	})
+		It("should not retry command start errors", func() {
+			startErr := fmt.Errorf("start failed")
+			startResult := plumber.CommandResult{}
+			runner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{
+					Result: &startResult,
+					Err:    startErr,
+				})
+			retry := &plumber.CommandRetry{
+				Tries: 1,
+				Delay: time.Millisecond,
+			}
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock").
+				SetRetries(retry)
 
-	It("should convert failed command results into retryable errors", func() {
-		result := plumbertests.TestingCommandFailure(9)
-		runner := plumbertests.NewTestingCommandRunner().
-			Add(plumbertests.TestingCommandResponse{Result: &result}).
-			Add(plumbertests.TestingCommandResponse{})
-		retry := &plumber.CommandRetry{
-			Tries: 1,
-			Delay: time.Millisecond,
-		}
-		command := fixture.NewTaskList("list").CreateTask("task").
-			CreateCommand("mock").
-			SetRetries(retry)
+			Expect(command.RunWith(runner.Runner())).To(MatchError(startErr))
+			Expect(runner.Invocations()).To(HaveLen(1))
+			Expect(retry.Tries).To(BeEquivalentTo(1))
+			Expect(command.HasFailed()).To(BeFalse())
+			Expect(command.HasExited()).To(BeFalse())
+		})
 
-		Expect(command.RunWith(runner.Runner())).To(Succeed())
-		Expect(runner.Invocations()).To(HaveLen(2))
-		Expect(retry.Tries).To(BeEquivalentTo(0))
-	})
+		It("should expose mocked command status without process state", func() {
+			result := plumbertests.TestingCommandFailure(2)
+			runner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Result: &result})
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock").
+				SetIgnoreError()
 
-	It("should not retry command start errors", func() {
-		startErr := fmt.Errorf("start failed")
-		startResult := plumber.CommandResult{}
-		runner := plumbertests.NewTestingCommandRunner().
-			Add(plumbertests.TestingCommandResponse{
-				Result: &startResult,
-				Err:    startErr,
-			})
-		retry := &plumber.CommandRetry{
-			Tries: 1,
-			Delay: time.Millisecond,
-		}
-		command := fixture.NewTaskList("list").CreateTask("task").
-			CreateCommand("mock").
-			SetRetries(retry)
-
-		Expect(command.RunWith(runner.Runner())).To(MatchError(startErr))
-		Expect(runner.Invocations()).To(HaveLen(1))
-		Expect(retry.Tries).To(BeEquivalentTo(1))
-		Expect(command.HasFailed()).To(BeFalse())
-		Expect(command.HasExited()).To(BeFalse())
-	})
-
-	It("should expose mocked command status without process state", func() {
-		result := plumbertests.TestingCommandFailure(2)
-		runner := plumbertests.NewTestingCommandRunner().
-			Add(plumbertests.TestingCommandResponse{Result: &result})
-		command := fixture.NewTaskList("list").CreateTask("task").
-			CreateCommand("mock").
-			SetIgnoreError()
-
-		Expect(command.RunWith(runner.Runner())).To(Succeed())
-		Expect(command.HasFailed()).To(BeTrue())
-		Expect(command.HasExited()).To(BeFalse())
+			Expect(command.RunWith(runner.Runner())).To(Succeed())
+			Expect(command.HasFailed()).To(BeTrue())
+			Expect(command.HasExited()).To(BeFalse())
+		})
 	})
 
 	It("should pass command configuration to runner invocations", func() {
 		dir := plumbertests.TempDir()
-		runner := plumbertests.NewTestingCommandRunner()
+		runner := plumbertests.NewTestingCommandRunner().
+			Add(plumbertests.TestingCommandResponse{
+				Name: "mock",
+				Args: []string{"arg"},
+				Match: func(invocation plumber.CommandInvocation) bool {
+					return invocation.Name == "mock" &&
+						invocation.Dir == dir &&
+						invocation.Path == "/usr/bin/mock" &&
+						invocation.EnsureIsAlive
+				},
+			})
 		command := fixture.NewTaskList("list").CreateTask("task").
 			CreateCommand("mock").
 			AppendArgs("", "arg").
@@ -201,14 +200,15 @@ var _ = Describe("command runners", func() {
 			EnsureIsAlive()
 
 		Expect(command.RunWith(runner.Runner())).To(MatchError(ContainSubstring("Process not running anymore: $ mock arg")))
-		Expect(runner.Invocations()).To(HaveLen(1))
-		Expect(runner.Invocations()[0].Name).To(Equal("mock"))
-		Expect(runner.Invocations()[0].Args).To(Equal([]string{"arg"}))
-		Expect(runner.Invocations()[0].Dir).To(Equal(dir))
-		Expect(runner.Invocations()[0].Path).To(Equal("/usr/bin/mock"))
-		Expect(runner.Invocations()[0].EnsureIsAlive).To(BeTrue())
-		Expect(runner.Invocations()[0].SysProcAttr.Credential.Uid).To(BeEquivalentTo(42))
-		Expect(runner.Invocations()[0].SysProcAttr.Credential.Gid).To(BeEquivalentTo(43))
+		invocation, ok := runner.LastInvocation()
+		Expect(ok).To(BeTrue())
+		Expect(invocation.Name).To(Equal("mock"))
+		Expect(invocation.Args).To(Equal([]string{"arg"}))
+		Expect(invocation.Dir).To(Equal(dir))
+		Expect(invocation.Path).To(Equal("/usr/bin/mock"))
+		Expect(invocation.EnsureIsAlive).To(BeTrue())
+		Expect(invocation.SysProcAttr.Credential.Uid).To(BeEquivalentTo(42))
+		Expect(invocation.SysProcAttr.Credential.Gid).To(BeEquivalentTo(43))
 	})
 
 	It("should preserve newline-terminated stream recording behavior", func() {

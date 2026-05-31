@@ -25,6 +25,7 @@ type TestingCommandRunner struct {
 type TestingCommandResponse struct {
 	Name   string
 	Args   []string
+	Match  func(plumber.CommandInvocation) bool
 	Stdout string
 	Stderr string
 	Result *plumber.CommandResult
@@ -44,6 +45,12 @@ func NewTestingCommandRunner() *TestingCommandRunner {
 		Maybe()
 
 	return runner
+}
+
+func NewMockCommandRunner() *mocks.MockCommandRunner {
+	GinkgoHelper()
+
+	return mocks.NewMockCommandRunner(GinkgoT())
 }
 
 func TestingCommandSuccess() plumber.CommandResult {
@@ -80,6 +87,16 @@ func (r *TestingCommandRunner) Add(response TestingCommandResponse) *TestingComm
 	return r
 }
 
+func (r *TestingCommandRunner) AddResponses(responses ...TestingCommandResponse) *TestingCommandRunner {
+	GinkgoHelper()
+
+	r.lock.Lock()
+	r.responses = append(r.responses, responses...)
+	r.lock.Unlock()
+
+	return r
+}
+
 func (r *TestingCommandRunner) Invocations() []plumber.CommandInvocation {
 	GinkgoHelper()
 
@@ -90,6 +107,29 @@ func (r *TestingCommandRunner) Invocations() []plumber.CommandInvocation {
 	copy(invocations, r.invocations)
 
 	return invocations
+}
+
+func (r *TestingCommandRunner) InvocationNames() []string {
+	GinkgoHelper()
+
+	invocations := r.Invocations()
+	names := make([]string, len(invocations))
+	for i, invocation := range invocations {
+		names[i] = invocation.Name
+	}
+
+	return names
+}
+
+func (r *TestingCommandRunner) LastInvocation() (plumber.CommandInvocation, bool) {
+	GinkgoHelper()
+
+	invocations := r.Invocations()
+	if len(invocations) == 0 {
+		return plumber.CommandInvocation{}, false
+	}
+
+	return invocations[len(invocations)-1], true
 }
 
 func ReadInvocationStdin(invocation plumber.CommandInvocation) (string, error) {
@@ -161,6 +201,10 @@ func (r *TestingCommandRunner) popResponse(invocation plumber.CommandInvocation)
 }
 
 func (r TestingCommandResponse) matches(invocation plumber.CommandInvocation) bool {
+	if r.Match != nil && !r.Match(invocation) {
+		return false
+	}
+
 	if r.Name != "" && r.Name != invocation.Name {
 		return false
 	}

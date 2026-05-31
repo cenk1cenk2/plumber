@@ -12,6 +12,22 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type commandJobCase struct {
+	prepare func(*plumber.Task, *plumbertests.TestingCommandRunner)
+	run     func(*plumber.Task) error
+	assert  func(*plumbertests.TestingCommandRunner)
+}
+
+type subtaskCase struct {
+	prepare func(*plumber.Task, *[]string, *sync.Mutex)
+	assert  func([]string)
+}
+
+type taskListStopCase struct {
+	configure func(*plumber.TaskList)
+	assert    func(*plumber.TaskList)
+}
+
 var _ = Describe("task behavior", func() {
 	var fixture *plumbertests.PlumberFixture
 
@@ -19,28 +35,38 @@ var _ = Describe("task behavior", func() {
 		fixture = plumbertests.NewPlumber()
 	})
 
-	It("should run skipped tasks without hooks or body", func() {
-		task := fixture.NewTaskList("tasks").CreateTask("skipped")
-		order := []string{}
+	DescribeTable("should stop tasks before running hooks or body",
+		func(configure func(*plumber.Task), expectedContext string) {
+			task := fixture.NewTaskList("tasks").CreateTask(expectedContext)
+			order := []string{}
 
-		task.
-			ShouldSkip(func(_ *plumber.Task) bool {
+			configure(task)
+			task.
+				ShouldRunBefore(func(_ *plumber.Task) error {
+					order = append(order, "before")
+
+					return nil
+				}).
+				Set(func(_ *plumber.Task) error {
+					order = append(order, "run")
+
+					return nil
+				})
+
+			Expect(task.Run()).To(Succeed())
+			Expect(order).To(BeEmpty())
+		},
+		Entry("disabled task", func(task *plumber.Task) {
+			task.ShouldDisable(func(_ *plumber.Task) bool {
 				return true
-			}).
-			ShouldRunBefore(func(_ *plumber.Task) error {
-				order = append(order, "before")
-
-				return nil
-			}).
-			Set(func(_ *plumber.Task) error {
-				order = append(order, "run")
-
-				return nil
 			})
-
-		Expect(task.Run()).To(Succeed())
-		Expect(order).To(BeEmpty())
-	})
+		}, "disabled"),
+		Entry("skipped task", func(task *plumber.Task) {
+			task.ShouldSkip(func(_ *plumber.Task) bool {
+				return true
+			})
+		}, "skipped"),
+	)
 
 	It("should run task jobs through wrappers", func() {
 		task := fixture.NewTaskList("tasks").CreateTask("wrapped")
@@ -64,50 +90,63 @@ var _ = Describe("task behavior", func() {
 		Expect(order).To(Equal([]string{"wrapper:wrapped", "run"}))
 	})
 
-	It("should aggregate and run command jobs as a sequence", func() {
-		runner := plumbertests.NewTestingCommandRunner()
-		task := fixture.NewTaskList("commands").CreateTask("task").SetCommandRunner(runner.Runner())
-		one := task.CreateCommand("one").AddSelfToTheTask()
-		two := task.CreateCommand("two").AddSelfToTheTask()
+	DescribeTable("should aggregate and run command jobs",
+		func(tc commandJobCase) {
+			runner := plumbertests.NewTestingCommandRunner()
+			task := fixture.NewTaskList("commands").CreateTask("task").SetCommandRunner(runner.Runner())
 
-		Expect(task.GetCommands()).To(Equal([]*plumber.Command{one, two}))
-		Expect(task.GetCommandJobs()).To(HaveLen(2))
-		Expect(task.GetCommandJobAsJobSequence()).ToNot(BeNil())
-		Expect(task.GetCommandJobAsJobParallel()).ToNot(BeNil())
-		Expect(task.RunCommandJobAsJobSequence()).To(Succeed())
-		Expect(runner.Invocations()).To(HaveLen(2))
-		Expect(runner.Invocations()[0].Name).To(Equal("one"))
-		Expect(runner.Invocations()[1].Name).To(Equal("two"))
-	})
+			tc.prepare(task, runner)
 
-	It("should aggregate and run command jobs as parallel work", func() {
-		runner := plumbertests.NewTestingCommandRunner().
-			Add(plumbertests.TestingCommandResponse{Name: "one"}).
-			Add(plumbertests.TestingCommandResponse{Name: "two"})
-		task := fixture.NewTaskList("commands").CreateTask("task").SetCommandRunner(runner.Runner())
+			Expect(tc.run(task)).To(Succeed())
+			tc.assert(runner)
+		},
+		Entry("as a sequence", commandJobCase{
+			prepare: func(task *plumber.Task, _ *plumbertests.TestingCommandRunner) {
+				one := task.CreateCommand("one").AddSelfToTheTask()
+				two := task.CreateCommand("two").AddSelfToTheTask()
 
-		task.CreateCommand("one").AddSelfToTheTask()
-		task.CreateCommand("two").AddSelfToTheTask()
-
-		Expect(task.RunCommandJobAsJobParallel()).To(Succeed())
-
-		names := []string{}
-		for _, invocation := range runner.Invocations() {
-			names = append(names, invocation.Name)
-		}
-		Expect(names).To(ConsistOf("one", "two"))
-	})
-
-	It("should run command jobs with a custom parser", func() {
-		runner := plumbertests.NewTestingCommandRunner()
-		task := fixture.NewTaskList("commands").CreateTask("task").SetCommandRunner(runner.Runner())
-		task.CreateCommand("mock").AddSelfToTheTask()
-
-		Expect(task.RunCommandJob(func(t *plumber.Task) plumber.Job {
-			return t.GetCommandJobAsJobSequence()
-		})).To(Succeed())
-		Expect(runner.Invocations()).To(HaveLen(1))
-	})
+				Expect(task.GetCommands()).To(Equal([]*plumber.Command{one, two}))
+				Expect(task.GetCommandJobs()).To(HaveLen(2))
+				Expect(task.GetCommandJobAsJobSequence()).ToNot(BeNil())
+				Expect(task.GetCommandJobAsJobParallel()).ToNot(BeNil())
+			},
+			run: func(task *plumber.Task) error {
+				return task.RunCommandJobAsJobSequence()
+			},
+			assert: func(runner *plumbertests.TestingCommandRunner) {
+				Expect(runner.InvocationNames()).To(Equal([]string{"one", "two"}))
+			},
+		}),
+		Entry("as parallel work", commandJobCase{
+			prepare: func(task *plumber.Task, runner *plumbertests.TestingCommandRunner) {
+				runner.AddResponses(
+					plumbertests.TestingCommandResponse{Name: "one"},
+					plumbertests.TestingCommandResponse{Name: "two"},
+				)
+				task.CreateCommand("one").AddSelfToTheTask()
+				task.CreateCommand("two").AddSelfToTheTask()
+			},
+			run: func(task *plumber.Task) error {
+				return task.RunCommandJobAsJobParallel()
+			},
+			assert: func(runner *plumbertests.TestingCommandRunner) {
+				Expect(runner.InvocationNames()).To(ConsistOf("one", "two"))
+			},
+		}),
+		Entry("with a custom parser", commandJobCase{
+			prepare: func(task *plumber.Task, _ *plumbertests.TestingCommandRunner) {
+				task.CreateCommand("mock").AddSelfToTheTask()
+			},
+			run: func(task *plumber.Task) error {
+				return task.RunCommandJob(func(t *plumber.Task) plumber.Job {
+					return t.GetCommandJobAsJobSequence()
+				})
+			},
+			assert: func(runner *plumbertests.TestingCommandRunner) {
+				Expect(runner.InvocationNames()).To(Equal([]string{"mock"}))
+			},
+		}),
+	)
 
 	It("should run command jobs through command wrappers", func() {
 		runner := plumbertests.NewTestingCommandRunner()
@@ -146,51 +185,55 @@ var _ = Describe("subtasks", func() {
 		fixture = plumbertests.NewPlumber()
 	})
 
-	It("should create and run subtasks in sequence", func() {
-		parent := fixture.NewTaskList("tasks").CreateTask("parent")
-		order := []string{}
-		child := parent.CreateSubtask("child").
-			Set(func(_ *plumber.Task) error {
-				order = append(order, "child")
+	DescribeTable("should create and run subtasks",
+		func(tc subtaskCase) {
+			parent := fixture.NewTaskList("tasks").CreateTask("parent")
+			var lock sync.Mutex
+			order := []string{}
 
-				return nil
-			}).
-			AddSelfToTheParentAsSequence()
+			tc.prepare(parent, &order, &lock)
 
-		Expect(child.HasParent()).To(BeTrue())
-		Expect(child.Name).To(Equal("parent:child"))
-		Expect(parent.GetSubtasks()).ToNot(BeNil())
-		Expect(parent.RunSubtasks()).To(Succeed())
-		Expect(order).To(Equal([]string{"child"}))
-	})
+			Expect(parent.RunSubtasks()).To(Succeed())
+			tc.assert(order)
+		},
+		Entry("in sequence", subtaskCase{
+			prepare: func(parent *plumber.Task, order *[]string, _ *sync.Mutex) {
+				child := parent.CreateSubtask("child").
+					Set(func(_ *plumber.Task) error {
+						*order = append(*order, "child")
 
-	It("should create and run subtasks in parallel", func() {
-		parent := fixture.NewTaskList("tasks").CreateTask("parent")
-		var lock sync.Mutex
-		order := []string{}
+						return nil
+					}).
+					AddSelfToTheParentAsSequence()
 
-		parent.CreateSubtask("one").
-			Set(func(_ *plumber.Task) error {
-				lock.Lock()
-				order = append(order, "one")
-				lock.Unlock()
+				Expect(child.HasParent()).To(BeTrue())
+				Expect(child.Name).To(Equal("parent:child"))
+				Expect(parent.GetSubtasks()).ToNot(BeNil())
+			},
+			assert: func(order []string) {
+				Expect(order).To(Equal([]string{"child"}))
+			},
+		}),
+		Entry("in parallel", subtaskCase{
+			prepare: func(parent *plumber.Task, order *[]string, lock *sync.Mutex) {
+				for _, name := range []string{"one", "two"} {
+					current := name
+					parent.CreateSubtask(current).
+						Set(func(_ *plumber.Task) error {
+							lock.Lock()
+							*order = append(*order, current)
+							lock.Unlock()
 
-				return nil
-			}).
-			AddSelfToTheParentAsParallel()
-		parent.CreateSubtask("two").
-			Set(func(_ *plumber.Task) error {
-				lock.Lock()
-				order = append(order, "two")
-				lock.Unlock()
-
-				return nil
-			}).
-			AddSelfToTheParentAsParallel()
-
-		Expect(parent.RunSubtasks()).To(Succeed())
-		Expect(order).To(ConsistOf("one", "two"))
-	})
+							return nil
+						}).
+						AddSelfToTheParentAsParallel()
+				}
+			},
+			assert: func(order []string) {
+				Expect(order).To(ConsistOf("one", "two"))
+			},
+		}),
+	)
 
 	It("should attach subtasks with a custom parent wrapper", func() {
 		parent := fixture.NewTaskList("tasks").CreateTask("parent")
@@ -216,28 +259,61 @@ var _ = Describe("subtasks", func() {
 })
 
 var _ = Describe("task lists", func() {
-	It("should skip disabled task list phases", func() {
-		fixture := plumbertests.NewPlumber()
-		tl := fixture.NewTaskList("disabled").
-			ShouldDisable(func(_ *plumber.TaskList) bool {
-				return true
-			}).
-			ShouldSkip(func(_ *plumber.TaskList) bool {
-				return true
-			}).
-			SetRuntimeDepth(2).
-			Set(func(_ *plumber.TaskList) plumber.Job {
-				return plumber.CreateBasicJob(func() error {
-					return fmt.Errorf("should not run")
+	DescribeTable("should stop task list phases before running work",
+		func(tc taskListStopCase) {
+			fixture := plumbertests.NewPlumber()
+			tl := fixture.NewTaskList("stopped").
+				SetRuntimeDepth(2).
+				Set(func(_ *plumber.TaskList) plumber.Job {
+					return plumber.CreateBasicJob(func() error {
+						return fmt.Errorf("should not run")
+					})
 				})
-			})
 
-		Expect(tl.IsDisabled()).To(BeTrue())
-		Expect(tl.IsSkipped()).To(BeTrue())
-		Expect(tl.RunBefore()).To(Succeed())
-		Expect(tl.Run()).To(Succeed())
-		Expect(tl.RunAfter()).To(Succeed())
-	})
+			tc.configure(tl)
+
+			Expect(tl.RunBefore()).To(Succeed())
+			Expect(tl.Run()).To(Succeed())
+			Expect(tl.RunAfter()).To(Succeed())
+			tc.assert(tl)
+		},
+		Entry("disabled", taskListStopCase{
+			configure: func(tl *plumber.TaskList) {
+				tl.ShouldDisable(func(_ *plumber.TaskList) bool {
+					return true
+				})
+			},
+			assert: func(tl *plumber.TaskList) {
+				Expect(tl.IsDisabled()).To(BeTrue())
+				Expect(tl.IsSkipped()).To(BeFalse())
+			},
+		}),
+		Entry("skipped", taskListStopCase{
+			configure: func(tl *plumber.TaskList) {
+				tl.ShouldSkip(func(_ *plumber.TaskList) bool {
+					return true
+				})
+			},
+			assert: func(tl *plumber.TaskList) {
+				Expect(tl.IsDisabled()).To(BeFalse())
+				Expect(tl.IsSkipped()).To(BeTrue())
+			},
+		}),
+		Entry("disabled and skipped", taskListStopCase{
+			configure: func(tl *plumber.TaskList) {
+				tl.ShouldDisable(func(_ *plumber.TaskList) bool {
+					return true
+				})
+				tl.ShouldSkip(func(_ *plumber.TaskList) bool {
+					return true
+				})
+			},
+			assert: func(tl *plumber.TaskList) {
+				Expect(tl.IsDisabled()).To(BeTrue())
+				Expect(tl.IsSkipped()).To(BeTrue())
+			},
+		}),
+	)
 
 	It("should combine task lists with before, run, and after phases", func() {
 		fixture := plumbertests.NewPlumber()

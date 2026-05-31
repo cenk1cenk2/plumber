@@ -12,21 +12,53 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("floc helpers", func() {
-	It("should compose predicates", func() {
-		truthy := plumber.Predicate(func() bool {
-			return true
-		})
-		falsey := plumber.Predicate(func() bool {
-			return false
-		})
+type predicateCase struct {
+	build func(plumber.JobPredicate, plumber.JobPredicate) plumber.JobPredicate
+}
 
-		Expect(truthy(nil)).To(BeTrue())
-		Expect(plumber.PredicateAnd(truthy, truthy)(nil)).To(BeTrue())
-		Expect(plumber.PredicateOr(falsey, truthy)(nil)).To(BeTrue())
-		Expect(plumber.PredicateNot(falsey)(nil)).To(BeTrue())
-		Expect(plumber.PredicateXor(truthy, falsey)(nil)).To(BeTrue())
-	})
+type guardCase struct {
+	job    func(*bool) plumber.Job
+	assert func(bool)
+}
+
+var _ = Describe("floc helpers", func() {
+	DescribeTable("should compose predicates",
+		func(tc predicateCase) {
+			truthy := plumber.Predicate(func() bool {
+				return true
+			})
+			falsey := plumber.Predicate(func() bool {
+				return false
+			})
+
+			Expect(tc.build(truthy, falsey)(nil)).To(BeTrue())
+		},
+		Entry("simple predicate", predicateCase{
+			build: func(truthy plumber.JobPredicate, _ plumber.JobPredicate) plumber.JobPredicate {
+				return truthy
+			},
+		}),
+		Entry("and", predicateCase{
+			build: func(truthy plumber.JobPredicate, _ plumber.JobPredicate) plumber.JobPredicate {
+				return plumber.PredicateAnd(truthy, truthy)
+			},
+		}),
+		Entry("or", predicateCase{
+			build: func(truthy plumber.JobPredicate, falsey plumber.JobPredicate) plumber.JobPredicate {
+				return plumber.PredicateOr(falsey, truthy)
+			},
+		}),
+		Entry("not", predicateCase{
+			build: func(_ plumber.JobPredicate, falsey plumber.JobPredicate) plumber.JobPredicate {
+				return plumber.PredicateNot(falsey)
+			},
+		}),
+		Entry("xor", predicateCase{
+			build: func(truthy plumber.JobPredicate, falsey plumber.JobPredicate) plumber.JobPredicate {
+				return plumber.PredicateXor(truthy, falsey)
+			},
+		}),
+	)
 
 	It("should run basic jobs in sequence, parallel, and repeat", func() {
 		fixture := plumbertests.NewPlumber()
@@ -112,25 +144,52 @@ var _ = Describe("floc helpers", func() {
 		Expect(order).To(Equal([]string{"then", "if-not"}))
 	})
 
-	It("should guard panics and failed jobs", func() {
-		fixture := plumbertests.NewPlumber()
-		panicHandled := false
+	DescribeTable("should guard jobs",
+		func(tc guardCase) {
+			fixture := plumbertests.NewPlumber()
+			handled := false
 
-		Expect(fixture.Plumber.RunJobs(plumber.GuardIgnorePanic(plumber.CreateBasicJob(func() error {
-			panic("ignored")
-		})))).To(Succeed())
-		Expect(fixture.Plumber.RunJobs(plumber.GuardOnPanic(plumber.CreateBasicJob(func() error {
-			panic("handled")
-		}), func() {
-			panicHandled = true
-		}))).To(Succeed())
-		Expect(panicHandled).To(BeTrue())
-		Expect(fixture.Plumber.RunJobs(plumber.GuardResume(plumber.CreateBasicJob(func() error {
-			return fmt.Errorf("failed")
-		}), plumber.TASK_FAILED))).To(Succeed())
-		Expect(fixture.Plumber.RunJobs(plumber.GuardTimeout(plumber.CreateBasicJob(func() error {
-			return nil
-		}), time.Millisecond))).To(Succeed())
+			Expect(fixture.Plumber.RunJobs(tc.job(&handled))).To(Succeed())
+			if tc.assert != nil {
+				tc.assert(handled)
+			}
+		},
+		Entry("ignore panic", guardCase{
+			job: func(_ *bool) plumber.Job {
+				return plumber.GuardIgnorePanic(plumber.CreateBasicJob(func() error {
+					panic("ignored")
+				}))
+			},
+		}),
+		Entry("handle panic", guardCase{
+			job: func(handled *bool) plumber.Job {
+				return plumber.GuardOnPanic(plumber.CreateBasicJob(func() error {
+					panic("handled")
+				}), func() {
+					*handled = true
+				})
+			},
+			assert: func(handled bool) {
+				Expect(handled).To(BeTrue())
+			},
+		}),
+		Entry("resume failed job", guardCase{
+			job: func(_ *bool) plumber.Job {
+				return plumber.GuardResume(plumber.CreateBasicJob(func() error {
+					return fmt.Errorf("failed")
+				}), plumber.TASK_FAILED)
+			},
+		}),
+		Entry("timeout successful job", guardCase{
+			job: func(_ *bool) plumber.Job {
+				return plumber.GuardTimeout(plumber.CreateBasicJob(func() error {
+					return nil
+				}), time.Millisecond)
+			},
+		}),
+	)
+
+	It("should create result masks", func() {
 		Expect(plumber.NewJobResultMask(plumber.TASK_FAILED)).ToNot(BeNil())
 	})
 })
