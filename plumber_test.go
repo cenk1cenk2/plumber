@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("plumber", func() {
 	Describe("construction", func() {
-		It("should create a CLI application with default flags", func() {
+		It("should create a Cli application with default flags", func() {
 			var provided *plumber.Plumber
 
 			fixture := plumbertests.NewPlumber(func(p *plumber.Plumber) *cli.Command {
@@ -158,7 +158,7 @@ var _ = Describe("plumber", func() {
 		})
 	})
 
-	Describe("CLI flag and argument helpers", func() {
+	Describe("Cli flag and argument helpers", func() {
 		It("should edit a cloned flag slice without modifying the original slice", func() {
 			flags := []cli.Flag{
 				&cli.StringFlag{Name: "name", Value: "before"},

@@ -1,6 +1,7 @@
 package plumber_test
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -26,6 +27,19 @@ type subtaskCase struct {
 type taskListStopCase struct {
 	configure func(*plumber.TaskList)
 	assert    func(*plumber.TaskList)
+}
+
+type taskLifecycleErrorCase struct {
+	configure     func(*plumber.Task, *[]string)
+	expectedError string
+	expectedOrder []string
+}
+
+type taskListLifecycleErrorCase struct {
+	configure     func(*plumber.TaskList, *[]string)
+	run           func(*plumber.TaskList) error
+	expectedError string
+	expectedOrder []string
 }
 
 var _ = Describe("task behavior", func() {
@@ -68,6 +82,85 @@ var _ = Describe("task behavior", func() {
 		}, "skipped"),
 	)
 
+	DescribeTable("should return task lifecycle errors from the failing phase",
+		func(tc taskLifecycleErrorCase) {
+			fixture.Plumber.Log.ExitFunc = func(int) {}
+			task := fixture.NewTaskList("tasks").CreateTask("failing")
+			order := []string{}
+
+			tc.configure(task, &order)
+
+			Expect(task.Run()).To(MatchError(tc.expectedError))
+			Expect(order).To(Equal(tc.expectedOrder))
+		},
+		Entry("before hook", taskLifecycleErrorCase{
+			configure: func(task *plumber.Task, order *[]string) {
+				task.
+					ShouldRunBefore(func(_ *plumber.Task) error {
+						*order = append(*order, "before")
+
+						return errors.New("before failed")
+					}).
+					Set(func(_ *plumber.Task) error {
+						*order = append(*order, "run")
+
+						return nil
+					}).
+					ShouldRunAfter(func(_ *plumber.Task) error {
+						*order = append(*order, "after")
+
+						return nil
+					})
+			},
+			expectedError: "before failed",
+			expectedOrder: []string{"before"},
+		}),
+		Entry("body", taskLifecycleErrorCase{
+			configure: func(task *plumber.Task, order *[]string) {
+				task.
+					ShouldRunBefore(func(_ *plumber.Task) error {
+						*order = append(*order, "before")
+
+						return nil
+					}).
+					Set(func(_ *plumber.Task) error {
+						*order = append(*order, "run")
+
+						return errors.New("run failed")
+					}).
+					ShouldRunAfter(func(_ *plumber.Task) error {
+						*order = append(*order, "after")
+
+						return nil
+					})
+			},
+			expectedError: "run failed",
+			expectedOrder: []string{"before", "run"},
+		}),
+		Entry("after hook", taskLifecycleErrorCase{
+			configure: func(task *plumber.Task, order *[]string) {
+				task.
+					ShouldRunBefore(func(_ *plumber.Task) error {
+						*order = append(*order, "before")
+
+						return nil
+					}).
+					Set(func(_ *plumber.Task) error {
+						*order = append(*order, "run")
+
+						return nil
+					}).
+					ShouldRunAfter(func(_ *plumber.Task) error {
+						*order = append(*order, "after")
+
+						return errors.New("after failed")
+					})
+			},
+			expectedError: "after failed",
+			expectedOrder: []string{"before", "run", "after"},
+		}),
+	)
+
 	It("should run task jobs through wrappers", func() {
 		task := fixture.NewTaskList("tasks").CreateTask("wrapped")
 		order := []string{}
@@ -88,6 +181,23 @@ var _ = Describe("task behavior", func() {
 
 		Expect(fixture.Plumber.RunJobs(task.Job())).To(Succeed())
 		Expect(order).To(Equal([]string{"wrapper:wrapped", "run"}))
+	})
+
+	It("should use scoped command runners while running a task", func() {
+		defaultRunner := plumbertests.NewTestingCommandRunner()
+		scopedRunner := plumbertests.NewTestingCommandRunner()
+		task := fixture.NewTaskList("commands").CreateTask("task").
+			SetCommandRunner(defaultRunner.Runner()).
+			Set(func(t *plumber.Task) error {
+				return t.CreateCommand("scoped").Run()
+			})
+
+		Expect(task.RunWith(scopedRunner.Runner())).To(Succeed())
+		Expect(scopedRunner.InvocationNames()).To(Equal([]string{"scoped"}))
+		Expect(defaultRunner.Invocations()).To(BeEmpty())
+
+		Expect(task.Run()).To(Succeed())
+		Expect(defaultRunner.InvocationNames()).To(Equal([]string{"scoped"}))
 	})
 
 	DescribeTable("should aggregate and run command jobs",
@@ -248,6 +358,47 @@ var _ = Describe("subtasks", func() {
 		Expect(parent.RunSubtasks()).To(Succeed())
 	})
 
+	It("should attach subtasks to an arbitrary parent", func() {
+		source := fixture.NewTaskList("tasks").CreateTask("source")
+		target := fixture.NewTaskList("tasks").CreateTask("target")
+		order := []string{}
+		child := source.CreateSubtask("child").Set(func(_ *plumber.Task) error {
+			order = append(order, "child")
+
+			return nil
+		})
+
+		result := child.ToParent(target, func(parent *plumber.Task, child *plumber.Task) {
+			parent.SetSubtask(child.Job())
+		})
+
+		Expect(result).To(BeIdenticalTo(child))
+		Expect(target.RunSubtasks()).To(Succeed())
+		Expect(order).To(Equal([]string{"child"}))
+	})
+
+	It("should extend subtask jobs with wrappers", func() {
+		parent := fixture.NewTaskList("tasks").CreateTask("parent")
+		order := []string{}
+
+		parent.
+			SetSubtask(plumber.CreateBasicJob(func() error {
+				order = append(order, "base")
+
+				return nil
+			})).
+			ExtendSubtask(func(job plumber.Job) plumber.Job {
+				return plumber.JobSequence(job, plumber.CreateBasicJob(func() error {
+					order = append(order, "extended")
+
+					return nil
+				}))
+			})
+
+		Expect(parent.RunSubtasks()).To(Succeed())
+		Expect(order).To(Equal([]string{"base", "extended"}))
+	})
+
 	It("should reset nil subtasks to an empty job", func() {
 		parent := fixture.NewTaskList("tasks").CreateTask("parent")
 
@@ -259,6 +410,63 @@ var _ = Describe("subtasks", func() {
 })
 
 var _ = Describe("task lists", func() {
+	DescribeTable("should return task list lifecycle errors from the failing phase",
+		func(tc taskListLifecycleErrorCase) {
+			fixture := plumbertests.NewPlumber()
+			tl := fixture.NewTaskList("failing")
+			order := []string{}
+
+			tc.configure(tl, &order)
+
+			Expect(tc.run(tl)).To(MatchError(tc.expectedError))
+			Expect(order).To(Equal(tc.expectedOrder))
+		},
+		Entry("before hook", taskListLifecycleErrorCase{
+			configure: func(tl *plumber.TaskList, order *[]string) {
+				tl.ShouldRunBefore(func(_ *plumber.TaskList) error {
+					*order = append(*order, "before")
+
+					return errors.New("before failed")
+				})
+			},
+			run: func(tl *plumber.TaskList) error {
+				return tl.RunBefore()
+			},
+			expectedError: "before failed",
+			expectedOrder: []string{"before"},
+		}),
+		Entry("run job", taskListLifecycleErrorCase{
+			configure: func(tl *plumber.TaskList, order *[]string) {
+				tl.Set(func(_ *plumber.TaskList) plumber.Job {
+					return plumber.CreateBasicJob(func() error {
+						*order = append(*order, "run")
+
+						return errors.New("run failed")
+					})
+				})
+			},
+			run: func(tl *plumber.TaskList) error {
+				return tl.Run()
+			},
+			expectedError: "run failed",
+			expectedOrder: []string{"run"},
+		}),
+		Entry("after hook", taskListLifecycleErrorCase{
+			configure: func(tl *plumber.TaskList, order *[]string) {
+				tl.ShouldRunAfter(func(_ *plumber.TaskList) error {
+					*order = append(*order, "after")
+
+					return errors.New("after failed")
+				})
+			},
+			run: func(tl *plumber.TaskList) error {
+				return tl.RunAfter()
+			},
+			expectedError: "after failed",
+			expectedOrder: []string{"after"},
+		}),
+	)
+
 	DescribeTable("should stop task list phases before running work",
 		func(tc taskListStopCase) {
 			fixture := plumbertests.NewPlumber()
@@ -348,5 +556,63 @@ var _ = Describe("task lists", func() {
 		Expect(fixture.Plumber.RunJobs(plumber.CombineTaskLists(create("one"), create("two")))).To(Succeed())
 		Expect(order).To(ContainElements("one:before", "two:before", "one:after", "two:after"))
 		Expect(slices.Index(order, "one:run")).To(BeNumerically("<", slices.Index(order, "two:run")))
+	})
+
+	It("should stop combined task lists before later run and after phases when a run phase fails", func() {
+		fixture := plumbertests.NewPlumber()
+		var lock sync.Mutex
+		order := []string{}
+		appendOrder := func(value string) {
+			lock.Lock()
+			order = append(order, value)
+			lock.Unlock()
+		}
+		create := func(name string, err error) *plumber.TaskList {
+			return fixture.NewTaskList(name).
+				ShouldRunBefore(func(_ *plumber.TaskList) error {
+					appendOrder(name + ":before")
+
+					return nil
+				}).
+				Set(func(_ *plumber.TaskList) plumber.Job {
+					return plumber.CreateBasicJob(func() error {
+						appendOrder(name + ":run")
+
+						return err
+					})
+				}).
+				ShouldRunAfter(func(_ *plumber.TaskList) error {
+					appendOrder(name + ":after")
+
+					return nil
+				})
+		}
+
+		err := fixture.Plumber.RunJobs(plumber.CombineTaskLists(
+			create("one", errors.New("one failed")),
+			create("two", nil),
+		))
+
+		Expect(err).To(MatchError("one failed"))
+		Expect(order).To(ContainElements("one:before", "two:before", "one:run"))
+		Expect(order).ToNot(ContainElements("two:run", "one:after", "two:after"))
+	})
+
+	It("should use scoped command runners while running a task list", func() {
+		fixture := plumbertests.NewPlumber()
+		defaultRunner := plumbertests.NewTestingCommandRunner()
+		scopedRunner := plumbertests.NewTestingCommandRunner()
+		tl := fixture.NewTaskList("commands").
+			SetCommandRunner(defaultRunner.Runner()).
+			Set(func(tl *plumber.TaskList) plumber.Job {
+				return tl.CreateTask("task").CreateCommand("scoped").Job()
+			})
+
+		Expect(tl.RunWith(scopedRunner.Runner())).To(Succeed())
+		Expect(scopedRunner.InvocationNames()).To(Equal([]string{"scoped"}))
+		Expect(defaultRunner.Invocations()).To(BeEmpty())
+
+		Expect(tl.Run()).To(Succeed())
+		Expect(defaultRunner.InvocationNames()).To(Equal([]string{"scoped"}))
 	})
 })

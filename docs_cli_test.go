@@ -22,7 +22,7 @@ type documentationCase struct {
 	notContains []string
 }
 
-var _ = Describe("documentation and CLI runtime", func() {
+var _ = Describe("documentation and Cli runtime", func() {
 	DescribeTable("should render markdown documentation files",
 		func(tc documentationCase) {
 			output := filepath.Join(plumbertests.TempDir(), "README.md")
@@ -105,7 +105,7 @@ var _ = Describe("documentation and CLI runtime", func() {
 		}),
 	)
 
-	It("should load env files and run CLI setup before actions", func() {
+	It("should load env files and run Cli setup before actions", func() {
 		dir := plumbertests.TempDir()
 		envFile := filepath.Join(dir, ".env")
 		Expect(os.WriteFile(envFile, []byte("PLUMBER_ENV_FILE_TEST=loaded\n"), 0600)).To(Succeed())
@@ -136,7 +136,7 @@ var _ = Describe("documentation and CLI runtime", func() {
 		Expect(fixture.Plumber.Environment.Debug).To(BeTrue())
 	})
 
-	It("should allow non-fatal deprecation notices during CLI setup", func() {
+	It("should allow non-fatal deprecation notices during Cli setup", func() {
 		plumbertests.WithEnvironment(map[string]string{
 			"PLUMBER_DEPRECATED_ENV": "1",
 		})

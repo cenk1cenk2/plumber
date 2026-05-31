@@ -117,6 +117,64 @@ var _ = Describe("command runners", func() {
 		}, plumber.CommandInvocation{Name: "mock", Args: []string{}}),
 	)
 
+	Context("RunWith restoration", func() {
+		It("should restore command runners after scoped command failures", func() {
+			failure := plumbertests.TestingCommandFailure(1)
+			defaultRunner := plumbertests.NewTestingCommandRunner()
+			scopedRunner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Result: &failure})
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock").
+				SetRunner(defaultRunner.Runner())
+
+			Expect(command.RunWith(scopedRunner.Runner())).To(HaveOccurred())
+			Expect(scopedRunner.Invocations()).To(HaveLen(1))
+			Expect(defaultRunner.Invocations()).To(BeEmpty())
+
+			Expect(command.Run()).To(Succeed())
+			Expect(defaultRunner.Invocations()).To(HaveLen(1))
+		})
+
+		It("should restore task runners after scoped task failures", func() {
+			fixture.Plumber.Log.ExitFunc = func(int) {}
+			failure := plumbertests.TestingCommandFailure(1)
+			defaultRunner := plumbertests.NewTestingCommandRunner()
+			scopedRunner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Result: &failure})
+			task := fixture.NewTaskList("list").CreateTask("task").
+				SetCommandRunner(defaultRunner.Runner()).
+				Set(func(task *plumber.Task) error {
+					return task.CreateCommand("mock").Run()
+				})
+
+			Expect(task.RunWith(scopedRunner.Runner())).To(HaveOccurred())
+			Expect(scopedRunner.Invocations()).To(HaveLen(1))
+			Expect(defaultRunner.Invocations()).To(BeEmpty())
+
+			Expect(task.Run()).To(Succeed())
+			Expect(defaultRunner.Invocations()).To(HaveLen(1))
+		})
+
+		It("should restore task-list runners after scoped task-list failures", func() {
+			failure := plumbertests.TestingCommandFailure(1)
+			defaultRunner := plumbertests.NewTestingCommandRunner()
+			scopedRunner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Result: &failure})
+			tl := fixture.NewTaskList("list").
+				SetCommandRunner(defaultRunner.Runner()).
+				Set(func(tl *plumber.TaskList) plumber.Job {
+					return tl.CreateTask("task").CreateCommand("mock").Job()
+				})
+
+			Expect(tl.RunWith(scopedRunner.Runner())).To(HaveOccurred())
+			Expect(scopedRunner.Invocations()).To(HaveLen(1))
+			Expect(defaultRunner.Invocations()).To(BeEmpty())
+
+			Expect(tl.CreateTask("restored").CreateCommand("mock").Run()).To(Succeed())
+			Expect(defaultRunner.Invocations()).To(HaveLen(1))
+		})
+	})
+
 	Context("result handling", func() {
 		It("should convert failed command results into retryable errors", func() {
 			result := plumbertests.TestingCommandFailure(9)

@@ -19,8 +19,17 @@ type pipeShapeCase struct {
 	prepare func(*plumbertests.PlumberFixture, *plumbertests.TestingCommandRunner) (plumber.Job, func())
 }
 
+type pipeCliConditionCase struct {
+	args               func(string) []string
+	environment        func(string) map[string]string
+	expectedDisabled   bool
+	expectedPackages   []string
+	expectedCwd        func(string) string
+	expectedScriptArgs []string
+}
+
 var _ = Describe("consumer-shaped flows", func() {
-	It("should let consumers test CLI flags arguments commands and generated subtasks with a runtime command runner", func() {
+	It("should let consumers test Cli flags arguments commands and generated subtasks with a runtime command runner", func() {
 		runner := plumbertests.NewTestingCommandRunner().
 			AddResponses(
 				plumbertests.TestingCommandResponse{Name: "corepack", Args: []string{"enable"}},
@@ -133,6 +142,159 @@ var _ = Describe("consumer-shaped flows", func() {
 		Expect(invocations[1].TaskListName).To(Equal("run"))
 		Expect(subtaskOrder).To(ConsistOf("api", "web"))
 	})
+
+	DescribeTable("should let consumers drive task-list conditions through urfave Cli helpers",
+		func(tc pipeCliConditionCase) {
+			type packageConfig struct {
+				Enabled    bool
+				Cwd        string
+				Packages   []string
+				ScriptArgs []string
+			}
+
+			cwd := plumbertests.TempDir()
+			config := &packageConfig{}
+			runner := plumbertests.NewTestingCommandRunner()
+			fixture := plumbertests.NewTaskListCli(plumbertests.TaskListCli{
+				AppName:            "consumer-config",
+				Args:               tc.args(cwd),
+				Environment:        tc.environment(cwd),
+				WithoutEnvironment: []string{"PACKAGES_ENABLED", "PACKAGES_NODE", "PACKAGES_CWD"},
+				Runner:             runner.Runner(),
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:        "packages.enabled",
+						Value:       true,
+						Sources:     cli.NewValueSourceChain(cli.EnvVar("PACKAGES_ENABLED")),
+						Destination: &config.Enabled,
+					},
+					&cli.StringFlag{
+						Name:        "packages.cwd",
+						Value:       ".",
+						Sources:     cli.NewValueSourceChain(cli.EnvVar("PACKAGES_CWD")),
+						Destination: &config.Cwd,
+					},
+					&cli.StringSliceFlag{
+						Name:        "packages.node",
+						Sources:     cli.NewValueSourceChain(cli.EnvVar("PACKAGES_NODE")),
+						Destination: &config.Packages,
+					},
+				},
+				Arguments: []cli.Argument{
+					&cli.StringArgs{
+						Name:        "script-args",
+						Max:         -1,
+						Destination: &config.ScriptArgs,
+					},
+				},
+				TaskLists: []plumbertests.TaskListFactory{
+					func(app *plumber.Plumber, _ *cli.Command) *plumber.TaskList {
+						return plumber.NewTaskList(app).
+							SetRuntimeDepth(1).
+							ShouldDisable(func(_ *plumber.TaskList) bool {
+								return !config.Enabled
+							}).
+							Set(func(tl *plumber.TaskList) plumber.Job {
+								return tl.CreateTask("packages", "node").
+									Set(func(parent *plumber.Task) error {
+										for _, packageName := range config.Packages {
+											packageName := packageName
+											parent.CreateSubtask(packageName).
+												Set(func(task *plumber.Task) error {
+													task.CreateCommand("npm", "add", packageName).
+														AppendArgs(config.ScriptArgs...).
+														SetDir(config.Cwd).
+														AddSelfToTheTask()
+
+													return task.RunCommandJobAsJobSequence()
+												}).
+												AddSelfToTheParentAsParallel()
+										}
+
+										return nil
+									}).
+									ShouldRunAfter(func(task *plumber.Task) error {
+										return task.RunSubtasks()
+									}).
+									Job()
+							})
+					},
+				},
+			})
+
+			Expect(fixture.Run()).To(Succeed())
+
+			Expect(config.Packages).To(Equal(tc.expectedPackages))
+			Expect(config.ScriptArgs).To(Equal(tc.expectedScriptArgs))
+			Expect(fixture.TaskLists).To(HaveLen(1))
+			Expect(fixture.TaskLists[0].IsDisabled()).To(Equal(tc.expectedDisabled))
+
+			invocations := runner.Invocations()
+			if tc.expectedDisabled {
+				Expect(invocations).To(BeEmpty())
+
+				return
+			}
+
+			Expect(invocations).To(HaveLen(len(tc.expectedPackages)))
+			byPackage := map[string]plumber.CommandInvocation{}
+			for _, invocation := range invocations {
+				Expect(invocation.Name).To(Equal("npm"))
+				Expect(invocation.Dir).To(Equal(tc.expectedCwd(cwd)))
+				Expect(invocation.Args).To(HaveLen(2 + len(tc.expectedScriptArgs)))
+				byPackage[invocation.Args[1]] = invocation
+			}
+			for _, packageName := range tc.expectedPackages {
+				Expect(byPackage).To(HaveKey(packageName))
+				Expect(byPackage[packageName].Args).To(Equal(append([]string{"add", packageName}, tc.expectedScriptArgs...)))
+			}
+		},
+		Entry("disabled from env-sourced config", pipeCliConditionCase{
+			args: func(_ string) []string {
+				return []string{"consumer-config", "run"}
+			},
+			environment: func(_ string) map[string]string {
+				return map[string]string{
+					"PACKAGES_ENABLED": "false",
+					"PACKAGES_NODE":    "api,web",
+				}
+			},
+			expectedDisabled:   true,
+			expectedPackages:   []string{"api", "web"},
+			expectedScriptArgs: []string{},
+			expectedCwd: func(_ string) string {
+				return "."
+			},
+		}),
+		Entry("enabled by flags with Cli values overriding env sources", pipeCliConditionCase{
+			args: func(cwd string) []string {
+				return []string{
+					"consumer-config",
+					"run",
+					"--packages.enabled",
+					"--packages.cwd",
+					cwd,
+					"--packages.node",
+					"api",
+					"--packages.node",
+					"web",
+					"--",
+					"--save-dev",
+				}
+			},
+			environment: func(_ string) map[string]string {
+				return map[string]string{
+					"PACKAGES_ENABLED": "false",
+					"PACKAGES_NODE":    "ignored",
+				}
+			},
+			expectedPackages:   []string{"api", "web"},
+			expectedScriptArgs: []string{"--save-dev"},
+			expectedCwd: func(cwd string) string {
+				return cwd
+			},
+		}),
+	)
 
 	DescribeTable("should exercise pipe task shapes through runtime command runners",
 		func(tc pipeShapeCase) {

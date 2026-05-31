@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
+	"github.com/urfave/cli/v3"
 )
 
 var _ = Describe("test helpers", func() {
@@ -103,5 +104,176 @@ var _ = Describe("test helpers", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(currentDir).To(Equal(dir))
 		Expect(currentDir).ToNot(Equal(previousDir))
+	})
+
+	It("should run urfave Cli semantics with explicit argv and destinations", func() {
+		type helperConfig struct {
+			Enabled      bool
+			Root         string
+			Repositories []string
+			Args         []string
+		}
+
+		config := &helperConfig{}
+		runner := plumbertests.NewTestingCommandRunner()
+		previousArgs := append([]string{}, os.Args...)
+		fixture := plumbertests.NewTaskListCli(plumbertests.TaskListCli{
+			AppName: "helper",
+			Args: []string{
+				"helper",
+				"run",
+				"--enabled",
+				"--root",
+				"from-cli",
+				"--repository",
+				"api",
+				"--repository",
+				"web",
+				"--",
+				"--production",
+			},
+			Environment: map[string]string{
+				"HELPER_ROOT":       "from-env",
+				"HELPER_REPOSITORY": "ignored",
+			},
+			Runner: runner.Runner(),
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:        "enabled",
+					Sources:     cli.NewValueSourceChain(cli.EnvVar("HELPER_ENABLED")),
+					Destination: &config.Enabled,
+				},
+				&cli.StringFlag{
+					Name:        "root",
+					Value:       ".",
+					Sources:     cli.NewValueSourceChain(cli.EnvVar("HELPER_ROOT")),
+					Destination: &config.Root,
+				},
+				&cli.StringSliceFlag{
+					Name:        "repository",
+					Sources:     cli.NewValueSourceChain(cli.EnvVar("HELPER_REPOSITORY")),
+					Destination: &config.Repositories,
+				},
+			},
+			Arguments: []cli.Argument{
+				&cli.StringArgs{
+					Name:        "args",
+					Max:         -1,
+					Destination: &config.Args,
+				},
+			},
+			TaskLists: []plumbertests.TaskListFactory{
+				func(app *plumber.Plumber, command *cli.Command) *plumber.TaskList {
+					Expect(command.String("root")).To(Equal(config.Root))
+					Expect(command.StringSlice("repository")).To(Equal(config.Repositories))
+					Expect(command.StringArgs("args")).To(Equal(config.Args))
+
+					return plumber.NewTaskList(app).
+						SetRuntimeDepth(1).
+						ShouldDisable(func(_ *plumber.TaskList) bool {
+							return !config.Enabled
+						}).
+						Set(func(tl *plumber.TaskList) plumber.Job {
+							return tl.CreateTask("repositories").
+								Set(func(parent *plumber.Task) error {
+									for _, repository := range config.Repositories {
+										repository := repository
+										parent.CreateSubtask(repository).
+											Set(func(task *plumber.Task) error {
+												task.CreateCommand("build", repository).
+													AppendArgs(config.Args...).
+													SetDir(config.Root).
+													AddSelfToTheTask()
+
+												return task.RunCommandJobAsJobSequence()
+											}).
+											AddSelfToTheParentAsParallel()
+									}
+
+									return nil
+								}).
+								ShouldRunAfter(func(task *plumber.Task) error {
+									return task.RunSubtasks()
+								}).
+								Job()
+						})
+				},
+			},
+		})
+
+		Expect(fixture.Run()).To(Succeed())
+
+		Expect(os.Args).To(Equal(previousArgs))
+		Expect(config.Enabled).To(BeTrue())
+		Expect(config.Root).To(Equal("from-cli"))
+		Expect(config.Repositories).To(Equal([]string{"api", "web"}))
+		Expect(config.Args).To(Equal([]string{"--production"}))
+		Expect(fixture.TaskLists).To(HaveLen(1))
+		Expect(fixture.TaskLists[0].IsDisabled()).To(BeFalse())
+		Expect(runner.InvocationNames()).To(ConsistOf("build", "build"))
+		for _, invocation := range runner.Invocations() {
+			Expect(invocation.Dir).To(Equal("from-cli"))
+			Expect(invocation.Args).To(Or(
+				Equal([]string{"api", "--production"}),
+				Equal([]string{"web", "--production"}),
+			))
+		}
+	})
+
+	It("should expose task-list conditions driven by env-sourced Cli config", func() {
+		type helperConfig struct {
+			Enabled      bool
+			Repositories []string
+		}
+
+		config := &helperConfig{}
+		runner := plumbertests.NewTestingCommandRunner()
+		fixture := plumbertests.NewTaskListCli(plumbertests.TaskListCli{
+			AppName: "helper-disabled",
+			Environment: map[string]string{
+				"HELPER_ENABLED":    "false",
+				"HELPER_REPOSITORY": "api,web",
+			},
+			Runner: runner.Runner(),
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:        "enabled",
+					Value:       true,
+					Sources:     cli.NewValueSourceChain(cli.EnvVar("HELPER_ENABLED")),
+					Destination: &config.Enabled,
+				},
+				&cli.StringSliceFlag{
+					Name:        "repository",
+					Sources:     cli.NewValueSourceChain(cli.EnvVar("HELPER_REPOSITORY")),
+					Destination: &config.Repositories,
+				},
+			},
+			TaskLists: []plumbertests.TaskListFactory{
+				func(app *plumber.Plumber, _ *cli.Command) *plumber.TaskList {
+					return plumber.NewTaskList(app).
+						SetRuntimeDepth(1).
+						ShouldDisable(func(_ *plumber.TaskList) bool {
+							return !config.Enabled
+						}).
+						Set(func(tl *plumber.TaskList) plumber.Job {
+							return tl.CreateTask("should-not-run").
+								Set(func(task *plumber.Task) error {
+									task.CreateCommand("mock").AddSelfToTheTask()
+
+									return task.RunCommandJobAsJobSequence()
+								}).
+								Job()
+						})
+				},
+			},
+		})
+
+		Expect(fixture.Run()).To(Succeed())
+
+		Expect(config.Enabled).To(BeFalse())
+		Expect(config.Repositories).To(Equal([]string{"api", "web"}))
+		Expect(fixture.TaskLists).To(HaveLen(1))
+		Expect(fixture.TaskLists[0].IsDisabled()).To(BeTrue())
+		Expect(runner.Invocations()).To(BeEmpty())
 	})
 })
