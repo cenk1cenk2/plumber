@@ -1,6 +1,7 @@
 package plumber_test
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -48,12 +49,14 @@ var _ = Describe("plumber", func() {
 
 		It("should redact appended secrets from logger output", func() {
 			fixture := plumbertests.NewPlumber()
+			output := &bytes.Buffer{}
+			fixture.Plumber.Log.SetOutput(io.MultiWriter(GinkgoWriter, output))
 
 			fixture.Plumber.AppendSecrets("secret-token")
 			fixture.Plumber.Log.Info("using secret-token")
 
-			Expect(fixture.Output.String()).To(ContainSubstring("[REDACTED]"))
-			Expect(fixture.Output.String()).ToNot(ContainSubstring("secret-token"))
+			Expect(output.String()).To(ContainSubstring("[REDACTED]"))
+			Expect(output.String()).ToNot(ContainSubstring("secret-token"))
 		})
 	})
 
@@ -287,9 +290,12 @@ var _ = Describe("plumber", func() {
 
 	Describe("commands", func() {
 		var task *plumber.Task
+		var runner *plumbertests.TestingCommandRunner
 
 		BeforeEach(func() {
 			fixture := plumbertests.NewPlumber()
+			runner = plumbertests.NewTestingCommandRunner()
+			fixture.Plumber.SetCommandRunner(runner.Runner())
 			task = fixture.NewTaskList("commands").CreateTask("command")
 		})
 
@@ -300,14 +306,18 @@ var _ = Describe("plumber", func() {
 		})
 
 		It("should record stdout, stderr, and combined streams", func() {
+			runner.Add(plumbertests.TestingCommandResponse{
+				Stdout: "out\n",
+				Stderr: "err\n",
+			})
 			command := task.
-				CreateCommand("sh", "-c", `sleep 0.05; printf 'out\n'; printf 'err\n' >&2`).
+				CreateCommand("mock").
 				EnableStreamRecording()
 
 			Expect(command.Run()).To(Succeed())
-			Eventually(command.GetStdoutStream).Should(Equal([]string{"out\n"}))
-			Eventually(command.GetStderrStream).Should(Equal([]string{"err\n"}))
-			Eventually(command.GetCombinedStream).Should(ConsistOf("out\n", "err\n"))
+			Expect(command.GetStdoutStream()).To(Equal([]string{"out\n"}))
+			Expect(command.GetStderrStream()).To(Equal([]string{"err\n"}))
+			Expect(command.GetCombinedStream()).To(ConsistOf("out\n", "err\n"))
 		})
 
 		It("should use explicitly appended environment when OS environment is masked", func() {
@@ -316,15 +326,15 @@ var _ = Describe("plumber", func() {
 			})
 
 			command := task.
-				CreateCommand("sh", "-c", `printf '%s\n' "${PLUMBER_TEST_COMMAND_ENV:-missing}"`).
+				CreateCommand("mock").
 				SetMaskOsEnvironment().
 				AppendEnvironment(map[string]string{
 					"PLUMBER_TEST_COMMAND_ENV": "from-command",
-				}).
-				EnableStreamRecording()
+				})
 
 			Expect(command.Run()).To(Succeed())
-			Eventually(command.GetStdoutStream).Should(Equal([]string{"from-command\n"}))
+			Expect(runner.Invocations()).To(HaveLen(1))
+			Expect(runner.Invocations()[0].Env).To(Equal([]string{"PLUMBER_TEST_COMMAND_ENV=from-command"}))
 		})
 
 		It("should template inline scripts into stdin", func() {
@@ -337,11 +347,12 @@ var _ = Describe("plumber", func() {
 							"Name": "plumber",
 						},
 					}
-				}).
-				EnableStreamRecording()
+				})
 
 			Expect(command.Run()).To(Succeed())
-			Eventually(command.GetStdoutStream).Should(Equal([]string{"hello plumber\n"}))
+			stdin, err := plumbertests.ReadInvocationStdin(runner.Invocations()[0])
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stdin).To(Equal("hello plumber\n"))
 		})
 
 		It("should stream custom stdin when no script is configured", func() {
@@ -349,36 +360,46 @@ var _ = Describe("plumber", func() {
 				CreateCommand("cat").
 				SetStdin(func(_ *plumber.Command) io.Reader {
 					return strings.NewReader("from stdin\n")
-				}).
-				EnableStreamRecording()
+				})
 
 			Expect(command.Run()).To(Succeed())
-			Eventually(command.GetStdoutStream).Should(Equal([]string{"from stdin\n"}))
+			stdin, err := plumbertests.ReadInvocationStdin(runner.Invocations()[0])
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stdin).To(Equal("from stdin\n"))
 		})
 
 		It("should ignore command errors when configured", func() {
+			result := plumbertests.TestingCommandFailure(7)
+			runner.Add(plumbertests.TestingCommandResponse{
+				Result: &result,
+			})
 			command := task.
-				CreateCommand("sh", "-c", "exit 7").
+				CreateCommand("mock").
 				SetIgnoreError()
 
 			Expect(command.Run()).To(Succeed())
 		})
 
 		It("should retry failed commands until tries are exhausted", func() {
+			result := plumbertests.TestingCommandFailure(7)
+			runner.
+				Add(plumbertests.TestingCommandResponse{Result: &result}).
+				Add(plumbertests.TestingCommandResponse{Result: &result})
 			retry := &plumber.CommandRetry{
 				Tries: 1,
 				Delay: time.Millisecond,
 			}
 			command := task.
-				CreateCommand("sh", "-c", "exit 7").
+				CreateCommand("mock").
 				SetRetries(retry)
 
 			Expect(command.Run()).To(HaveOccurred())
 			Expect(retry.Tries).To(BeEquivalentTo(0))
+			Expect(runner.Invocations()).To(HaveLen(2))
 		})
 
 		It("should run command hooks around the process", func() {
-			command := task.CreateCommand("true")
+			command := task.CreateCommand("mock")
 			order := []string{}
 
 			command.
@@ -399,7 +420,7 @@ var _ = Describe("plumber", func() {
 				})
 
 			Expect(command.Run()).To(Succeed())
-			Expect(order).To(Equal([]string{"set:$ true", "before", "after"}))
+			Expect(order).To(Equal([]string{"set:$ mock", "before", "after"}))
 		})
 
 		It("should skip disabled commands without executing hooks", func() {
@@ -418,16 +439,16 @@ var _ = Describe("plumber", func() {
 
 			Expect(command.Run()).To(Succeed())
 			Expect(order).To(BeEmpty())
+			Expect(runner.Invocations()).To(BeEmpty())
 		})
 
 		It("should remove empty command arguments before execution", func() {
 			command := task.
-				CreateCommand("sh", "", "-c", "", `printf 'ok\n'`).
-				EnableStreamRecording()
+				CreateCommand("mock", "", "-c", "", `printf 'ok\n'`)
 
 			Expect(command.Run()).To(Succeed())
-			Eventually(command.GetStdoutStream).Should(Equal([]string{"ok\n"}))
-			Expect(command.GetFormattedCommand()).To(Equal("$ sh -c printf 'ok\\n'"))
+			Expect(runner.Invocations()[0].Args).To(Equal([]string{"-c", `printf 'ok\n'`}))
+			Expect(command.GetFormattedCommand()).To(Equal("$ mock -c printf 'ok\\n'"))
 		})
 
 		It("should return an error when a script has no source", func() {

@@ -37,6 +37,7 @@ type Plumber struct {
 	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
 	options       PlumberOptions
+	commandRunner CommandRunner
 }
 
 type PlumberOptions struct {
@@ -137,6 +138,7 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 		timeout:   time.Second * 5,
 		greeter:   greeter,
 	}
+	p.commandRunner = NewCommandRunner()
 
 	p.Validator = validator.New()
 
@@ -218,6 +220,16 @@ func (p *Plumber) SetGreeter(fn PlumberFn) *Plumber {
 // Disables the greeter function to print out the CLI name and version.
 func (p *Plumber) DisableGreeter() *Plumber {
 	p.options.greeter = nil
+
+	return p
+}
+
+func (p *Plumber) SetCommandRunner(runner CommandRunner) *Plumber {
+	if runner == nil {
+		p.commandRunner = NewCommandRunner()
+	} else {
+		p.commandRunner = runner
+	}
 
 	return p
 }

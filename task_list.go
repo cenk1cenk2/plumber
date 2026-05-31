@@ -25,6 +25,7 @@ type TaskList struct {
 	shouldRunBeforeFn TaskListFn
 	fn                TaskListJobFn
 	shouldRunAfterFn  TaskListFn
+	commandRunner     CommandRunner
 }
 
 type (
@@ -82,6 +83,14 @@ func (p *TaskList) Set(fn TaskListJobFn) *TaskList {
 func (p *TaskList) ShouldRunAfter(fn TaskListFn) *TaskList {
 	p.Lock.Lock()
 	p.shouldRunAfterFn = fn
+	p.Lock.Unlock()
+
+	return p
+}
+
+func (p *TaskList) SetCommandRunner(runner CommandRunner) *TaskList {
+	p.Lock.Lock()
+	p.commandRunner = runner
 	p.Lock.Unlock()
 
 	return p
@@ -181,6 +190,21 @@ func (p *TaskList) Run() error {
 		Tracef("Run: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
 
 	return nil
+}
+
+func (p *TaskList) RunWith(runner CommandRunner) error {
+	p.Lock.Lock()
+	previous := p.commandRunner
+	p.commandRunner = runner
+	p.Lock.Unlock()
+
+	defer func() {
+		p.Lock.Lock()
+		p.commandRunner = previous
+		p.Lock.Unlock()
+	}()
+
+	return p.Run()
 }
 
 func (p *TaskList) RunAfter() error {

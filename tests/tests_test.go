@@ -6,16 +6,18 @@ import (
 	plumbertests "github.com/cenk1cenk2/plumber/v6/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("test helpers", func() {
-	It("should create a plumber fixture with captured logger output", func() {
+	It("should create a plumber fixture with ginkgo debug logging", func() {
 		fixture := plumbertests.NewPlumber()
 
 		fixture.Plumber.Log.Info("hello")
 
 		Expect(fixture.Plumber.Cli.Name).To(Equal("plumber-test"))
-		Expect(fixture.Output.String()).To(ContainSubstring("hello"))
+		Expect(fixture.Plumber.Log.Out).To(Equal(GinkgoWriter))
+		Expect(fixture.Plumber.Log.GetLevel()).To(Equal(logrus.DebugLevel))
 	})
 
 	It("should set process arguments for the current spec", func() {
@@ -32,8 +34,17 @@ var _ = Describe("test helpers", func() {
 		Expect(os.Getenv("PLUMBER_TEST_HELPER")).To(Equal("enabled"))
 	})
 
+	It("should prepend paths for the current spec", func() {
+		previousPath := os.Getenv("PATH")
+
+		plumbertests.WithPath("/tmp/plumber-bin")
+
+		Expect(os.Getenv("PATH")).To(HavePrefix("/tmp/plumber-bin" + string(os.PathListSeparator)))
+		Expect(os.Getenv("PATH")).To(ContainSubstring(previousPath))
+	})
+
 	It("should change the working directory for the current spec", func() {
-		dir := GinkgoT().TempDir()
+		dir := plumbertests.TempDir()
 		previousDir, err := os.Getwd()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -42,5 +53,17 @@ var _ = Describe("test helpers", func() {
 		currentDir, err := os.Getwd()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(currentDir).To(Equal(dir))
+	})
+
+	It("should create and enter temporary working directories", func() {
+		previousDir, err := os.Getwd()
+		Expect(err).ToNot(HaveOccurred())
+
+		dir := plumbertests.WithTempWorkingDirectory("nested")
+
+		currentDir, err := os.Getwd()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(currentDir).To(Equal(dir))
+		Expect(currentDir).ToNot(Equal(previousDir))
 	})
 })
