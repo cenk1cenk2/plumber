@@ -25,6 +25,7 @@ type TaskList struct {
 	shouldRunBeforeFn TaskListFn
 	fn                TaskListJobFn
 	shouldRunAfterFn  TaskListFn
+	runtime           Runtime
 }
 
 type (
@@ -82,6 +83,14 @@ func (p *TaskList) Set(fn TaskListJobFn) *TaskList {
 func (p *TaskList) ShouldRunAfter(fn TaskListFn) *TaskList {
 	p.Lock.Lock()
 	p.shouldRunAfterFn = fn
+	p.Lock.Unlock()
+
+	return p
+}
+
+func (p *TaskList) SetRuntime(runtime Runtime) *TaskList {
+	p.Lock.Lock()
+	p.runtime = runtime
 	p.Lock.Unlock()
 
 	return p
@@ -181,6 +190,14 @@ func (p *TaskList) Run() error {
 		Tracef("Run: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
 
 	return nil
+}
+
+func (p *TaskList) RunWith(runtime Runtime) error {
+	scoped := *p
+	scoped.Lock = &sync.RWMutex{}
+	scoped.runtime = runtime.inherit(p.runtime)
+
+	return scoped.Run()
 }
 
 func (p *TaskList) RunAfter() error {

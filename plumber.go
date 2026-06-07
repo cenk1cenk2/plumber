@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -18,7 +19,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 	"github.com/workanator/go-floc/v3"
-	"golang.org/x/exp/slices"
 )
 
 type Plumber struct {
@@ -37,6 +37,7 @@ type Plumber struct {
 	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
 	options       PlumberOptions
+	runtime       Runtime
 }
 
 type PlumberOptions struct {
@@ -137,6 +138,7 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 		timeout:   time.Second * 5,
 		greeter:   greeter,
 	}
+	p.runtime = Runtime{}
 
 	p.Validator = validator.New()
 
@@ -220,6 +222,23 @@ func (p *Plumber) DisableGreeter() *Plumber {
 	p.options.greeter = nil
 
 	return p
+}
+
+func (p *Plumber) SetRuntime(runtime Runtime) *Plumber {
+	p.runtime = runtime
+
+	return p
+}
+
+func (p *Plumber) RunWith(runtime Runtime, fn PlumberFn) error {
+	if fn == nil {
+		return fmt.Errorf("runtime callback must be set")
+	}
+
+	scoped := *p
+	scoped.runtime = runtime.inherit(p.runtime)
+
+	return fn(&scoped)
 }
 
 /*
