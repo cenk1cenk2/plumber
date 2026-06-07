@@ -1,3 +1,10 @@
+# [6.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.28...v6.4.0) (2026-06-07)
+
+
+### Features
+
+* **command:** add mockable command runner ([eeca5a9](https://gitlab.kilic.dev/libraries/plumber/commit/eeca5a9d94c10748b5a0090dceddb3ddf74a472c))
+
 ## [6.3.28](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.27...v6.3.28) (2026-04-13)
 
 
