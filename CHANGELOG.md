@@ -1,3 +1,10 @@
+## [6.4.1](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.0...v6.4.1) (2026-06-07)
+
+
+### Bug Fixes
+
+* **deps:** update go all minor dependency updates ([0eec3ff](https://gitlab.kilic.dev/libraries/plumber/commit/0eec3ff4058e6c63314e3489e326eaf38d4e1f3a))
+
 # [6.4.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.3.28...v6.4.0) (2026-06-07)
 
 
