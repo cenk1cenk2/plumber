@@ -20,7 +20,7 @@ type TaskListCli struct {
 	Flags              []cli.Flag
 	Arguments          []cli.Argument
 	Before             cli.BeforeFunc
-	Runner             plumber.CommandRunner
+	Runtime            plumber.Runtime
 	TaskLists          []TaskListFactory
 }
 
@@ -97,9 +97,7 @@ func NewTaskListCli(spec TaskListCli) *TaskListCliFixture {
 	})
 
 	result.PlumberFixture = fixture
-	if spec.Runner != nil {
-		result.Plumber.SetCommandRunner(spec.Runner)
-	}
+	result.Plumber.SetRuntime(spec.Runtime)
 
 	if len(result.args) == 0 {
 		result.args = []string{spec.AppName, spec.CommandName}

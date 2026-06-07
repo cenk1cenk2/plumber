@@ -117,7 +117,7 @@ var _ = Describe("consumer-shaped flows", func() {
 				},
 			}
 		})
-		fixture.Plumber.SetCommandRunner(runner.Runner())
+		fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
 		plumbertests.WithArgs(
 			"consumer",
 			"run",
@@ -160,7 +160,7 @@ var _ = Describe("consumer-shaped flows", func() {
 				Args:               tc.args(cwd),
 				Environment:        tc.environment(cwd),
 				WithoutEnvironment: []string{"PACKAGES_ENABLED", "PACKAGES_NODE", "PACKAGES_CWD"},
-				Runner:             runner.Runner(),
+				Runtime:            plumber.Runtime{CommandRunner: runner.Runner()},
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:        "packages.enabled",
@@ -300,7 +300,7 @@ var _ = Describe("consumer-shaped flows", func() {
 		func(tc pipeShapeCase) {
 			fixture := plumbertests.NewPlumber()
 			runner := plumbertests.NewTestingCommandRunner()
-			fixture.Plumber.SetCommandRunner(runner.Runner())
+			fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
 
 			job, assert := tc.prepare(fixture, runner)
 

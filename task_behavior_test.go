@@ -187,12 +187,12 @@ var _ = Describe("task behavior", func() {
 		defaultRunner := plumbertests.NewTestingCommandRunner()
 		scopedRunner := plumbertests.NewTestingCommandRunner()
 		task := fixture.NewTaskList("commands").CreateTask("task").
-			SetCommandRunner(defaultRunner.Runner()).
+			SetRuntime(plumber.Runtime{CommandRunner: defaultRunner.Runner()}).
 			Set(func(t *plumber.Task) error {
 				return t.CreateCommand("scoped").Run()
 			})
 
-		Expect(task.RunWith(scopedRunner.Runner())).To(Succeed())
+		Expect(task.RunWith(plumber.Runtime{CommandRunner: scopedRunner.Runner()})).To(Succeed())
 		Expect(scopedRunner.InvocationNames()).To(Equal([]string{"scoped"}))
 		Expect(defaultRunner.Invocations()).To(BeEmpty())
 
@@ -203,7 +203,7 @@ var _ = Describe("task behavior", func() {
 	DescribeTable("should aggregate and run command jobs",
 		func(tc commandJobCase) {
 			runner := plumbertests.NewTestingCommandRunner()
-			task := fixture.NewTaskList("commands").CreateTask("task").SetCommandRunner(runner.Runner())
+			task := fixture.NewTaskList("commands").CreateTask("task").SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
 
 			tc.prepare(task, runner)
 
@@ -260,7 +260,7 @@ var _ = Describe("task behavior", func() {
 
 	It("should run command jobs through command wrappers", func() {
 		runner := plumbertests.NewTestingCommandRunner()
-		task := fixture.NewTaskList("commands").CreateTask("task").SetCommandRunner(runner.Runner())
+		task := fixture.NewTaskList("commands").CreateTask("task").SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
 		order := []string{}
 		command := task.CreateCommand("mock").
 			SetJobWrapper(func(job plumber.Job, c *plumber.Command) plumber.Job {
@@ -280,7 +280,7 @@ var _ = Describe("task behavior", func() {
 		runner := plumbertests.NewTestingCommandRunner()
 		parent := fixture.NewTaskList("commands").CreateTask("parent")
 		child := fixture.NewTaskList("commands").CreateTask("child")
-		command := child.CreateCommand("mock").SetRunner(runner.Runner()).AddSelfToTheParentTask(parent)
+		command := child.CreateCommand("mock").SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()}).AddSelfToTheParentTask(parent)
 
 		Expect(parent.GetCommands()).To(Equal([]*plumber.Command{command}))
 		Expect(parent.RunCommandJobAsJobSequence()).To(Succeed())
@@ -603,12 +603,12 @@ var _ = Describe("task lists", func() {
 		defaultRunner := plumbertests.NewTestingCommandRunner()
 		scopedRunner := plumbertests.NewTestingCommandRunner()
 		tl := fixture.NewTaskList("commands").
-			SetCommandRunner(defaultRunner.Runner()).
+			SetRuntime(plumber.Runtime{CommandRunner: defaultRunner.Runner()}).
 			Set(func(tl *plumber.TaskList) plumber.Job {
 				return tl.CreateTask("task").CreateCommand("scoped").Job()
 			})
 
-		Expect(tl.RunWith(scopedRunner.Runner())).To(Succeed())
+		Expect(tl.RunWith(plumber.Runtime{CommandRunner: scopedRunner.Runner()})).To(Succeed())
 		Expect(scopedRunner.InvocationNames()).To(Equal([]string{"scoped"}))
 		Expect(defaultRunner.Invocations()).To(BeEmpty())
 

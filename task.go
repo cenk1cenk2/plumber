@@ -29,7 +29,7 @@ type Task struct {
 	shouldRunAfterFn  TaskFn
 	onTerminatorFn    TaskFn
 	jobWrapperFn      TaskJobWrapperFn
-	commandRunner     CommandRunner
+	runtime           Runtime
 	status            TaskStatus
 }
 
@@ -149,8 +149,8 @@ func (t *Task) SetJobWrapper(fn TaskJobWrapperFn) *Task {
 	return t
 }
 
-func (t *Task) SetCommandRunner(runner CommandRunner) *Task {
-	t.commandRunner = runner
+func (t *Task) SetRuntime(runtime Runtime) *Task {
+	t.runtime = runtime
 
 	return t
 }
@@ -193,14 +193,20 @@ func (t *Task) Run() error {
 	return nil
 }
 
-func (t *Task) RunWith(runner CommandRunner) error {
-	previous := t.commandRunner
-	t.commandRunner = runner
-	defer func() {
-		t.commandRunner = previous
-	}()
+func (t *Task) RunWith(runtime Runtime) error {
+	return t.withRuntime(runtime).Run()
+}
 
-	return t.Run()
+func (t *Task) withRuntime(runtime Runtime) *Task {
+	scoped := *t
+	scoped.runtime = runtime.inherit(t.runtime)
+	scoped.taskLock = &sync.RWMutex{}
+	scoped.commands = make([]*Command, 0, len(t.commands))
+	for _, command := range t.commands {
+		scoped.commands = append(scoped.commands, command.withTask(&scoped))
+	}
+
+	return &scoped
 }
 
 // Runs the current task as a job.

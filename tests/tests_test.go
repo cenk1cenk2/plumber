@@ -136,7 +136,7 @@ var _ = Describe("test helpers", func() {
 				"HELPER_ROOT":       "from-env",
 				"HELPER_REPOSITORY": "ignored",
 			},
-			Runner: runner.Runner(),
+			Runtime: plumber.Runtime{CommandRunner: runner.Runner()},
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:        "enabled",
@@ -234,7 +234,7 @@ var _ = Describe("test helpers", func() {
 				"HELPER_ENABLED":    "false",
 				"HELPER_REPOSITORY": "api,web",
 			},
-			Runner: runner.Runner(),
+			Runtime: plumber.Runtime{CommandRunner: runner.Runner()},
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:        "enabled",

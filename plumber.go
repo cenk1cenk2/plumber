@@ -37,7 +37,7 @@ type Plumber struct {
 	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
 	options       PlumberOptions
-	commandRunner CommandRunner
+	runtime       Runtime
 }
 
 type PlumberOptions struct {
@@ -138,7 +138,7 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 		timeout:   time.Second * 5,
 		greeter:   greeter,
 	}
-	p.commandRunner = NewCommandRunner()
+	p.runtime = Runtime{}
 
 	p.Validator = validator.New()
 
@@ -224,14 +224,25 @@ func (p *Plumber) DisableGreeter() *Plumber {
 	return p
 }
 
-func (p *Plumber) SetCommandRunner(runner CommandRunner) *Plumber {
-	if runner == nil {
-		p.commandRunner = NewCommandRunner()
-	} else {
-		p.commandRunner = runner
-	}
+func (p *Plumber) SetRuntime(runtime Runtime) *Plumber {
+	p.runtime = runtime
 
 	return p
+}
+
+func (p *Plumber) RunWith(runtime Runtime, fn PlumberFn) error {
+	if fn == nil {
+		return fmt.Errorf("runtime callback must be set")
+	}
+
+	return fn(p.withRuntime(runtime))
+}
+
+func (p *Plumber) withRuntime(runtime Runtime) *Plumber {
+	scoped := *p
+	scoped.runtime = runtime.inherit(p.runtime)
+
+	return &scoped
 }
 
 /*

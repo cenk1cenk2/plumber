@@ -329,7 +329,7 @@ var _ = Describe("plumber", func() {
 
 			fixture := plumbertests.NewPlumber()
 			runner := plumbertests.NewTestingCommandRunner()
-			fixture.Plumber.SetCommandRunner(runner.Runner())
+			fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
 
 			return fixture.NewTaskList("commands").CreateTask("command"), runner
 		}

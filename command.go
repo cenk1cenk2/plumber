@@ -21,10 +21,10 @@ type Command struct {
 	TL      *TaskList
 	Log     *logrus.Entry
 
-	Command       *exec.Cmd
-	scriptFn      CommandScriptFn
-	options       CommandOptions
-	commandRunner CommandRunner
+	Command  *exec.Cmd
+	scriptFn CommandScriptFn
+	options  CommandOptions
+	runtime  Runtime
 
 	shouldRunBeforeFn CommandFn
 	fn                CommandFn
@@ -283,8 +283,8 @@ func (c *Command) SetJobWrapper(fn CommandJobWrapperFn) *Command {
 	return c
 }
 
-func (c *Command) SetRunner(runner CommandRunner) *Command {
-	c.commandRunner = runner
+func (c *Command) SetRuntime(runtime Runtime) *Command {
+	c.runtime = runtime
 
 	return c
 }
@@ -385,6 +385,10 @@ func (c *Command) GetFormattedCommand() string {
 
 // Run the command as defined.
 func (c *Command) Run() error {
+	return c.run(Runtime{})
+}
+
+func (c *Command) run(runtime Runtime) error {
 	if stop := c.handleStopCases(); stop {
 		return nil
 	}
@@ -413,7 +417,7 @@ func (c *Command) Run() error {
 		}
 	}
 
-	if err := c.pipe(); err != nil {
+	if err := c.pipe(runtime); err != nil {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
 			Errorf("%s > %s", c.GetFormattedCommand(), err.Error())
 
@@ -432,14 +436,18 @@ func (c *Command) Run() error {
 	return nil
 }
 
-func (c *Command) RunWith(runner CommandRunner) error {
-	previous := c.commandRunner
-	c.commandRunner = runner
-	defer func() {
-		c.commandRunner = previous
-	}()
+func (c *Command) RunWith(runtime Runtime) error {
+	return c.run(runtime)
+}
 
-	return c.Run()
+func (c *Command) withTask(task *Task) *Command {
+	scoped := *c
+	scoped.T = task
+	scoped.TL = task.TL
+	scoped.Plumber = task.Plumber
+	scoped.Log = task.Log
+
+	return &scoped
 }
 
 // Convert Command.Run to a floc job.
@@ -479,7 +487,7 @@ func (c *Command) AddSelfToTheParentTask(pt *Task) *Command {
 }
 
 // Executes the command and pipes the output through the logger.
-func (c *Command) pipe() error {
+func (c *Command) pipe(runtime Runtime) error {
 	invocation, err := c.createInvocation()
 	if err != nil {
 		return err
@@ -487,7 +495,7 @@ func (c *Command) pipe() error {
 
 	c.resetStreams()
 
-	result, err := c.resolveCommandRunner().Run(c.Plumber.context, invocation, CommandRuntime{
+	result, err := c.resolveCommandRunner(runtime).Run(c.Plumber.context, invocation, CommandRuntime{
 		Stdout: c.newStreamWriter(stream_stdout, c.stdoutLevel),
 		Stderr: c.newStreamWriter(stream_stderr, c.stderrLevel),
 		SetProcess: func(process *os.Process) {
@@ -508,7 +516,7 @@ func (c *Command) pipe() error {
 				}
 			}
 
-			return c.retry(err)
+			return c.retry(err, runtime)
 		}
 
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
@@ -525,7 +533,7 @@ func (c *Command) pipe() error {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_exit).
 			Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), result.ExitCode)
 
-		return c.retry(err)
+		return c.retry(err, runtime)
 	}
 
 	if c.options.ensureIsAlive {
@@ -547,7 +555,7 @@ func (c *Command) handleError(err error) error {
 }
 
 // Retries the task with the given options.
-func (c *Command) retry(err error) error {
+func (c *Command) retry(err error, runtime Runtime) error {
 	if c.options.retry == nil || !c.options.retry.Always && c.options.retry.Tries <= 0 {
 		return c.handleError(err)
 	}
@@ -569,24 +577,28 @@ func (c *Command) retry(err error) error {
 
 	time.Sleep(c.options.retry.Delay)
 
-	return c.pipe()
+	return c.pipe(runtime)
 }
 
-func (c *Command) resolveCommandRunner() CommandRunner {
-	if c.commandRunner != nil {
-		return c.commandRunner
+func (c *Command) resolveCommandRunner(runtime Runtime) CommandRunner {
+	if runtime.CommandRunner != nil {
+		return runtime.CommandRunner
 	}
 
-	if c.T != nil && c.T.commandRunner != nil {
-		return c.T.commandRunner
+	if c.runtime.CommandRunner != nil {
+		return c.runtime.CommandRunner
 	}
 
-	if c.TL != nil && c.TL.commandRunner != nil {
-		return c.TL.commandRunner
+	if c.T != nil && c.T.runtime.CommandRunner != nil {
+		return c.T.runtime.CommandRunner
 	}
 
-	if c.Plumber != nil && c.Plumber.commandRunner != nil {
-		return c.Plumber.commandRunner
+	if c.TL != nil && c.TL.runtime.CommandRunner != nil {
+		return c.TL.runtime.CommandRunner
+	}
+
+	if c.Plumber != nil && c.Plumber.runtime.CommandRunner != nil {
+		return c.Plumber.runtime.CommandRunner
 	}
 
 	return NewCommandRunner()

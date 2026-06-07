@@ -25,7 +25,7 @@ type TaskList struct {
 	shouldRunBeforeFn TaskListFn
 	fn                TaskListJobFn
 	shouldRunAfterFn  TaskListFn
-	commandRunner     CommandRunner
+	runtime           Runtime
 }
 
 type (
@@ -88,9 +88,9 @@ func (p *TaskList) ShouldRunAfter(fn TaskListFn) *TaskList {
 	return p
 }
 
-func (p *TaskList) SetCommandRunner(runner CommandRunner) *TaskList {
+func (p *TaskList) SetRuntime(runtime Runtime) *TaskList {
 	p.Lock.Lock()
-	p.commandRunner = runner
+	p.runtime = runtime
 	p.Lock.Unlock()
 
 	return p
@@ -192,19 +192,16 @@ func (p *TaskList) Run() error {
 	return nil
 }
 
-func (p *TaskList) RunWith(runner CommandRunner) error {
-	p.Lock.Lock()
-	previous := p.commandRunner
-	p.commandRunner = runner
-	p.Lock.Unlock()
+func (p *TaskList) RunWith(runtime Runtime) error {
+	return p.withRuntime(runtime).Run()
+}
 
-	defer func() {
-		p.Lock.Lock()
-		p.commandRunner = previous
-		p.Lock.Unlock()
-	}()
+func (p *TaskList) withRuntime(runtime Runtime) *TaskList {
+	scoped := *p
+	scoped.Lock = &sync.RWMutex{}
+	scoped.runtime = runtime.inherit(p.runtime)
 
-	return p.Run()
+	return &scoped
 }
 
 func (p *TaskList) RunAfter() error {

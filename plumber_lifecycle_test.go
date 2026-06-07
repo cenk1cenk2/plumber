@@ -187,10 +187,10 @@ var _ = Describe("plumber lifecycle", func() {
 			Expect(fixture.NewTaskList("configured").CreateTask("deploy", "", "prepare").Name).To(Equal("deploy|prepare"))
 		})
 
-		It("should accept nil command runners by restoring the default runner", func() {
+		It("should accept empty runtimes by restoring the default runtime", func() {
 			fixture := plumbertests.NewPlumber()
 
-			Expect(fixture.Plumber.SetCommandRunner(nil)).To(BeIdenticalTo(fixture.Plumber))
+			Expect(fixture.Plumber.SetRuntime(plumber.Runtime{})).To(BeIdenticalTo(fixture.Plumber))
 		})
 
 		DescribeTable("should run jobs through plumber",
