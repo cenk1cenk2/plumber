@@ -440,16 +440,6 @@ func (c *Command) RunWith(runtime Runtime) error {
 	return c.run(runtime)
 }
 
-func (c *Command) withTask(task *Task) *Command {
-	scoped := *c
-	scoped.T = task
-	scoped.TL = task.TL
-	scoped.Plumber = task.Plumber
-	scoped.Log = task.Log
-
-	return &scoped
-}
-
 // Convert Command.Run to a floc job.
 func (c *Command) Job() Job {
 	return JobIfNot(

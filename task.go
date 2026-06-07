@@ -194,19 +194,20 @@ func (t *Task) Run() error {
 }
 
 func (t *Task) RunWith(runtime Runtime) error {
-	return t.withRuntime(runtime).Run()
-}
-
-func (t *Task) withRuntime(runtime Runtime) *Task {
 	scoped := *t
 	scoped.runtime = runtime.inherit(t.runtime)
 	scoped.taskLock = &sync.RWMutex{}
 	scoped.commands = make([]*Command, 0, len(t.commands))
 	for _, command := range t.commands {
-		scoped.commands = append(scoped.commands, command.withTask(&scoped))
+		scopedCommand := *command
+		scopedCommand.T = &scoped
+		scopedCommand.TL = scoped.TL
+		scopedCommand.Plumber = scoped.Plumber
+		scopedCommand.Log = scoped.Log
+		scoped.commands = append(scoped.commands, &scopedCommand)
 	}
 
-	return &scoped
+	return scoped.Run()
 }
 
 // Runs the current task as a job.

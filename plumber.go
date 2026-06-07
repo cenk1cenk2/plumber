@@ -235,14 +235,10 @@ func (p *Plumber) RunWith(runtime Runtime, fn PlumberFn) error {
 		return fmt.Errorf("runtime callback must be set")
 	}
 
-	return fn(p.withRuntime(runtime))
-}
-
-func (p *Plumber) withRuntime(runtime Runtime) *Plumber {
 	scoped := *p
 	scoped.runtime = runtime.inherit(p.runtime)
 
-	return &scoped
+	return fn(&scoped)
 }
 
 /*

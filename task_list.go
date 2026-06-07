@@ -193,15 +193,11 @@ func (p *TaskList) Run() error {
 }
 
 func (p *TaskList) RunWith(runtime Runtime) error {
-	return p.withRuntime(runtime).Run()
-}
-
-func (p *TaskList) withRuntime(runtime Runtime) *TaskList {
 	scoped := *p
 	scoped.Lock = &sync.RWMutex{}
 	scoped.runtime = runtime.inherit(p.runtime)
 
-	return &scoped
+	return scoped.Run()
 }
 
 func (p *TaskList) RunAfter() error {
