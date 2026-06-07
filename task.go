@@ -29,6 +29,7 @@ type Task struct {
 	shouldRunAfterFn  TaskFn
 	onTerminatorFn    TaskFn
 	jobWrapperFn      TaskJobWrapperFn
+	runtime           Runtime
 	status            TaskStatus
 }
 
@@ -148,6 +149,12 @@ func (t *Task) SetJobWrapper(fn TaskJobWrapperFn) *Task {
 	return t
 }
 
+func (t *Task) SetRuntime(runtime Runtime) *Task {
+	t.runtime = runtime
+
+	return t
+}
+
 // Runs the current task.
 func (t *Task) Run() error {
 	if stop := t.handleStopCases(); stop {
@@ -184,6 +191,23 @@ func (t *Task) Run() error {
 	t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("%s -> %s", t.Name, time.Since(started).Round(time.Millisecond).String())
 
 	return nil
+}
+
+func (t *Task) RunWith(runtime Runtime) error {
+	scoped := *t
+	scoped.runtime = runtime.inherit(t.runtime)
+	scoped.taskLock = &sync.RWMutex{}
+	scoped.commands = make([]*Command, 0, len(t.commands))
+	for _, command := range t.commands {
+		scopedCommand := *command
+		scopedCommand.T = &scoped
+		scopedCommand.TL = scoped.TL
+		scopedCommand.Plumber = scoped.Plumber
+		scopedCommand.Log = scoped.Log
+		scoped.commands = append(scoped.commands, &scopedCommand)
+	}
+
+	return scoped.Run()
 }
 
 // Runs the current task as a job.

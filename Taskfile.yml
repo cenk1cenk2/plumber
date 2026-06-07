@@ -13,3 +13,14 @@ includes:
   go:
     taskfile: https://gitlab.kilic.dev/libraries/taskfiles/-/raw/main/Taskfile.go-library.yml?ref_type=heads
     flatten: true
+
+tasks:
+  generate:
+    desc: Generates checked-in files.
+    cmds:
+      - task: generate:mockery
+
+  generate:mockery:
+    desc: Generates mockery mocks.
+    cmds:
+      - go tool mockery --config .mockery.yml
