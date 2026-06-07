@@ -33,7 +33,7 @@ lint:
     - .go-lint
 
 test:
-  stage: test
+  stage: build
   extends:
     - .go-test
 
