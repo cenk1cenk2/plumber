@@ -9,7 +9,7 @@ stages:
 
 include:
   - project: devops/pipelines
-    ref: go@1.6.0
+    ref: go@2.0.0
     file:
       - /go/install.gitlab-ci.yml
       - /go/lint.gitlab-ci.yml
