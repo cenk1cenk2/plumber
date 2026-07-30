@@ -552,20 +552,25 @@ func (c *Command) retry(err error, runtime Runtime) error {
 
 	log := c.Log.WithField(LOG_FIELD_STATUS, log_status_retry)
 
+	delay := c.options.retry.Delay
+	if delay == 0 {
+		delay = COMMAND_RETRY_DELAY
+	}
+
 	if c.options.retry.Always {
 		log.Warnf(
 			"%s -> has failed, will retry to run in %s: %s",
 			c.GetFormattedCommand(),
-			c.options.retry.Delay.String(),
+			delay.String(),
 			err,
 		)
 	} else {
-		log.Warnf("%s -> has failed, will retry to run for %d more times in %s: %s", c.GetFormattedCommand(), c.options.retry.Tries, c.options.retry.Delay.String(), err)
+		log.Warnf("%s -> has failed, will retry to run for %d more times in %s: %s", c.GetFormattedCommand(), c.options.retry.Tries, delay.String(), err)
 
 		c.options.retry.Tries--
 	}
 
-	time.Sleep(c.options.retry.Delay)
+	time.Sleep(delay)
 
 	return c.pipe(runtime)
 }
