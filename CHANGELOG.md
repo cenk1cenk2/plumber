@@ -1,3 +1,10 @@
+## [6.4.8](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.7...v6.4.8) (2026-07-30)
+
+
+### Bug Fixes
+
+* **command:** floor retry delay at COMMAND_RETRY_DELAY ([4b50ee0](https://gitlab.kilic.dev/libraries/plumber/commit/4b50ee0d1d89a26980c5e227e8b490ca0ae608e8))
+
 ## [6.4.7](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.6...v6.4.7) (2026-06-28)
 
 
