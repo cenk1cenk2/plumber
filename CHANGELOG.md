@@ -1,3 +1,10 @@
+## [6.4.10](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.9...v6.4.10) (2026-07-31)
+
+
+### Bug Fixes
+
+* **command:** surface original error on context cancellation kill ([ea6f2fb](https://gitlab.kilic.dev/libraries/plumber/commit/ea6f2fb84543efbf5892ec0ae61ce67fdb9ec611))
+
 ## [6.4.9](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.8...v6.4.9) (2026-07-31)
 
 
