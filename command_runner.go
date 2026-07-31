@@ -136,5 +136,15 @@ func (r *commandRunner) Run(ctx context.Context, invocation CommandInvocation, r
 		result.Exited = command.ProcessState.Exited()
 	}
 
+	// When the floc flow context is cancelled (e.g. ctrl.Fail() after another
+	// supervised command exited), exec.CommandContext kills this child and
+	// command.Wait() returns a generic "context canceled" or signal error. That
+	// masks the real reason the flow was torn down and shows up as a misleading
+	// "context canceled" failure. Mark it clearly as a context-cancellation kill
+	// while preserving the underlying error via %w so callers can still unwrap it.
+	if err != nil && ctx.Err() != nil {
+		err = fmt.Errorf("killed by context cancellation: %w", err)
+	}
+
 	return result, err
 }
