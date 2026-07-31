@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -499,7 +500,8 @@ func (c *Command) pipe(runtime Runtime) error {
 
 	if err != nil {
 		if result.Started {
-			if exiterr, ok := err.(*exec.ExitError); ok {
+			var exiterr *exec.ExitError
+			if errors.As(err, &exiterr) {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 					c.Log.WithField(LOG_FIELD_STATUS, log_status_exit).
 						Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus())
