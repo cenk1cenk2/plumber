@@ -485,7 +485,7 @@ func (c *Command) pipe(runtime Runtime) error {
 
 	c.resetStreams()
 
-	result, err := c.resolveCommandRunner(runtime).Run(c.Plumber.context, invocation, CommandRuntime{
+	result, err := c.resolveCommandRunner(runtime).Run(c.Plumber.flocContext.Ctx(), invocation, CommandRuntime{
 		Stdout: c.newStreamWriter(stream_stdout, c.stdoutLevel),
 		Stderr: c.newStreamWriter(stream_stderr, c.stderrLevel),
 		SetProcess: func(process *os.Process) {
@@ -570,7 +570,13 @@ func (c *Command) retry(err error, runtime Runtime) error {
 		c.options.retry.Tries--
 	}
 
-	time.Sleep(delay)
+	// Abort the retry loop if the floc flow context is cancelled, otherwise an
+	// unbounded retry.Always would keep sleeping and re-piping against a dead flow.
+	select {
+	case <-c.Plumber.flocContext.Ctx().Done():
+		return c.handleError(fmt.Errorf("Retry aborted, context cancelled: %s", c.GetFormattedCommand()))
+	case <-time.After(delay):
+	}
 
 	return c.pipe(runtime)
 }

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type CommandRunner interface {
@@ -59,7 +60,7 @@ func (e *commandResultError) Error() string {
 	return fmt.Sprintf("command exited with code %d: %s", e.exitCode, e.command)
 }
 
-func (r *commandRunner) Run(_ context.Context, invocation CommandInvocation, runtime CommandRuntime) (CommandResult, error) {
+func (r *commandRunner) Run(ctx context.Context, invocation CommandInvocation, runtime CommandRuntime) (CommandResult, error) {
 	if runtime.Stdout == nil {
 		runtime.Stdout = io.Discard
 	}
@@ -68,13 +69,26 @@ func (r *commandRunner) Run(_ context.Context, invocation CommandInvocation, run
 		runtime.Stderr = io.Discard
 	}
 
-	command := exec.Command(invocation.Name, invocation.Args...) //nolint:gosec
+	command := exec.CommandContext(ctx, invocation.Name, invocation.Args...) //nolint:gosec
 	command.Dir = invocation.Dir
 	command.Path = invocation.Path
 	command.Env = invocation.Env
 	command.ExtraFiles = invocation.ExtraFiles
 	command.SysProcAttr = invocation.SysProcAttr
 	command.Stdin = invocation.Stdin
+
+	// When the floc flow context is cancelled (e.g. ctrl.Fail() after a supervised
+	// command exits with ensureIsAlive), gracefully stop the child: SIGTERM first,
+	// then let WaitDelay escalate to SIGKILL so command.Wait() can return instead of
+	// blocking forever and busy-spinning run.Parallel on the closed ctx.Done() channel.
+	command.Cancel = func() error {
+		if command.Process != nil {
+			return command.Process.Signal(syscall.SIGTERM)
+		}
+
+		return nil
+	}
+	command.WaitDelay = 10 * time.Second
 
 	stdout, err := command.StdoutPipe()
 	if err != nil {
