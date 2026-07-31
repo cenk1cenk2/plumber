@@ -1,3 +1,10 @@
+## [6.4.9](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.8...v6.4.9) (2026-07-31)
+
+
+### Bug Fixes
+
+* **command:** wire floc context cancellation to child process kill ([f7ad111](https://gitlab.kilic.dev/libraries/plumber/commit/f7ad1114ac9fe143948ad5f57fb9f265b1c915f6))
+
 ## [6.4.8](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.7...v6.4.8) (2026-07-30)
 
 
