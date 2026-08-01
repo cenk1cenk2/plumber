@@ -444,12 +444,21 @@ func GuardOnPanic(job Job, fn GuardHandlerFn) Job {
 // it was finished. Otherwise execution will be resumed if the reason
 // it finished with is masked.
 func GuardResume(job Job, mask Result) Job {
-	return guard.Resume(NewJobResultMask(mask), job)
+	guarded := guard.Resume(NewJobResultMask(mask), job)
+
+	return func(ctx floc.Context, ctrl floc.Control) error {
+		// go-floc builds the control of the guarded job on a context that delegates
+		// UpdateCtx to the parent, therefore releasing it cancels the context of the parent
+		// for good and every flow that comes after it starts on a dead context. Hand over an
+		// isolated context that carries the same underlying context instead, cancelling the
+		// parent still reaches the guarded job through it.
+		return guarded(floc.BorrowContext(ctx.Ctx()), ctrl)
+	}
 }
 
 // Always run this job!
 func GuardAlways(job Job) Job {
-	return guard.Resume(NewJobResultMask(TASK_ANY), job)
+	return GuardResume(job, TASK_ANY)
 }
 
 // NewJobResultMask constructs new instance from the mask given.

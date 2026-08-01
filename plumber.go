@@ -29,10 +29,12 @@ type Plumber struct {
 	Terminator
 	Validator *validator.Validate
 
-	context     context.Context
-	cancel      context.CancelFunc
-	flocControl floc.Control
-	flocContext floc.Context
+	context         context.Context
+	cancel          context.CancelFunc
+	flocControl     floc.Control
+	flocContext     floc.Context
+	flocRootControl floc.Control
+	flocLock        *sync.RWMutex
 
 	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
@@ -116,8 +118,10 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 
 	p.context, p.cancel = context.WithCancel(context.Background())
 
+	p.flocLock = &sync.RWMutex{}
 	p.flocContext = floc.NewContext()
 	p.flocControl = floc.NewControl(p.flocContext)
+	p.flocRootControl = p.flocControl
 
 	p.Cli = fn(p)
 
@@ -302,7 +306,7 @@ func (p *Plumber) SendError(log *logrus.Entry, err error) *Plumber {
 
 // Sends an fatal error with its custom instance of logger through the channel.
 func (p *Plumber) SendFatal(log *logrus.Entry, err error) *Plumber {
-	p.flocControl.Cancel(err)
+	p.cancelFloc(err)
 
 	e := PlumberError{
 		Err: err,
@@ -320,7 +324,7 @@ func (p *Plumber) SendFatal(log *logrus.Entry, err error) *Plumber {
 
 // Sends exit code to terminate the application.
 func (p *Plumber) SendExit(code int) *Plumber {
-	p.flocControl.Cancel(fmt.Sprintf("Will exit with code: %d", code))
+	p.cancelFloc(fmt.Sprintf("Will exit with code: %d", code))
 
 	p.Log.WithFields(logrus.Fields{
 		LOG_FIELD_CONTEXT: p.Cli.Name,
@@ -511,13 +515,67 @@ func (p *Plumber) RunJobs(job Job) error {
 		return nil
 	}
 
-	result, data, err := floc.RunWith(p.flocContext, p.flocControl, job)
+	result, data, err := p.runFloc(job)
 
 	if err != nil {
 		return err
 	}
 
 	return p.handleFloc(result, data)
+}
+
+/*
+Runs the given job as a flow of its own.
+
+Every flow gets a control of its own that is derived from the context that is currently
+active, therefore a flow that is over can only cancel itself and never the flow that comes
+after it. Cancelling a parent, through the terminator, a fatal error or a failing job, still
+cancels every context that is derived from it.
+*/
+func (p *Plumber) runFloc(job Job) (Result, interface{}, error) {
+	control, finish := p.startFloc()
+	defer finish()
+
+	return floc.RunWith(p.flocContext, control, job)
+}
+
+// Creates the control of a new flow and returns the function that ends the flow again.
+func (p *Plumber) startFloc() (floc.Control, func()) {
+	p.flocLock.Lock()
+	defer p.flocLock.Unlock()
+
+	// floc derives a cancellable context from the current one and installs it on the context
+	// while creating the control, then cancels it again as soon as the result of the flow is
+	// set. Remember what was active before to put it back once the flow is over.
+	parent := p.flocContext.Ctx()
+	previous := p.flocControl
+	control := floc.NewControl(p.flocContext)
+	p.flocControl = control
+
+	return control, func() {
+		p.flocLock.Lock()
+		defer p.flocLock.Unlock()
+
+		control.Release()
+
+		p.flocContext.UpdateCtx(parent)
+		p.flocControl = previous
+	}
+}
+
+// Cancels the flow that is currently running together with the root flow, so the
+// cancellation reaches every context that is derived from either of them.
+func (p *Plumber) cancelFloc(data interface{}) {
+	p.flocLock.RLock()
+	control := p.flocControl
+	root := p.flocRootControl
+	p.flocLock.RUnlock()
+
+	control.Cancel(data)
+
+	if root != control {
+		root.Cancel(data)
+	}
 }
 
 // Handles output coming from floc.

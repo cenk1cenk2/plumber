@@ -176,7 +176,7 @@ func (p *TaskList) Run() error {
 
 	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("Run: %s", p.Name)
 
-	result, data, err := floc.RunWith(p.Plumber.flocContext, p.Plumber.flocControl, p.fn(p))
+	result, data, err := p.Plumber.runFloc(p.fn(p))
 
 	if err != nil {
 		return err
@@ -267,7 +267,7 @@ func (p *TaskList) registerTerminateHandler() {
 
 		<-ch
 
-		p.Plumber.flocControl.Cancel(fmt.Errorf("Trying to terminate..."))
+		p.Plumber.cancelFloc(fmt.Errorf("Trying to terminate..."))
 	}
 }
 
