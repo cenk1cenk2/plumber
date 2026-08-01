@@ -1,3 +1,12 @@
+## [6.4.11](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.10...v6.4.11) (2026-08-01)
+
+
+### Bug Fixes
+
+* **command:** derive parentless flows from the root context ([e8423c3](https://gitlab.kilic.dev/libraries/plumber/commit/e8423c36ff2319c500e8774ef0b2b8369679c11f))
+* **command:** isolate floc context per RunWith to prevent forward cancellation leak ([6441813](https://gitlab.kilic.dev/libraries/plumber/commit/6441813ac0fbfe25c74aacfbafcc3fc2fc5a920c))
+* **command:** isolate the floc context per flow for concurrent safety ([94be498](https://gitlab.kilic.dev/libraries/plumber/commit/94be498d13511f5c6fabaa1e33046538bc1b1e10))
+
 ## [6.4.10](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.9...v6.4.10) (2026-07-31)
 
 
