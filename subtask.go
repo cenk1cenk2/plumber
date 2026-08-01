@@ -119,7 +119,7 @@ func (t *Task) SetSubtask(job Job) *Task {
 
 // Runs the subtasks of the current task.
 func (t *Task) RunSubtasks() error {
-	err := t.Plumber.RunJobs(t.subtask)
+	err := t.Plumber.runJobs(t.flocContext, t.subtask)
 
 	if err == nil {
 		t.SetSubtask(nil)

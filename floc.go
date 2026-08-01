@@ -12,6 +12,7 @@ import (
 
 type (
 	Job          = floc.Job
+	JobContext   = floc.Context
 	JobPredicate = floc.Predicate
 	Result       = floc.Result
 	ResultMask   = floc.ResultMask
@@ -75,6 +76,15 @@ func CreateJob(fn func() error) Job {
 func CreateBasicJob(fn func() error) Job {
 	return func(_ floc.Context, _ floc.Control) error {
 		return fn()
+	}
+}
+
+// CreateJobWithContext hands over the context of the flow the job runs in, so a flow that is
+// started inside the job through Plumber.RunJobsWith belongs to the flow around it and is
+// cancelled together with it.
+func CreateJobWithContext(fn func(ctx JobContext) error) Job {
+	return func(ctx floc.Context, _ floc.Control) error {
+		return fn(ctx)
 	}
 }
 
@@ -444,12 +454,21 @@ func GuardOnPanic(job Job, fn GuardHandlerFn) Job {
 // it was finished. Otherwise execution will be resumed if the reason
 // it finished with is masked.
 func GuardResume(job Job, mask Result) Job {
-	return guard.Resume(NewJobResultMask(mask), job)
+	guarded := guard.Resume(NewJobResultMask(mask), job)
+
+	return func(ctx floc.Context, ctrl floc.Control) error {
+		// go-floc builds the control of the guarded job on a context that delegates
+		// UpdateCtx to the given one, therefore releasing it would leave the context of the
+		// flow dead for everything that comes after the guard. Hand over an isolated context
+		// that carries the same underlying context instead, so only the guard dies with it
+		// while cancelling the flow still reaches the guarded job through it.
+		return guarded(floc.BorrowContext(ctx.Ctx()), ctrl)
+	}
 }
 
 // Always run this job!
 func GuardAlways(job Job) Job {
-	return guard.Resume(NewJobResultMask(TASK_ANY), job)
+	return GuardResume(job, TASK_ANY)
 }
 
 // NewJobResultMask constructs new instance from the mask given.

@@ -53,15 +53,15 @@ func (t *Task) AddCommands(commands ...*Command) *Task {
 
 // Runs the commands that are attached to this task as sequence.
 func (t *Task) RunCommandJobAsJobSequence() error {
-	return t.Plumber.RunJobs(t.GetCommandJobAsJobSequence())
+	return t.Plumber.runJobs(t.flocContext, t.GetCommandJobAsJobSequence())
 }
 
 // Runs the commands that are attached to this task as parallel.
 func (t *Task) RunCommandJobAsJobParallel() error {
-	return t.Plumber.RunJobs(t.GetCommandJobAsJobParallel())
+	return t.Plumber.runJobs(t.flocContext, t.GetCommandJobAsJobParallel())
 }
 
 // Runs the commands that are attached to this task as parallel with the given wrapper.
 func (t *Task) RunCommandJob(fn TaskJobParserFn) error {
-	return t.Plumber.RunJobs(fn(t))
+	return t.Plumber.runJobs(t.flocContext, fn(t))
 }

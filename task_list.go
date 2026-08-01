@@ -26,6 +26,7 @@ type TaskList struct {
 	fn                TaskListJobFn
 	shouldRunAfterFn  TaskListFn
 	runtime           Runtime
+	flocContext       floc.Context
 }
 
 type (
@@ -176,7 +177,7 @@ func (p *TaskList) Run() error {
 
 	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("Run: %s", p.Name)
 
-	result, data, err := floc.RunWith(p.Plumber.flocContext, p.Plumber.flocControl, p.fn(p))
+	result, data, err := p.Plumber.runFloc(p.flocContext, p.fn(p))
 
 	if err != nil {
 		return err
@@ -222,20 +223,32 @@ func (p *TaskList) RunAfter() error {
 }
 
 func (p *TaskList) JobBefore() Job {
-	return func(_ floc.Context, _ floc.Control) error {
+	return func(ctx floc.Context, _ floc.Control) error {
+		p.flocContext = ctx
+		defer func() { p.flocContext = nil }()
+
 		return p.RunBefore()
 	}
 }
 
 // Returns this task list as a job.
+//
+// The context of the flow is only kept around while the flow is running, so a task list that is
+// combined with others or reused later never holds on to the context of a flow that is over.
 func (p *TaskList) Job() Job {
-	return func(_ floc.Context, _ floc.Control) error {
+	return func(ctx floc.Context, _ floc.Control) error {
+		p.flocContext = ctx
+		defer func() { p.flocContext = nil }()
+
 		return p.Run()
 	}
 }
 
 func (p *TaskList) JobAfter() Job {
-	return func(_ floc.Context, _ floc.Control) error {
+	return func(ctx floc.Context, _ floc.Control) error {
+		p.flocContext = ctx
+		defer func() { p.flocContext = nil }()
+
 		return p.RunAfter()
 	}
 }
@@ -267,7 +280,7 @@ func (p *TaskList) registerTerminateHandler() {
 
 		<-ch
 
-		p.Plumber.flocControl.Cancel(fmt.Errorf("Trying to terminate..."))
+		p.Plumber.cancelFloc(fmt.Errorf("Trying to terminate..."))
 	}
 }
 
