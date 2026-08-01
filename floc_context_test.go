@@ -114,7 +114,7 @@ var _ = Describe("floc context isolation", func() {
 		}),
 	)
 
-	It("should not leak the cancellation of a flow to the flow that runs next to it", func() {
+	It("should not leak the cancellation of a flow to the flow that runs next to it", func(_ SpecContext) {
 		lock := &sync.Mutex{}
 		errored := []error{}
 		started := make(chan bool)
@@ -175,10 +175,73 @@ var _ = Describe("floc context isolation", func() {
 		defer lock.Unlock()
 
 		Expect(errored).To(Equal([]error{nil, nil, nil, nil}))
-	})
+	}, SpecTimeout(time.Second*10))
+
+	It("should not leak the cancellation of a flow to an unrelated flow that was started next to it", func(_ SpecContext) {
+		lock := &sync.Mutex{}
+		errored := []error{}
+		running := make(chan bool)
+		registered := make(chan bool)
+		finished := make(chan bool)
+		runner := &contextRunner{
+			fn: func(ctx context.Context, invocation plumber.CommandInvocation) (plumber.CommandResult, error) {
+				// Let the second flow start while the first one is still running and check its
+				// context only after the first one is over, so a flow that hangs itself on
+				// whichever flow runs at the moment gets cancelled by an unrelated one.
+				switch invocation.Name {
+				case "first":
+					close(running)
+					<-registered
+				case "second":
+					close(registered)
+					<-finished
+				}
+
+				lock.Lock()
+				errored = append(errored, ctx.Err())
+				lock.Unlock()
+
+				return plumbertests.TestingCommandSuccess(), nil
+			},
+		}
+
+		fixture := plumbertests.NewPlumber()
+		fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner})
+
+		t := fixture.NewTaskList("unrelated").CreateTask("unrelated")
+		first := t.CreateCommand("first").Job()
+		second := t.CreateCommand("second").Job()
+
+		wg := &sync.WaitGroup{}
+		wg.Add(2)
+
+		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
+			defer close(finished)
+
+			Expect(fixture.Plumber.RunJobs(plumber.JobSequence(first))).To(Succeed())
+		}()
+
+		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
+
+			<-running
+
+			Expect(fixture.Plumber.RunJobs(plumber.JobSequence(second))).To(Succeed())
+		}()
+
+		wg.Wait()
+
+		lock.Lock()
+		defer lock.Unlock()
+
+		Expect(errored).To(Equal([]error{nil, nil}))
+	}, SpecTimeout(time.Second*10))
 
 	DescribeTable("should cancel the running commands when the flow around them is cancelled",
-		func(tc contextPropagationCase) {
+		func(_ SpecContext, tc contextPropagationCase) {
 			cancelled := make(chan error, 1)
 			runner := &contextRunner{
 				fn: func(ctx context.Context, invocation plumber.CommandInvocation) (plumber.CommandResult, error) {
@@ -209,15 +272,15 @@ var _ = Describe("floc context isolation", func() {
 		Entry("a nested flow", contextPropagationCase{
 			run: func(fixture *plumbertests.PlumberFixture, t *plumber.Task) error {
 				return fixture.Plumber.RunJobs(plumber.JobParallel(
-					plumber.CreateBasicJob(func() error {
-						return fixture.Plumber.RunJobs(plumber.JobSequence(
+					plumber.CreateJobWithContext(func(ctx plumber.JobContext) error {
+						return fixture.Plumber.RunJobsWith(ctx, plumber.JobSequence(
 							t.CreateCommand("survives").Job(),
 						))
 					}),
 					t.CreateCommand("dies").Job(),
 				))
 			},
-		}),
+		}, SpecTimeout(time.Second*10)),
 		Entry("a sibling of the same flow", contextPropagationCase{
 			run: func(fixture *plumbertests.PlumberFixture, t *plumber.Task) error {
 				t.CreateCommand("survives").AddSelfToTheTask()
@@ -225,6 +288,6 @@ var _ = Describe("floc context isolation", func() {
 
 				return fixture.Plumber.RunJobs(t.GetCommandJobAsJobParallel())
 			},
-		}),
+		}, SpecTimeout(time.Second*10)),
 	)
 })

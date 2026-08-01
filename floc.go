@@ -12,6 +12,7 @@ import (
 
 type (
 	Job          = floc.Job
+	JobContext   = floc.Context
 	JobPredicate = floc.Predicate
 	Result       = floc.Result
 	ResultMask   = floc.ResultMask
@@ -75,6 +76,15 @@ func CreateJob(fn func() error) Job {
 func CreateBasicJob(fn func() error) Job {
 	return func(_ floc.Context, _ floc.Control) error {
 		return fn()
+	}
+}
+
+// CreateJobWithContext hands over the context of the flow the job runs in, so a flow that is
+// started inside the job through Plumber.RunJobsWith belongs to the flow around it and is
+// cancelled together with it.
+func CreateJobWithContext(fn func(ctx JobContext) error) Job {
+	return func(ctx floc.Context, _ floc.Control) error {
+		return fn(ctx)
 	}
 }
 

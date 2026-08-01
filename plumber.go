@@ -524,6 +524,17 @@ func (p *Plumber) RunJobs(job Job) error {
 	return p.runJobs(nil, job)
 }
 
+/*
+Runs the provided job as a flow that belongs to the flow of the given context.
+
+The context of the flow around it can be reached through CreateJobWithContext. A flow that is
+started through RunJobs instead never belongs to another flow, therefore only the shutdown of
+the application can cancel it.
+*/
+func (p *Plumber) RunJobsWith(parent JobContext, job Job) error {
+	return p.runJobs(parent, job)
+}
+
 // Runs the provided job as a flow that belongs to the flow of the given context.
 func (p *Plumber) runJobs(parent floc.Context, job Job) error {
 	if job == nil {
@@ -580,19 +591,17 @@ func (p *Plumber) startFloc(parent floc.Context) (floc.Context, floc.Control, fu
 	}
 }
 
-// Resolves the context a new flow should be derived from, the lock of the flows has to be held.
+// Resolves the context a new flow should be derived from.
 func (p *Plumber) resolveFlocParent(parent floc.Context) context.Context {
 	if parent != nil {
 		return parent.Ctx()
 	}
 
 	// A flow that is started without knowing which flow it belongs to, through the public
-	// RunJobs, hangs itself on the outermost flow that is still running. Cancelling that flow
-	// therefore still reaches it, while a flow that runs next to it can never cancel it.
-	if len(p.flocFlows.flows) > 0 {
-		return p.flocFlows.flows[0].ctx.Ctx()
-	}
-
+	// RunJobs, hangs itself on the root instead of on whichever flow happens to run at the
+	// moment, since guessing a parent chains flows that have nothing to do with each other and
+	// lets the one that finishes first cancel the other one. The root is cancelled through
+	// cancelFloc on shutdown, therefore such a flow still dies with the application.
 	return p.flocContext.Ctx()
 }
 

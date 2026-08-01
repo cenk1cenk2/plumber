@@ -225,15 +225,20 @@ func (p *TaskList) RunAfter() error {
 func (p *TaskList) JobBefore() Job {
 	return func(ctx floc.Context, _ floc.Control) error {
 		p.flocContext = ctx
+		defer func() { p.flocContext = nil }()
 
 		return p.RunBefore()
 	}
 }
 
 // Returns this task list as a job.
+//
+// The context of the flow is only kept around while the flow is running, so a task list that is
+// combined with others or reused later never holds on to the context of a flow that is over.
 func (p *TaskList) Job() Job {
 	return func(ctx floc.Context, _ floc.Control) error {
 		p.flocContext = ctx
+		defer func() { p.flocContext = nil }()
 
 		return p.Run()
 	}
@@ -242,6 +247,7 @@ func (p *TaskList) Job() Job {
 func (p *TaskList) JobAfter() Job {
 	return func(ctx floc.Context, _ floc.Control) error {
 		p.flocContext = ctx
+		defer func() { p.flocContext = nil }()
 
 		return p.RunAfter()
 	}

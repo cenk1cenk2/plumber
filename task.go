@@ -219,10 +219,14 @@ func (t *Task) Job() Job {
 			return t.handleStopCases()
 		}),
 		func(ctx floc.Context, _ floc.Control) error {
+			// The context only belongs to the flow that is running right now, therefore it is
+			// dropped again as soon as the flow is over instead of being left behind dead for
+			// whoever runs the task next.
 			if t.jobWrapperFn != nil {
 				return t.Plumber.runJobs(ctx, t.jobWrapperFn(
 					func(nested floc.Context, _ floc.Control) error {
 						t.flocContext = nested
+						defer func() { t.flocContext = nil }()
 
 						return t.Run()
 					},
@@ -231,6 +235,7 @@ func (t *Task) Job() Job {
 			}
 
 			t.flocContext = ctx
+			defer func() { t.flocContext = nil }()
 
 			return t.Run()
 		},

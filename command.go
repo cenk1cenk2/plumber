@@ -451,10 +451,14 @@ func (c *Command) Job() Job {
 			return c.handleStopCases()
 		}),
 		func(ctx floc.Context, _ floc.Control) error {
+			// The context only belongs to the flow that is running right now, therefore it is
+			// dropped again as soon as the flow is over instead of being left behind dead for
+			// whoever runs the command next.
 			if c.jobWrapperFn != nil {
 				return c.Plumber.runJobs(ctx, c.jobWrapperFn(
 					func(nested floc.Context, _ floc.Control) error {
 						c.flocContext = nested
+						defer func() { c.flocContext = nil }()
 
 						return c.Run()
 					},
@@ -463,6 +467,7 @@ func (c *Command) Job() Job {
 			}
 
 			c.flocContext = ctx
+			defer func() { c.flocContext = nil }()
 
 			return c.Run()
 		},
