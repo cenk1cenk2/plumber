@@ -29,36 +29,111 @@ func (r *contextRunner) Run(
 	return plumbertests.TestingCommandSuccess(), nil
 }
 
+type contextIsolationCase struct {
+	run      func(*plumbertests.PlumberFixture)
+	expected []error
+}
+
+type contextPropagationCase struct {
+	run func(*plumbertests.PlumberFixture, *plumber.Task) error
+}
+
 var _ = Describe("floc context isolation", func() {
-	It("should not leak the cancellation of a failed flow to the next one", func() {
-		errored := []error{}
-		runner := &contextRunner{
-			fn: func(ctx context.Context, _ plumber.CommandInvocation) (plumber.CommandResult, error) {
-				errored = append(errored, ctx.Err())
+	DescribeTable("should not leak the cancellation of a flow to the flows around it",
+		func(tc contextIsolationCase) {
+			lock := &sync.Mutex{}
+			errored := []error{}
+			runner := &contextRunner{
+				fn: func(ctx context.Context, _ plumber.CommandInvocation) (plumber.CommandResult, error) {
+					lock.Lock()
+					errored = append(errored, ctx.Err())
+					lock.Unlock()
 
-				return plumbertests.TestingCommandSuccess(), nil
+					return plumbertests.TestingCommandSuccess(), nil
+				},
+			}
+
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner})
+
+			tc.run(fixture)
+
+			lock.Lock()
+			defer lock.Unlock()
+
+			Expect(errored).To(Equal(tc.expected))
+		},
+		Entry("a failed flow that came before", contextIsolationCase{
+			run: func(fixture *plumbertests.PlumberFixture) {
+				tl := fixture.NewTaskList("isolation")
+
+				Expect(fixture.Plumber.RunJobs(plumber.JobSequence(plumber.CreateBasicJob(func() error {
+					return errors.New("first flow failed")
+				})))).To(MatchError("first flow failed"))
+
+				Expect(tl.CreateTask("second").CreateCommand("second").Run()).To(Succeed())
 			},
-		}
+			expected: []error{nil},
+		}),
+		Entry("the task lists that came before", contextIsolationCase{
+			run: func(fixture *plumbertests.PlumberFixture) {
+				lists := []*plumber.TaskList{}
+				for _, name := range []string{"first", "second", "third"} {
+					tl := fixture.NewTaskList(name)
+					tl.Set(func(tl *plumber.TaskList) plumber.Job {
+						return tl.CreateTask(name).
+							Set(func(t *plumber.Task) error {
+								t.CreateCommand(name).AddSelfToTheTask()
 
-		fixture := plumbertests.NewPlumber()
-		fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner})
+								return t.RunCommandJobAsJobSequence()
+							}).
+							Job()
+					})
 
-		tl := fixture.NewTaskList("isolation")
+					lists = append(lists, tl)
+				}
 
-		Expect(fixture.Plumber.RunJobs(plumber.JobSequence(plumber.CreateBasicJob(func() error {
-			return errors.New("first flow failed")
-		})))).To(MatchError("first flow failed"))
+				Expect(fixture.Plumber.RunJobs(plumber.CombineTaskLists(lists...))).To(Succeed())
+			},
+			expected: []error{nil, nil, nil},
+		}),
+		Entry("a nested flow that is over", contextIsolationCase{
+			run: func(fixture *plumbertests.PlumberFixture) {
+				t := fixture.NewTaskList("nested").CreateTask("nested")
 
-		Expect(tl.CreateTask("second").CreateCommand("second").Run()).To(Succeed())
+				Expect(fixture.Plumber.RunJobs(plumber.JobSequence(
+					plumber.CreateBasicJob(func() error {
+						return fixture.Plumber.RunJobs(plumber.JobSequence(
+							t.CreateCommand("nested").Job(),
+						))
+					}),
+					t.CreateCommand("outer").Job(),
+				))).To(Succeed())
+			},
+			expected: []error{nil, nil},
+		}),
+	)
 
-		Expect(errored).To(Equal([]error{nil}))
-	})
-
-	It("should keep the context alive between combined task lists", func() {
-		errored := []error{}
+	It("should not leak the cancellation of a flow to the flow that runs next to it", func() {
 		lock := &sync.Mutex{}
+		errored := []error{}
+		started := make(chan bool)
+		overlapped := make(chan bool)
+		finished := make(chan bool)
 		runner := &contextRunner{
-			fn: func(ctx context.Context, _ plumber.CommandInvocation) (plumber.CommandResult, error) {
+			fn: func(ctx context.Context, invocation plumber.CommandInvocation) (plumber.CommandResult, error) {
+				// Overlap the two nested flows and let the one that started first finish
+				// first, so a flow that hands its own context to the one next to it leaves a
+				// cancelled context behind for everything that comes after them.
+				switch invocation.Name {
+				case "first":
+					close(started)
+					<-overlapped
+				case "second":
+					close(overlapped)
+					<-finished
+				}
+
 				lock.Lock()
 				errored = append(errored, ctx.Err())
 				lock.Unlock()
@@ -70,121 +145,86 @@ var _ = Describe("floc context isolation", func() {
 		fixture := plumbertests.NewPlumber()
 		fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner})
 
-		lists := []*plumber.TaskList{}
-		for _, name := range []string{"first", "second", "third"} {
-			tl := fixture.NewTaskList(name)
-			tl.Set(func(tl *plumber.TaskList) plumber.Job {
-				return tl.CreateTask(name).
-					Set(func(t *plumber.Task) error {
-						t.CreateCommand(name).AddSelfToTheTask()
-
-						return t.RunCommandJobAsJobSequence()
-					}).
-					Job()
-			})
-
-			lists = append(lists, tl)
-		}
-
-		Expect(fixture.Plumber.RunJobs(plumber.CombineTaskLists(lists...))).To(Succeed())
-
-		Expect(errored).To(Equal([]error{nil, nil, nil}))
-	})
-
-	It("should not leak the cancellation of a nested flow to the flow around it", func() {
-		errored := []error{}
-		runner := &contextRunner{
-			fn: func(ctx context.Context, _ plumber.CommandInvocation) (plumber.CommandResult, error) {
-				errored = append(errored, ctx.Err())
-
-				return plumbertests.TestingCommandSuccess(), nil
-			},
-		}
-
-		fixture := plumbertests.NewPlumber()
-		fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner})
-
-		tl := fixture.NewTaskList("nested")
-		t := tl.CreateTask("nested")
+		t := fixture.NewTaskList("concurrent").CreateTask("concurrent")
 
 		Expect(fixture.Plumber.RunJobs(plumber.JobSequence(
-			plumber.CreateBasicJob(func() error {
-				return fixture.Plumber.RunJobs(plumber.JobSequence(
-					t.CreateCommand("nested").Job(),
-				))
-			}),
-			t.CreateCommand("outer").Job(),
+			plumber.JobParallel(
+				plumber.CreateBasicJob(func() error {
+					defer close(finished)
+
+					return fixture.Plumber.RunJobs(plumber.JobSequence(
+						t.CreateCommand("first").Job(),
+					))
+				}),
+				plumber.CreateBasicJob(func() error {
+					<-started
+
+					return fixture.Plumber.RunJobs(plumber.JobSequence(
+						t.CreateCommand("second").Job(),
+					))
+				}),
+			),
+			t.CreateCommand("third").Job(),
 		))).To(Succeed())
 
-		Expect(errored).To(Equal([]error{nil, nil}))
+		Expect(fixture.Plumber.RunJobs(plumber.JobSequence(
+			t.CreateCommand("fourth").Job(),
+		))).To(Succeed())
+
+		lock.Lock()
+		defer lock.Unlock()
+
+		Expect(errored).To(Equal([]error{nil, nil, nil, nil}))
 	})
 
-	It("should cancel a nested flow when the flow around it is cancelled", func() {
-		cancelled := make(chan error, 1)
-		runner := &contextRunner{
-			fn: func(ctx context.Context, invocation plumber.CommandInvocation) (plumber.CommandResult, error) {
-				if invocation.Name == "dies" {
-					return plumbertests.TestingCommandFailure(1), errors.New("supervised command exited")
-				}
+	DescribeTable("should cancel the running commands when the flow around them is cancelled",
+		func(tc contextPropagationCase) {
+			cancelled := make(chan error, 1)
+			runner := &contextRunner{
+				fn: func(ctx context.Context, invocation plumber.CommandInvocation) (plumber.CommandResult, error) {
+					if invocation.Name == "dies" {
+						return plumbertests.TestingCommandFailure(1), errors.New("supervised command exited")
+					}
 
-				select {
-				case <-ctx.Done():
-					cancelled <- ctx.Err()
-				case <-time.After(time.Second * 5):
-					cancelled <- nil
-				}
+					select {
+					case <-ctx.Done():
+						cancelled <- ctx.Err()
+					case <-time.After(time.Second * 5):
+						cancelled <- nil
+					}
 
-				return plumbertests.TestingCommandSuccess(), nil
-			},
-		}
+					return plumbertests.TestingCommandSuccess(), nil
+				},
+			}
 
-		fixture := plumbertests.NewPlumber()
-		fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner})
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner})
 
-		tl := fixture.NewTaskList("supervised")
-		t := tl.CreateTask("daemons")
+			t := fixture.NewTaskList("supervised").CreateTask("daemons")
 
-		Expect(fixture.Plumber.RunJobs(plumber.JobParallel(
-			plumber.CreateBasicJob(func() error {
-				return fixture.Plumber.RunJobs(plumber.JobSequence(
-					t.CreateCommand("survives").Job(),
+			Expect(tc.run(fixture, t)).To(HaveOccurred())
+
+			Expect(<-cancelled).To(MatchError(context.Canceled))
+		},
+		Entry("a nested flow", contextPropagationCase{
+			run: func(fixture *plumbertests.PlumberFixture, t *plumber.Task) error {
+				return fixture.Plumber.RunJobs(plumber.JobParallel(
+					plumber.CreateBasicJob(func() error {
+						return fixture.Plumber.RunJobs(plumber.JobSequence(
+							t.CreateCommand("survives").Job(),
+						))
+					}),
+					t.CreateCommand("dies").Job(),
 				))
-			}),
-			t.CreateCommand("dies").Job(),
-		))).To(HaveOccurred())
-
-		Expect(<-cancelled).To(MatchError(context.Canceled))
-	})
-
-	It("should cancel the running commands when a sibling fails", func() {
-		cancelled := make(chan error, 1)
-		runner := &contextRunner{
-			fn: func(ctx context.Context, invocation plumber.CommandInvocation) (plumber.CommandResult, error) {
-				if invocation.Name == "dies" {
-					return plumbertests.TestingCommandFailure(1), errors.New("supervised command exited")
-				}
-
-				select {
-				case <-ctx.Done():
-					cancelled <- ctx.Err()
-				case <-time.After(time.Second * 5):
-					cancelled <- nil
-				}
-
-				return plumbertests.TestingCommandSuccess(), nil
 			},
-		}
+		}),
+		Entry("a sibling of the same flow", contextPropagationCase{
+			run: func(fixture *plumbertests.PlumberFixture, t *plumber.Task) error {
+				t.CreateCommand("survives").AddSelfToTheTask()
+				t.CreateCommand("dies").AddSelfToTheTask()
 
-		fixture := plumbertests.NewPlumber()
-		fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner})
-
-		tl := fixture.NewTaskList("supervised")
-		t := tl.CreateTask("daemons")
-		t.CreateCommand("survives").AddSelfToTheTask()
-		t.CreateCommand("dies").AddSelfToTheTask()
-
-		Expect(fixture.Plumber.RunJobs(t.GetCommandJobAsJobParallel())).To(HaveOccurred())
-
-		Expect(<-cancelled).To(MatchError(context.Canceled))
-	})
+				return fixture.Plumber.RunJobs(t.GetCommandJobAsJobParallel())
+			},
+		}),
+	)
 })

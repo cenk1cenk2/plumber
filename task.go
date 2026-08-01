@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/workanator/go-floc/v3"
 )
 
 type Task struct {
@@ -31,6 +32,7 @@ type Task struct {
 	jobWrapperFn      TaskJobWrapperFn
 	runtime           Runtime
 	status            TaskStatus
+	flocContext       floc.Context
 }
 
 type TaskOptions struct {
@@ -216,16 +218,22 @@ func (t *Task) Job() Job {
 		Predicate(func() bool {
 			return t.handleStopCases()
 		}),
-		CreateJob(func() error {
+		func(ctx floc.Context, _ floc.Control) error {
 			if t.jobWrapperFn != nil {
-				return t.Plumber.RunJobs(t.jobWrapperFn(
-					CreateBasicJob(t.Run),
+				return t.Plumber.runJobs(ctx, t.jobWrapperFn(
+					func(nested floc.Context, _ floc.Control) error {
+						t.flocContext = nested
+
+						return t.Run()
+					},
 					t,
 				))
 			}
 
+			t.flocContext = ctx
+
 			return t.Run()
-		}),
+		},
 		CreateJob(func() error {
 			return nil
 		}),

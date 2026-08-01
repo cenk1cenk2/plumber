@@ -448,10 +448,10 @@ func GuardResume(job Job, mask Result) Job {
 
 	return func(ctx floc.Context, ctrl floc.Control) error {
 		// go-floc builds the control of the guarded job on a context that delegates
-		// UpdateCtx to the parent, therefore releasing it cancels the context of the parent
-		// for good and every flow that comes after it starts on a dead context. Hand over an
-		// isolated context that carries the same underlying context instead, cancelling the
-		// parent still reaches the guarded job through it.
+		// UpdateCtx to the given one, therefore releasing it would leave the context of the
+		// flow dead for everything that comes after the guard. Hand over an isolated context
+		// that carries the same underlying context instead, so only the guard dies with it
+		// while cancelling the flow still reaches the guarded job through it.
 		return guarded(floc.BorrowContext(ctx.Ctx()), ctrl)
 	}
 }
