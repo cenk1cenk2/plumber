@@ -1,3 +1,13 @@
+## [6.4.12](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.11...v6.4.12) (2026-08-25)
+
+
+### Bug Fixes
+
+* **ci:** bump go version from 1.25 to 1.27 ([d0a42fb](https://gitlab.kilic.dev/libraries/plumber/commit/d0a42fb94f3ecd7ae1d1fd5c497029dabd142558))
+* **deps:** update go all minor dependency updates ([c86dc10](https://gitlab.kilic.dev/libraries/plumber/commit/c86dc10f2dd94275a7b92020ae36f584971ddde0))
+* **deps:** update go all minor dependency updates ([b562c95](https://gitlab.kilic.dev/libraries/plumber/commit/b562c952ee890c6de062ec51a5d02501072d06a5))
+* **plumber:** inline HasCaller and synchronize floc context cancellation spec ([75c1d88](https://gitlab.kilic.dev/libraries/plumber/commit/75c1d88e27335820f4b8ba0a568c10de3d3d9bcd))
+
 ## [6.4.11](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.10...v6.4.11) (2026-08-01)
 
 
