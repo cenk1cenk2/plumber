@@ -243,11 +243,19 @@ var _ = Describe("floc context isolation", func() {
 	DescribeTable("should cancel the running commands when the flow around them is cancelled",
 		func(_ SpecContext, tc contextPropagationCase) {
 			cancelled := make(chan error, 1)
+			running := make(chan bool)
 			runner := &contextRunner{
 				fn: func(ctx context.Context, invocation plumber.CommandInvocation) (plumber.CommandResult, error) {
 					if invocation.Name == "dies" {
+						// A flow that is already finished never starts the jobs of it that have not
+						// begun yet, therefore fail it only once the command that should be cancelled
+						// is running, so it gets cancelled instead of skipped.
+						<-running
+
 						return plumbertests.TestingCommandFailure(1), errors.New("supervised command exited")
 					}
+
+					close(running)
 
 					select {
 					case <-ctx.Done():
