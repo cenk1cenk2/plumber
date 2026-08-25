@@ -16,7 +16,7 @@ include:
       - /go/build.gitlab-ci.yml
       - /go/test.gitlab-ci.yml
     inputs:
-      version: 1.25-alpine
+      version: 1.27-alpine
   - project: devops/pipelines
     ref: semantic-release@2.0.0
     file:
