@@ -68,7 +68,7 @@ type CommandStatus struct {
 type CommandScript struct {
 	Inline string
 	File   string
-	Ctx    interface{}
+	Ctx    any
 	Funcs  []template.FuncMap
 }
 
@@ -514,8 +514,7 @@ func (c *Command) pipe(runtime Runtime) error {
 
 	if err != nil {
 		if result.Started {
-			var exiterr *exec.ExitError
-			if errors.As(err, &exiterr) {
+			if exiterr, ok := errors.AsType[*exec.ExitError](err); ok {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 					c.Log.WithField(LOG_FIELD_STATUS, log_status_exit).
 						Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus())
@@ -853,7 +852,7 @@ func (c *Command) templateScript(script *CommandScript, tmpl string) (io.Reader,
 		return nil, err
 	}
 
-	for _, t := range strings.Split(tpl, "\n") {
+	for t := range strings.SplitSeq(tpl, "\n") {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_script).Infoln(t)
 	}
 

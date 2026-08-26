@@ -177,7 +177,6 @@ var _ = Describe("test helpers", func() {
 							return tl.CreateTask("repositories").
 								Set(func(parent *plumber.Task) error {
 									for _, repository := range config.Repositories {
-										repository := repository
 										parent.CreateSubtask(repository).
 											Set(func(task *plumber.Task) error {
 												task.CreateCommand("build", repository).

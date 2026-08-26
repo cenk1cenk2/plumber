@@ -1,6 +1,6 @@
 module github.com/cenk1cenk2/plumber/v6
 
-go 1.26.0
+go 1.27.0
 
 require (
 	github.com/creasty/defaults v1.8.0
