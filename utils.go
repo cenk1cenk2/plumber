@@ -44,7 +44,7 @@ func OverwriteCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply fu
 	//nolint:errcheck
 	applied := apply(flags[index].(Flag))
 
-	cast := (interface{})(applied)
+	cast := (any)(applied)
 
 	modified, ok := cast.(cli.Flag)
 

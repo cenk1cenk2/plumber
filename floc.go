@@ -415,7 +415,7 @@ func GuardOnTimeout(
 		guard.ConstTimeout(timeout),
 		nil,
 		job,
-		func(_ floc.Context, _ floc.Control, _ interface{}) {
+		func(_ floc.Context, _ floc.Control, _ any) {
 			fn()
 		},
 	)
@@ -443,7 +443,7 @@ func GuardIgnorePanic(job Job) Job {
 func GuardOnPanic(job Job, fn GuardHandlerFn) Job {
 	return guard.OnPanic(
 		job,
-		func(_ floc.Context, _ floc.Control, _ interface{}) {
+		func(_ floc.Context, _ floc.Control, _ any) {
 			fn()
 		},
 	)

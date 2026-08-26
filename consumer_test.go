@@ -88,7 +88,6 @@ var _ = Describe("consumer-shaped flows", func() {
 									tl.CreateTask("repositories").
 										Set(func(t *plumber.Task) error {
 											for _, repository := range command.StringSlice("repository") {
-												repository := repository
 												t.CreateSubtask(repository).
 													Set(func(_ *plumber.Task) error {
 														subtaskLock.Lock()
@@ -198,7 +197,6 @@ var _ = Describe("consumer-shaped flows", func() {
 								return tl.CreateTask("packages", "node").
 									Set(func(parent *plumber.Task) error {
 										for _, packageName := range config.Packages {
-											packageName := packageName
 											parent.CreateSubtask(packageName).
 												Set(func(task *plumber.Task) error {
 													task.CreateCommand("npm", "add", packageName).
@@ -326,7 +324,6 @@ var _ = Describe("consumer-shaped flows", func() {
 									{name: "node", args: []string{"--version"}},
 									{name: "pnpm", args: []string{"--version"}},
 								} {
-									spec := spec
 									t.CreateCommand(spec.name, spec.args...).
 										EnableStreamRecording().
 										ShouldRunAfter(func(c *plumber.Command) error {
@@ -406,7 +403,6 @@ var _ = Describe("consumer-shaped flows", func() {
 						return tl.CreateTask("build").
 							Set(func(parent *plumber.Task) error {
 								for _, target := range targets {
-									target := target
 									parent.CreateSubtask("api", target.os+"/"+target.arch).
 										Set(func(t *plumber.Task) error {
 											t.CreateCommand("go", "build", "-mod=vendor").

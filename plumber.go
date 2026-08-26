@@ -558,7 +558,7 @@ to, therefore a flow that is over can only cancel itself and never the flow that
 it or the flow that runs next to it. Cancelling a parent, through the terminator, a fatal
 error or a failing job, still cancels every flow that is derived from it.
 */
-func (p *Plumber) runFloc(parent floc.Context, job Job) (Result, interface{}, error) {
+func (p *Plumber) runFloc(parent floc.Context, job Job) (Result, any, error) {
 	ctx, control, finish := p.startFloc(parent)
 	defer finish()
 
@@ -607,7 +607,7 @@ func (p *Plumber) resolveFlocParent(parent floc.Context) context.Context {
 
 // Cancels every flow that is running at the moment together with the root flow, so the
 // cancellation reaches every context that is derived from any of them.
-func (p *Plumber) cancelFloc(data interface{}) {
+func (p *Plumber) cancelFloc(data any) {
 	p.flocFlows.lock.RLock()
 	flows := slices.Clone(p.flocFlows.flows)
 	p.flocFlows.lock.RUnlock()
@@ -620,7 +620,7 @@ func (p *Plumber) cancelFloc(data interface{}) {
 }
 
 // Handles output coming from floc.
-func (p *Plumber) handleFloc(_ floc.Result, _ interface{}) error {
+func (p *Plumber) handleFloc(_ floc.Result, _ any) error {
 	return nil
 }
 
