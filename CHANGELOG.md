@@ -1,3 +1,10 @@
+# [6.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.14...v6.5.0) (2026-08-26)
+
+
+### Features
+
+* **go:** bump to 1.27, apply go fix modernizers ([cf45435](https://gitlab.kilic.dev/libraries/plumber/commit/cf454353cd5414e64595b9065ca43426b9cb82a5))
+
 ## [6.4.14](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.13...v6.4.14) (2026-08-25)
 
 
