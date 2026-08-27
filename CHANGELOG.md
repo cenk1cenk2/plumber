@@ -1,3 +1,10 @@
+## [6.5.1](https://gitlab.kilic.dev/libraries/plumber/compare/v6.5.0...v6.5.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/onsi/gomega to v1.43.0 ([620af4e](https://gitlab.kilic.dev/libraries/plumber/commit/620af4ed21fbde33e6c53590a090785cb6db9726))
+
 # [6.5.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.4.14...v6.5.0) (2026-08-26)
 
 
