@@ -19,47 +19,9 @@ import (
 // LevelTrace is the most verbose level of the handler, which slog itself does not know about.
 const LevelTrace = slog.Level(-8)
 
-// Options are the formatting options of the handler.
-type Options struct {
-	// FieldsOrder - default: fields sorted alphabetically
-	FieldsOrder []string
-
-	// TimestampFormat - default: no timestamp
-	TimestampFormat string
-
-	// HideKeys - show [fieldValue] instead of [fieldKey:fieldValue]
-	HideKeys bool
-
-	// NoEmptyFields - disable logging empty fields
-	NoEmptyFields bool
-
-	// NoColors - disable colors
-	NoColors bool
-
-	// NoFieldsColors - apply colors only to the level, default is level + fields
-	NoFieldsColors bool
-
-	// NoFieldsSpace - no space between fields
-	NoFieldsSpace bool
-
-	// ShowFullLevel - show a full level [WARNING] instead of [W].
-	ShowFullLevel bool
-
-	// NoUppercaseLevel - no upper case for level value
-	NoUppercaseLevel bool
-
-	// TrimMessages - trim whitespaces on messages
-	TrimMessages bool
-
-	// CallerFirst - print caller info first
-	CallerFirst bool
-
-	// LevelChars - amount of the characters of the level that are printed, default: 1
-	LevelChars int
-
-	// Redact some special keywords in strings
-	Secrets *[]string
-}
+// The fields that are written out before every other one, which are sorted alphabetically after
+// them.
+var fieldsOrder = []string{"context", "status"}
 
 /*
 Handler is the slog.Handler that writes out the log records of the application.
@@ -75,42 +37,31 @@ type Handler struct {
 }
 
 type handlerState struct {
-	// guards the options and the output, which is also where the records are serialized against
+	// guards the output, which is also where the records are serialized against
 	lock         sync.Mutex
-	options      Options
 	out          io.Writer
+	secrets      *[]string
 	level        slog.LevelVar
 	reportCaller atomic.Bool
 }
 
-// NewHandler creates a new handler that writes to the standard output with the info level.
-func NewHandler(options Options) *Handler {
+/*
+NewHandler creates a new handler that writes to the standard output with the info level.
+
+The secrets are the ones that are redacted from the messages, which is shared with the application
+so that the ones that are appended later are redacted as well.
+*/
+func NewHandler(secrets *[]string) *Handler {
 	h := &Handler{
 		state: &handlerState{
-			options: normalize(options),
 			out:     os.Stdout,
+			secrets: secrets,
 		},
 	}
 
 	h.state.level.Set(slog.LevelInfo)
 
 	return h
-}
-
-// Sets the formatting options of every logger that shares the state of this handler.
-func (h *Handler) SetOptions(options Options) {
-	h.state.lock.Lock()
-	defer h.state.lock.Unlock()
-
-	h.state.options = normalize(options)
-}
-
-// Returns the formatting options of the handler.
-func (h *Handler) Options() Options {
-	h.state.lock.Lock()
-	defer h.state.lock.Unlock()
-
-	return h.state.options
 }
 
 // Sets the writer that the records are written to.
@@ -123,14 +74,6 @@ func (h *Handler) SetOutput(out io.Writer) {
 	defer h.state.lock.Unlock()
 
 	h.state.out = out
-}
-
-// Returns the writer that the records are written to.
-func (h *Handler) Output() io.Writer {
-	h.state.lock.Lock()
-	defer h.state.lock.Unlock()
-
-	return h.state.out
 }
 
 // Sets the level that the records are gated with.
@@ -146,11 +89,6 @@ func (h *Handler) Level() slog.Level {
 // Sets whether the caller of a record should be reported.
 func (h *Handler) SetReportCaller(report bool) {
 	h.state.reportCaller.Store(report)
-}
-
-// Returns whether the caller of a record should be reported.
-func (h *Handler) ReportCaller() bool {
-	return h.state.reportCaller.Load()
 }
 
 func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
@@ -194,77 +132,25 @@ func (h *Handler) Handle(_ context.Context, record slog.Record) error {
 	h.state.lock.Lock()
 	defer h.state.lock.Unlock()
 
-	options := h.state.options
-
 	b := &bytes.Buffer{}
 
-	if options.TimestampFormat != "" {
-		b.WriteString(record.Time.Format(options.TimestampFormat))
-	}
+	h.writeCaller(b, record)
 
-	level := levelName(record.Level)
-	if !options.NoUppercaseLevel {
-		level = strings.ToUpper(level)
-	}
+	fmt.Fprintf(b, "\x1b[%dm[%s] ", levelColor(record.Level), levelInitial(record.Level))
 
-	if options.CallerFirst {
-		h.writeCaller(b, record)
-	}
+	writeFields(b, attrs)
 
-	if !options.NoColors {
-		fmt.Fprintf(b, "\x1b[%dm", levelColor(record.Level))
-	}
-
-	if !options.NoFieldsSpace && options.TimestampFormat != "" {
-		b.WriteString(" ")
-	}
-
-	b.WriteString("[")
-
-	if options.ShowFullLevel || options.LevelChars >= len(level) {
-		b.WriteString(level)
-	} else {
-		b.WriteString(level[:options.LevelChars])
-	}
-
-	b.WriteString("]")
-
-	if !options.NoFieldsSpace {
-		b.WriteString(" ")
-	}
-
-	if !options.NoColors && options.NoFieldsColors {
-		b.WriteString("\x1b[0m")
-	}
-
-	writeFields(b, options, attrs)
-
-	if options.NoFieldsSpace {
-		b.WriteString(" ")
-	}
-
-	if !options.NoColors && !options.NoFieldsColors {
-		b.WriteString("\x1b[0m")
-	}
+	b.WriteString("\x1b[0m")
 
 	message := record.Message
 
-	if options.Secrets != nil && len(*options.Secrets) > 0 {
-		for _, secret := range *options.Secrets {
+	if h.state.secrets != nil {
+		for _, secret := range *h.state.secrets {
 			message = strings.ReplaceAll(message, secret, "[REDACTED]")
 		}
 	}
 
-	if options.TrimMessages {
-		message = strings.TrimRightFunc(message, unicode.IsSpace)
-	}
-
-	b.WriteString(message)
-
-	if !options.CallerFirst {
-		h.writeCaller(b, record)
-	}
-
+	b.WriteString(strings.TrimRightFunc(message, unicode.IsSpace))
 	b.WriteByte('\n')
 
 	_, err := h.state.out.Write(b.Bytes())
@@ -292,7 +178,7 @@ func (h *Handler) qualify(attr slog.Attr) slog.Attr {
 }
 
 func (h *Handler) writeCaller(b *bytes.Buffer, record slog.Record) {
-	if !h.ReportCaller() || record.PC == 0 {
+	if !h.state.reportCaller.Load() || record.PC == 0 {
 		return
 	}
 
@@ -311,28 +197,14 @@ func (h *Handler) writeCaller(b *bytes.Buffer, record slog.Record) {
 	)
 }
 
-func writeFields(b *bytes.Buffer, options Options, attrs []slog.Attr) {
+func writeFields(b *bytes.Buffer, attrs []slog.Attr) {
 	if len(attrs) == 0 {
-		return
-	}
-
-	if options.FieldsOrder == nil {
-		sorted := slices.Clone(attrs)
-
-		slices.SortFunc(sorted, func(a, b slog.Attr) int {
-			return cmp.Compare(a.Key, b.Key)
-		})
-
-		for _, attr := range sorted {
-			writeField(b, options, attr)
-		}
-
 		return
 	}
 
 	rest := slices.Clone(attrs)
 
-	for _, field := range options.FieldsOrder {
+	for _, field := range fieldsOrder {
 		index := slices.IndexFunc(rest, func(attr slog.Attr) bool {
 			return attr.Key == field
 		})
@@ -344,7 +216,7 @@ func writeFields(b *bytes.Buffer, options Options, attrs []slog.Attr) {
 		attr := rest[index]
 		rest = slices.Delete(rest, index, index+1)
 
-		writeField(b, options, attr)
+		writeField(b, attr)
 	}
 
 	slices.SortFunc(rest, func(a, b slog.Attr) int {
@@ -352,24 +224,18 @@ func writeFields(b *bytes.Buffer, options Options, attrs []slog.Attr) {
 	})
 
 	for _, attr := range rest {
-		writeField(b, options, attr)
+		writeField(b, attr)
 	}
 }
 
-func writeField(b *bytes.Buffer, options Options, attr slog.Attr) {
+func writeField(b *bytes.Buffer, attr slog.Attr) {
 	value := fmt.Sprintf("%v", attr.Value.Resolve().Any())
 
-	if options.NoEmptyFields && value == "" {
+	if value == "" {
 		return
-	} else if options.HideKeys {
-		fmt.Fprintf(b, "[%s]", value)
-	} else {
-		fmt.Fprintf(b, "[%s:%s]", attr.Key, value)
 	}
 
-	if !options.NoFieldsSpace {
-		b.WriteString(" ")
-	}
+	fmt.Fprintf(b, "[%s] ", value)
 }
 
 // Adds the attribute to the given attributes, where an attribute that is already there is
@@ -386,14 +252,6 @@ func upsert(attrs []slog.Attr, attr slog.Attr) []slog.Attr {
 	return append(attrs, attr)
 }
 
-func normalize(options Options) Options {
-	if options.LevelChars <= 0 {
-		options.LevelChars = 1
-	}
-
-	return options
-}
-
 const (
 	colorRed     = 31
 	colorYellow  = 33
@@ -402,20 +260,19 @@ const (
 	colorMagenta = 35
 )
 
-// Returns the name of the given level, which is the name of the closest level that is not more
-// severe than it.
-func levelName(level slog.Level) string {
+// Returns the initial of the name of the closest level that is not more severe than the given one.
+func levelInitial(level slog.Level) string {
 	switch {
 	case level <= LevelTrace:
-		return "trace"
+		return "T"
 	case level <= slog.LevelDebug:
-		return "debug"
+		return "D"
 	case level <= slog.LevelInfo:
-		return "info"
+		return "I"
 	case level <= slog.LevelWarn:
-		return "warning"
+		return "W"
 	default:
-		return "error"
+		return "E"
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/cenk1cenk2/plumber/v7"
+	"github.com/cenk1cenk2/plumber/v7/logger"
 	plumbertests "github.com/cenk1cenk2/plumber/v7/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,14 +16,14 @@ import (
 )
 
 var _ = Describe("test helpers", func() {
-	It("should create a plumber fixture with ginkgo trace logging", func() {
+	It("should create a plumber fixture with ginkgo trace logging", func(ctx SpecContext) {
 		fixture := plumbertests.NewPlumber()
 
 		fixture.Plumber.Log.Info("hello")
 
 		Expect(fixture.Plumber.Cli.Name).To(Equal("plumber-test"))
-		Expect(fixture.Plumber.GetLoggerOutput()).To(Equal(GinkgoWriter))
 		Expect(fixture.Plumber.GetLoggerLevel()).To(Equal(plumber.LOG_LEVEL_TRACE))
+		Expect(fixture.Plumber.Log.Enabled(ctx, logger.LevelTrace)).To(BeTrue())
 	})
 
 	It("should create a capture logger that records the messages that are logged through it", func(_ SpecContext) {
