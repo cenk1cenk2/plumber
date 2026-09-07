@@ -2,7 +2,6 @@ package plumber
 
 import (
 	"context"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -13,7 +12,6 @@ import (
 
 type TaskList struct {
 	Plumber *Plumber
-	Channel *AppChannel
 
 	Name    string
 	options TaskListOptions
@@ -49,12 +47,9 @@ func NewTaskList(p *Plumber) *TaskList {
 func (tl *TaskList) New(p *Plumber) *TaskList {
 	tl.Lock = &sync.RWMutex{}
 	tl.Plumber = p
-	tl.Channel = &p.Channel
 	tl.options.runtimeDepth = 1
 
 	tl.setupLogger()
-
-	go tl.registerTerminateHandler()
 
 	return tl
 }
@@ -247,20 +242,6 @@ func (p *TaskList) handleStopCases() bool {
 	}
 
 	return false
-}
-
-// Registers the termitor to the current task list.
-func (p *TaskList) registerTerminateHandler() {
-	if p.Plumber.Enabled {
-		ch := make(chan os.Signal, 1)
-
-		p.Plumber.Terminator.ShouldTerminate.Register(ch)
-		defer p.Plumber.Terminator.ShouldTerminate.Unregister(ch)
-
-		<-ch
-
-		p.Plumber.shutdown("Trying to terminate...")
-	}
 }
 
 // Sets up logger depending on the depth of the code.

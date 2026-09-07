@@ -2,6 +2,7 @@ package plumber
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -244,14 +245,19 @@ func JobWaitForTerminator(p *Plumber) Job {
 
 		p.Log.Traceln("Waiting for the terminator signal...")
 
-		ch := make(chan bool, 1)
-		p.Terminator.Terminated.Register(ch)
-		defer p.Terminator.Terminated.Unregister(ch)
-
 		select {
-		case <-ch:
+		case <-p.Terminator.drainedChannel():
 			return nil
 		case <-ctx.Done():
+			// Shutting down the application cancels every flow before the hooks of the terminator
+			// are drained, therefore the flow keeps waiting until the drain is over and unblocks at
+			// the same point as it does whenever the terminator finishes on its own.
+			if errors.Is(context.Cause(p.context), ErrShutdown) {
+				<-p.Terminator.drainedChannel()
+
+				return nil
+			}
+
 			return ctx.Err()
 		}
 	}

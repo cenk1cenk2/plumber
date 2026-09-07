@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"sync"
+
 	"github.com/cenk1cenk2/plumber/v6"
 	"github.com/cenk1cenk2/plumber/v6/logger"
 	. "github.com/onsi/ginkgo/v2"
@@ -10,6 +12,9 @@ import (
 
 type PlumberFixture struct {
 	Plumber *plumber.Plumber
+
+	lock  sync.Mutex
+	exits []int
 }
 
 func NewPlumber(constructors ...plumber.PlumberNewFn) *PlumberFixture {
@@ -38,9 +43,30 @@ func NewPlumber(constructors ...plumber.PlumberNewFn) *PlumberFixture {
 	app.DisableGreeter()
 	UseGinkgoLogger(app)
 
-	return &PlumberFixture{
+	fixture := &PlumberFixture{
 		Plumber: app,
 	}
+
+	// The application would take the whole suite down with it whenever it exits, therefore the
+	// fixture records the exit codes instead of ending the process.
+	app.SetExitFunc(fixture.exit)
+
+	return fixture
+}
+
+// Returns the exit codes that the application has requested while the fixture was alive.
+func (f *PlumberFixture) ExitCodes() []int {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	return append([]int{}, f.exits...)
+}
+
+func (f *PlumberFixture) exit(code int) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	f.exits = append(f.exits, code)
 }
 
 func UseGinkgoLogger(app *plumber.Plumber) *plumber.Plumber {

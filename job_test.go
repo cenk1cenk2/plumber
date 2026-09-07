@@ -20,11 +20,6 @@ type predicateCase struct {
 }
 
 var _ = Describe("jobs", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
 
 	DescribeTable("should compose predicates",
 		func(tc predicateCase) {
@@ -64,7 +59,7 @@ var _ = Describe("jobs", func() {
 		}),
 	)
 
-	It("should run basic jobs in sequence, parallel, and repeat", func() {
+	It("should run basic jobs in sequence, parallel, and repeat", func(ctx SpecContext) {
 		var lock sync.Mutex
 		order := []string{}
 		appendOrder := func(value string) {
@@ -104,7 +99,7 @@ var _ = Describe("jobs", func() {
 		Expect(order).To(ContainElements("two", "three", "repeat", "repeat"))
 	})
 
-	It("should branch and wait through helper jobs", func() {
+	It("should branch and wait through helper jobs", func(ctx SpecContext) {
 		order := []string{}
 		ready := false
 
@@ -167,7 +162,7 @@ var _ = Describe("jobs", func() {
 	})
 
 	Describe("sequence", func() {
-		It("should stop on the first error", func() {
+		It("should stop on the first error", func(ctx SpecContext) {
 			ran := false
 
 			err := plumber.JobSequence(
@@ -185,7 +180,7 @@ var _ = Describe("jobs", func() {
 			Expect(ran).To(BeFalse())
 		})
 
-		It("should not run any job while the flow is cancelled", func() {
+		It("should not run any job while the flow is cancelled", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 			cancel()
 
@@ -203,7 +198,7 @@ var _ = Describe("jobs", func() {
 	})
 
 	Describe("parallel", func() {
-		It("should return the first real error and cancel its siblings", func() {
+		It("should return the first real error and cancel its siblings", func(ctx SpecContext) {
 			cancelled := make(chan struct{})
 
 			err := plumber.JobParallel(
@@ -223,7 +218,7 @@ var _ = Describe("jobs", func() {
 			Expect(cancelled).To(BeClosed())
 		})
 
-		It("should return the error of the flow when everything is cancelled", func() {
+		It("should return the error of the flow when everything is cancelled", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 
 			err := plumber.JobParallel(
@@ -239,7 +234,7 @@ var _ = Describe("jobs", func() {
 			Expect(err).To(MatchError(context.Canceled))
 		})
 
-		It("should wait for every job to finish", func() {
+		It("should wait for every job to finish", func(ctx SpecContext) {
 			var finished atomic.Int32
 
 			Expect(plumber.JobParallel(
@@ -260,7 +255,7 @@ var _ = Describe("jobs", func() {
 	})
 
 	Describe("loops", func() {
-		It("should stop looping when the job fails", func() {
+		It("should stop looping when the job fails", func(ctx SpecContext) {
 			count := 0
 
 			err := plumber.JobLoop(plumber.CreateJob(func() error {
@@ -277,7 +272,7 @@ var _ = Describe("jobs", func() {
 			Expect(count).To(Equal(3))
 		})
 
-		It("should stop looping when the flow is cancelled", func() {
+		It("should stop looping when the flow is cancelled", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 			defer cancel()
 
@@ -295,7 +290,7 @@ var _ = Describe("jobs", func() {
 			Expect(count.Load()).To(Equal(int32(2)))
 		})
 
-		It("should repeat while the condition is met", func() {
+		It("should repeat while the condition is met", func(ctx SpecContext) {
 			count := 0
 
 			Expect(plumber.JobWhile(func() bool {
@@ -309,7 +304,7 @@ var _ = Describe("jobs", func() {
 			Expect(count).To(Equal(3))
 		})
 
-		It("should interrupt the sleep of the waiting job", func() {
+		It("should interrupt the sleep of the waiting job", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 
 			go func() {
@@ -326,7 +321,7 @@ var _ = Describe("jobs", func() {
 	})
 
 	Describe("delay", func() {
-		It("should not run the job when the flow is cancelled while waiting", func() {
+		It("should not run the job when the flow is cancelled while waiting", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 
 			go func() {
@@ -348,7 +343,7 @@ var _ = Describe("jobs", func() {
 	})
 
 	Describe("background", func() {
-		It("should not wait for the job", func() {
+		It("should not wait for the job", func(ctx SpecContext) {
 			started := make(chan struct{})
 			release := make(chan struct{})
 
@@ -364,7 +359,7 @@ var _ = Describe("jobs", func() {
 			close(release)
 		})
 
-		It("should log and drop the error of the job", func() {
+		It("should log and drop the error of the job", func(ctx SpecContext) {
 			log, hook := logrustest.NewNullLogger()
 			log.SetLevel(logrus.TraceLevel)
 
@@ -383,7 +378,7 @@ var _ = Describe("jobs", func() {
 			}).Should(ContainElement("Background job has failed: failed"))
 		})
 
-		It("should be cancelled together with the flow around it", func() {
+		It("should be cancelled together with the flow around it", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 
 			var count atomic.Int32

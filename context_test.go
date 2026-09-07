@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/cenk1cenk2/plumber/v6"
@@ -42,7 +41,7 @@ type contextPropagationCase struct {
 
 var _ = Describe("flow context isolation", func() {
 	DescribeTable("should not leak the cancellation of a flow to the flows around it",
-		func(tc contextIsolationCase) {
+		func(ctx SpecContext, tc contextIsolationCase) {
 			lock := &sync.Mutex{}
 			errored := []error{}
 			runner := &contextRunner{
@@ -303,12 +302,12 @@ var _ = Describe("flow context isolation", func() {
 })
 
 var _ = Describe("daemon flows", func() {
-	It("should keep a background daemon loop ticking while the flow lives and stop it once the flow is over", func(_ SpecContext) {
+	It("should keep a background daemon loop ticking while the flow lives and stop it once the flow is over", func(spec SpecContext) {
 		fixture := plumbertests.NewPlumber()
 
 		var ticks atomic.Int32
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(spec)
 		defer cancel()
 
 		daemon := plumber.JobBackground(
@@ -362,12 +361,19 @@ var _ = Describe("daemon flows", func() {
 		runner := plumbertests.NewTestingCommandRunner()
 		fixture := plumbertests.NewPlumber()
 		fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
-		fixture.Plumber.Log.ExitFunc = func(int) {}
 		fixture.Plumber.EnableTerminator()
 
 		hooked := make(chan error, 1)
+		running := make(chan bool)
 
-		fixture.NewTaskList("daemon").CreateTask("daemon").
+		task := fixture.NewTaskList("daemon").CreateTask("daemon").
+			Set(func(ctx context.Context, _ *plumber.Task) error {
+				close(running)
+
+				<-ctx.Done()
+
+				return ctx.Err()
+			}).
 			SetOnTerminator(func(ctx context.Context, t *plumber.Task) error {
 				hooked <- t.CreateCommand("cleanup").Run(ctx)
 
@@ -375,19 +381,21 @@ var _ = Describe("daemon flows", func() {
 			}).
 			EnableTerminator()
 
+		done := make(chan error, 1)
+
+		go func() {
+			defer GinkgoRecover()
+
+			done <- fixture.Plumber.RunJobs(task.Job())
+		}()
+
+		<-running
+
 		fixture.Plumber.SendFatal(nil, errors.New("fatal error"))
-
-		Eventually(func() bool {
-			if len(hooked) > 0 {
-				return true
-			}
-
-			fixture.Plumber.Terminator.ShouldTerminate.TrySubmit(syscall.SIGTERM)
-
-			return len(hooked) > 0
-		}).Should(BeTrue())
 
 		Expect(<-hooked).To(Succeed())
 		Expect(runner.InvocationNames()).To(Equal([]string{"cleanup"}))
+		Eventually(done).Should(Receive(BeNil()))
+		Expect(fixture.ExitCodes()).To(Equal([]int{1}))
 	}, SpecTimeout(time.Second*10))
 })

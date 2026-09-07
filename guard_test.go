@@ -19,14 +19,9 @@ type guardCase struct {
 }
 
 var _ = Describe("guards", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
 
 	DescribeTable("should guard jobs",
-		func(tc guardCase) {
+		func(ctx SpecContext, tc guardCase) {
 			handled := false
 
 			Expect(tc.job(&handled)(ctx)).To(Succeed())
@@ -71,7 +66,7 @@ var _ = Describe("guards", func() {
 	)
 
 	Describe("panic", func() {
-		It("should turn the panic into an error", func() {
+		It("should turn the panic into an error", func(ctx SpecContext) {
 			err := plumber.GuardPanic(plumber.CreateJob(func() error {
 				panic("exploded")
 			}))(ctx)
@@ -79,7 +74,7 @@ var _ = Describe("guards", func() {
 			Expect(err).To(MatchError("Job has panicked: exploded"))
 		})
 
-		It("should keep the error of the panic wrapped", func() {
+		It("should keep the error of the panic wrapped", func(ctx SpecContext) {
 			inner := fmt.Errorf("exploded")
 
 			err := plumber.GuardPanic(plumber.CreateJob(func() error {
@@ -91,7 +86,7 @@ var _ = Describe("guards", func() {
 	})
 
 	Describe("timeout", func() {
-		It("should stop waiting for the job when the time is out", func() {
+		It("should stop waiting for the job when the time is out", func(ctx SpecContext) {
 			err := plumber.GuardTimeout(func(ctx context.Context) error {
 				<-ctx.Done()
 
@@ -101,7 +96,7 @@ var _ = Describe("guards", func() {
 			Expect(err).To(MatchError(context.DeadlineExceeded))
 		})
 
-		It("should call the handler when the time is out", func() {
+		It("should call the handler when the time is out", func(ctx SpecContext) {
 			handled := false
 
 			err := plumber.GuardOnTimeout(func(ctx context.Context) error {
@@ -116,7 +111,7 @@ var _ = Describe("guards", func() {
 			Expect(handled).To(BeTrue())
 		})
 
-		It("should return the error of the flow when it is cancelled before the time is out", func() {
+		It("should return the error of the flow when it is cancelled before the time is out", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 
 			go func() {
@@ -135,7 +130,7 @@ var _ = Describe("guards", func() {
 	})
 
 	Describe("ignore cancel", func() {
-		It("should pass through the errors that are not caused by cancellation", func() {
+		It("should pass through the errors that are not caused by cancellation", func(ctx SpecContext) {
 			err := plumber.GuardIgnoreCancel(plumber.CreateJob(func() error {
 				return fmt.Errorf("failed")
 			}))(ctx)
@@ -143,7 +138,7 @@ var _ = Describe("guards", func() {
 			Expect(err).To(MatchError("failed"))
 		})
 
-		It("should swallow the errors that do not even wrap the cancellation", func() {
+		It("should swallow the errors that do not even wrap the cancellation", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 			cancel()
 
@@ -152,7 +147,7 @@ var _ = Describe("guards", func() {
 			}))(cancelled)).To(Succeed())
 		})
 
-		It("should stay interruptible", func() {
+		It("should stay interruptible", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 
 			go func() {
@@ -169,7 +164,7 @@ var _ = Describe("guards", func() {
 	})
 
 	Describe("resume", func() {
-		It("should log and swallow every error", func() {
+		It("should log and swallow every error", func(ctx SpecContext) {
 			log, hook := logrustest.NewNullLogger()
 			log.SetLevel(logrus.TraceLevel)
 
@@ -182,7 +177,7 @@ var _ = Describe("guards", func() {
 	})
 
 	Describe("always", func() {
-		It("should run the job even when the flow is already cancelled", func() {
+		It("should run the job even when the flow is already cancelled", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 			cancel()
 
@@ -197,7 +192,7 @@ var _ = Describe("guards", func() {
 			Expect(ran).To(BeTrue())
 		})
 
-		It("should pass through the errors of the job", func() {
+		It("should pass through the errors of the job", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 			cancel()
 
@@ -208,7 +203,7 @@ var _ = Describe("guards", func() {
 			Expect(err).To(MatchError("failed"))
 		})
 
-		It("should swallow the errors that are caused by the grace period running out", func() {
+		It("should swallow the errors that are caused by the grace period running out", func(ctx SpecContext) {
 			cancelled, cancel := context.WithCancel(ctx)
 			cancel()
 

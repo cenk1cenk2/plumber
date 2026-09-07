@@ -32,9 +32,8 @@ type CommandInvocation struct {
 }
 
 type CommandRuntime struct {
-	Stdout     io.Writer
-	Stderr     io.Writer
-	SetProcess func(*os.Process)
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
 type CommandResult struct {
@@ -71,8 +70,14 @@ func (r *commandRunner) Run(ctx context.Context, invocation CommandInvocation, r
 
 	command := exec.CommandContext(ctx, invocation.Name, invocation.Args...) //nolint:gosec
 	command.Dir = invocation.Dir
-	command.Path = invocation.Path
 	command.Env = invocation.Env
+
+	// The path of the command is resolved through the lookup of the executable unless the command
+	// explicitly sets the path it should be run from.
+	if invocation.Path != "" {
+		command.Path = invocation.Path
+	}
+
 	command.ExtraFiles = invocation.ExtraFiles
 	command.SysProcAttr = invocation.SysProcAttr
 	command.Stdin = invocation.Stdin
@@ -102,10 +107,6 @@ func (r *commandRunner) Run(ctx context.Context, invocation CommandInvocation, r
 
 	if err := command.Start(); err != nil {
 		return CommandResult{}, err
-	}
-
-	if runtime.SetProcess != nil {
-		runtime.SetProcess(command.Process)
 	}
 
 	var wg sync.WaitGroup

@@ -30,7 +30,7 @@ var _ = Describe("test helpers", func() {
 		Expect(os.Args).To(Equal([]string{"plumber", "test"}))
 	})
 
-	It("should create strict mockery command runners for the current spec", func() {
+	It("should create strict mockery command runners for the current spec", func(ctx SpecContext) {
 		runner := plumbertests.NewMockCommandRunner()
 		result := plumbertests.TestingCommandSuccess()
 		runner.EXPECT().
@@ -45,7 +45,7 @@ var _ = Describe("test helpers", func() {
 			Once()
 
 		actual, err := runner.Run(
-			context.Background(),
+			ctx,
 			plumber.CommandInvocation{Name: "mock"},
 			plumber.CommandRuntime{},
 		)
@@ -106,7 +106,7 @@ var _ = Describe("test helpers", func() {
 		Expect(currentDir).ToNot(Equal(previousDir))
 	})
 
-	It("should run urfave Cli semantics with explicit argv and destinations", func() {
+	It("should run urfave Cli semantics with explicit argv and destinations", func(ctx SpecContext) {
 		type helperConfig struct {
 			Enabled      bool
 			Root         string
@@ -219,7 +219,7 @@ var _ = Describe("test helpers", func() {
 		}
 	})
 
-	It("should expose task-list conditions driven by env-sourced Cli config", func() {
+	It("should expose task-list conditions driven by env-sourced Cli config", func(ctx SpecContext) {
 		type helperConfig struct {
 			Enabled      bool
 			Repositories []string

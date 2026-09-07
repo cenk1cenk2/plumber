@@ -23,7 +23,13 @@ type Command struct {
 	TL      *TaskList
 	Log     *logrus.Entry
 
-	Command  *exec.Cmd
+	// the command itself and the arguments it is invoked with, where the first entry is the command
+	args        []string
+	dir         string
+	path        string
+	environment []string
+	sysProcAttr *syscall.SysProcAttr
+
 	scriptFn CommandScriptFn
 	options  CommandOptions
 	runtime  Runtime
@@ -54,13 +60,15 @@ type CommandOptions struct {
 	recordStream       bool
 	ensureIsAlive      bool
 	maskOsEnvironment  bool
+	terminator         bool
 	retry              *CommandRetry
 }
 
 type CommandStatus struct {
-	stopCases StatusStopCases
-	result    CommandResult
-	resultSet bool
+	stopCases    StatusStopCases
+	result       CommandResult
+	resultSet    bool
+	processState *os.ProcessState
 }
 
 type CommandScript struct {
@@ -104,14 +112,14 @@ func NewCommand(
 	args ...string,
 ) *Command {
 	c := &Command{
-		Command: exec.Command(command, args...),
 		Plumber: task.Plumber,
 		T:       task,
 		TL:      task.TL,
 		Log:     task.Log,
-	}
 
-	c.Command.SysProcAttr = &syscall.SysProcAttr{}
+		args:        append([]string{command}, args...),
+		sysProcAttr: &syscall.SysProcAttr{},
+	}
 
 	c.SetLogLevel(LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT)
 
@@ -155,12 +163,17 @@ func (c *Command) ShouldDisable(fn TaskPredicateFn) *Command {
 	return c
 }
 
-// Enables global plumber terminator on this command to terminate the current command when the application is terminated.
+// Enables global plumber terminator on this command to terminate the current command when the
+// application is terminated, which registers the command to the terminator for as long as it is
+// running.
 func (c *Command) EnableTerminator() *Command {
-	c.Log.Tracef("Registered terminator: %s", c.GetFormattedCommand())
-	c.Plumber.RegisterTerminator()
+	if !c.Plumber.ensureTerminator() {
+		return c
+	}
 
-	go c.handleTerminator()
+	c.Log.Tracef("Enabled terminator: %s", c.GetFormattedCommand())
+
+	c.options.terminator = true
 
 	return c
 }
@@ -192,8 +205,8 @@ func (c *Command) SetStdin(fn CommandStdinFn) *Command {
 
 // Appends arguments to the command.
 func (c *Command) AppendArgs(args ...string) *Command {
-	c.Command.Args = append(
-		c.Command.Args,
+	c.args = append(
+		c.args,
 		args...,
 	)
 
@@ -211,7 +224,7 @@ func (c *Command) AppendEnvironment(environment map[string]string) *Command {
 
 // Appends environment variables to command directly.
 func (c *Command) AppendDirectEnvironment(environment ...string) *Command {
-	c.Command.Env = append(c.Command.Env, environment...)
+	c.environment = append(c.environment, environment...)
 
 	return c
 }
@@ -245,14 +258,14 @@ func (c *Command) SetLogLevel(
 
 // Sets the current directory where the command will be executed.
 func (c *Command) SetDir(dir string) *Command {
-	c.Command.Dir = dir
+	c.dir = dir
 
 	return c
 }
 
 // Sets the current directory where the command will be executed.
 func (c *Command) SetPath(dir string) *Command {
-	c.Command.Path = dir
+	c.path = dir
 
 	return c
 }
@@ -360,11 +373,11 @@ func (c *Command) HasFailed() bool {
 		return !c.status.result.Success
 	}
 
-	if c.Command.ProcessState == nil {
+	if c.status.processState == nil {
 		return false
 	}
 
-	return !c.Command.ProcessState.Success()
+	return !c.status.processState.Success()
 }
 
 // Returns whether the command has exited properly or not.
@@ -373,16 +386,16 @@ func (c *Command) HasExited() bool {
 		return !c.status.result.Exited
 	}
 
-	if c.Command.ProcessState == nil {
+	if c.status.processState == nil {
 		return false
 	}
 
-	return !c.Command.ProcessState.Exited()
+	return !c.status.processState.Exited()
 }
 
 // Fetches the name of this command, that is formatted for the logger.
 func (c *Command) GetFormattedCommand() string {
-	return fmt.Sprintf("$ %s", strings.Join(c.Command.Args, " "))
+	return fmt.Sprintf("$ %s", strings.Join(c.args, " "))
 }
 
 // Run the command as defined.
@@ -395,6 +408,11 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 		return nil
 	}
 
+	if c.options.terminator {
+		release := c.Plumber.registerTerminatorHook(c.handleTerminator)
+		defer release()
+	}
+
 	started := time.Now()
 	if c.fn != nil {
 		if err := c.fn(ctx, c); err != nil {
@@ -402,12 +420,12 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 		}
 	}
 
-	c.Command.Args = slices.DeleteFunc(c.Command.Args, func(arg string) bool {
+	c.args = slices.DeleteFunc(c.args, func(arg string) bool {
 		return arg == ""
 	})
 
 	if !c.options.maskOsEnvironment {
-		c.Command.Env = append(c.Command.Env, os.Environ()...)
+		c.environment = append(c.environment, os.Environ()...)
 	}
 
 	c.Log.WithField(LOG_FIELD_STATUS, log_status_run).
@@ -491,14 +509,10 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 	result, err := c.resolveCommandRunner(runtime).Run(ctx, invocation, CommandRuntime{
 		Stdout: c.newStreamWriter(stream_stdout, c.stdoutLevel),
 		Stderr: c.newStreamWriter(stream_stderr, c.stderrLevel),
-		SetProcess: func(process *os.Process) {
-			c.Command.Process = process
-		},
 	})
-	c.Command.Process = nil
 	c.status.result = result
 	c.status.resultSet = result.Started || result.ProcessState != nil
-	c.Command.ProcessState = result.ProcessState
+	c.status.processState = result.ProcessState
 
 	if err != nil {
 		if result.Started {
@@ -615,34 +629,33 @@ func (c *Command) createInvocation() (CommandInvocation, error) {
 	}
 
 	if c.credentialFn != nil {
-		if c.Command.SysProcAttr == nil {
-			c.Command.SysProcAttr = &syscall.SysProcAttr{}
+		if c.sysProcAttr == nil {
+			c.sysProcAttr = &syscall.SysProcAttr{}
 		}
 
-		if c.Command.SysProcAttr.Credential == nil {
-			c.Command.SysProcAttr.Credential = &syscall.Credential{}
+		if c.sysProcAttr.Credential == nil {
+			c.sysProcAttr.Credential = &syscall.Credential{}
 		}
 
-		c.Command.SysProcAttr.Credential = c.credentialFn(c, c.Command.SysProcAttr.Credential)
+		c.sysProcAttr.Credential = c.credentialFn(c, c.sysProcAttr.Credential)
 	}
 
 	name := ""
 	args := []string{}
-	if len(c.Command.Args) > 0 {
-		name = c.Command.Args[0]
-		args = append(args, c.Command.Args[1:]...)
+	if len(c.args) > 0 {
+		name = c.args[0]
+		args = append(args, c.args[1:]...)
 	}
 
 	return CommandInvocation{
 		Name:          name,
 		Args:          args,
 		Formatted:     c.GetFormattedCommand(),
-		Dir:           c.Command.Dir,
-		Path:          c.Command.Path,
-		Env:           append([]string{}, c.Command.Env...),
+		Dir:           c.dir,
+		Path:          c.path,
+		Env:           append([]string{}, c.environment...),
 		Stdin:         stdin,
-		ExtraFiles:    c.Command.ExtraFiles,
-		SysProcAttr:   c.Command.SysProcAttr,
+		SysProcAttr:   c.sysProcAttr,
 		EnsureIsAlive: c.options.ensureIsAlive,
 		TaskName:      c.T.Name,
 		TaskListName:  c.TL.Name,
@@ -654,7 +667,7 @@ func (c *Command) createStdin() (io.Reader, error) {
 	if c.scriptFn != nil {
 		script := c.scriptFn(c)
 		if script == nil {
-			return c.Command.Stdin, nil
+			return nil, nil
 		}
 
 		if script.File != "" {
@@ -691,7 +704,7 @@ func (c *Command) createStdin() (io.Reader, error) {
 		return c.stdinFn(c), nil
 	}
 
-	return c.Command.Stdin, nil
+	return nil, nil
 }
 
 func (c *Command) resetStreams() {
@@ -774,48 +787,22 @@ func (c *Command) handleStopCases() bool {
 	return c.status.stopCases.result
 }
 
-// Handles the global plumber terminator to stop execution of the command and forwards the terminate signal if running.
-func (c *Command) handleTerminator() {
-	if c.IsDisabled() {
-		c.Log.Tracef(
-			"Deregister terminator directly because the command is already not available: %s",
-			c.GetFormattedCommand(),
-		)
+/*
+Handles the global plumber terminator when the terminator is triggered while the command is running.
 
-		c.Plumber.DeregisterTerminator()
-
+The process of the command itself is stopped through the cancellation of the flow it runs in, so the
+hook only has to run the action that is set for the termination of the command.
+*/
+func (c *Command) handleTerminator(ctx context.Context) {
+	if c.onTerminatorFn == nil {
 		return
 	}
 
-	ch := make(chan os.Signal, 1)
-	c.Plumber.Terminator.ShouldTerminate.Register(ch)
-	defer c.Plumber.Terminator.ShouldTerminate.Unregister(ch)
+	c.Log.Tracef("Forwarding terminator to the command: %s", c.GetFormattedCommand())
 
-	sig := <-ch
-
-	if c.Command.Process == nil {
-		c.Log.Tracef("Already finished running, registered as terminated: %s", c.GetFormattedCommand())
-		c.Plumber.RegisterTerminated()
-
-		return
-	}
-
-	c.Log.Tracef("Forwarding signal to process: %s", sig)
-
-	if err := c.Command.Process.Signal(sig); err != nil {
-		c.Log.Tracef("Termination error: %s > %s", c.GetFormattedCommand(), err.Error())
-	}
-
-	if c.onTerminatorFn != nil {
-		ctx, cancel := c.Plumber.shutdownContext()
-		defer cancel()
-
-		c.T.SendError(c.onTerminatorFn(ctx, c))
-	}
+	c.T.SendError(c.onTerminatorFn(ctx, c))
 
 	c.Log.Tracef("Registered as terminated: %s", c.GetFormattedCommand())
-
-	c.Plumber.RegisterTerminated()
 }
 
 func (c *Command) templateScript(script *CommandScript, tmpl string) (io.Reader, error) {

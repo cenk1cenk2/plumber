@@ -19,11 +19,6 @@ import (
 )
 
 var _ = Describe("plumber", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
 
 	Describe("construction", func() {
 		It("should create a Cli application with default flags", func() {
@@ -117,7 +112,7 @@ var _ = Describe("plumber", func() {
 		}
 
 		DescribeTable("should execute inline templates",
-			func(tc inlineTemplateCase) {
+			func(ctx SpecContext, tc inlineTemplateCase) {
 				result, err := plumber.InlineTemplate(tc.template, tc.ctx, tc.funcs...)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -231,7 +226,7 @@ var _ = Describe("plumber", func() {
 	})
 
 	Describe("tasks", func() {
-		It("should run task hooks and body in order", func() {
+		It("should run task hooks and body in order", func(ctx SpecContext) {
 			fixture := plumbertests.NewPlumber()
 			task := fixture.NewTaskList("tasks").CreateTask("deploy")
 			order := []string{}
@@ -257,7 +252,7 @@ var _ = Describe("plumber", func() {
 			Expect(order).To(Equal([]string{"before", "run", "after"}))
 		})
 
-		It("should skip disabled tasks without running hooks", func() {
+		It("should skip disabled tasks without running hooks", func(ctx SpecContext) {
 			fixture := plumbertests.NewPlumber()
 			task := fixture.NewTaskList("tasks").CreateTask("disabled")
 			order := []string{}
@@ -292,7 +287,7 @@ var _ = Describe("plumber", func() {
 	})
 
 	Describe("task lists", func() {
-		It("should run task list hooks and jobs", func() {
+		It("should run task list hooks and jobs", func(ctx SpecContext) {
 			fixture := plumbertests.NewPlumber()
 			tl := fixture.NewTaskList("list")
 			order := []string{}
@@ -347,7 +342,7 @@ var _ = Describe("plumber", func() {
 			Expect(command.GetFormattedCommand()).To(Equal("$ echo hello"))
 		})
 
-		It("should record stdout, stderr, and combined streams", func() {
+		It("should record stdout, stderr, and combined streams", func(ctx SpecContext) {
 			task, runner := newTaskWithRunner()
 			runner.Add(plumbertests.TestingCommandResponse{
 				Stdout: "out\n",
@@ -363,7 +358,7 @@ var _ = Describe("plumber", func() {
 			Expect(command.GetCombinedStream()).To(ConsistOf("out\n", "err\n"))
 		})
 
-		It("should use explicitly appended environment when OS environment is masked", func() {
+		It("should use explicitly appended environment when OS environment is masked", func(ctx SpecContext) {
 			task, runner := newTaskWithRunner()
 			plumbertests.WithEnvironment(map[string]string{
 				"PLUMBER_TEST_COMMAND_ENV": "from-os",
@@ -382,7 +377,7 @@ var _ = Describe("plumber", func() {
 		})
 
 		DescribeTable("should pass stdin to command invocations",
-			func(configure func(*plumber.Task) *plumber.Command, expected string) {
+			func(ctx SpecContext, configure func(*plumber.Task) *plumber.Command, expected string) {
 				task, runner := newTaskWithRunner()
 				command := configure(task)
 
@@ -413,7 +408,7 @@ var _ = Describe("plumber", func() {
 			}, "from stdin\n"),
 		)
 
-		It("should ignore command errors when configured", func() {
+		It("should ignore command errors when configured", func(ctx SpecContext) {
 			task, runner := newTaskWithRunner()
 			result := plumbertests.TestingCommandFailure(7)
 			runner.Add(plumbertests.TestingCommandResponse{
@@ -426,7 +421,7 @@ var _ = Describe("plumber", func() {
 			Expect(command.Run(ctx)).To(Succeed())
 		})
 
-		It("should retry failed commands until tries are exhausted", func() {
+		It("should retry failed commands until tries are exhausted", func(ctx SpecContext) {
 			task, runner := newTaskWithRunner()
 			result := plumbertests.TestingCommandFailure(7)
 			runner.
@@ -445,7 +440,7 @@ var _ = Describe("plumber", func() {
 			Expect(runner.Invocations()).To(HaveLen(2))
 		})
 
-		It("should run command hooks around the process", func() {
+		It("should run command hooks around the process", func(ctx SpecContext) {
 			task, _ := newTaskWithRunner()
 			command := task.CreateCommand("mock")
 			order := []string{}
@@ -471,7 +466,7 @@ var _ = Describe("plumber", func() {
 			Expect(order).To(Equal([]string{"set:$ mock", "before", "after"}))
 		})
 
-		It("should skip disabled commands without executing hooks", func() {
+		It("should skip disabled commands without executing hooks", func(ctx SpecContext) {
 			task, runner := newTaskWithRunner()
 			command := task.CreateCommand("false")
 			order := []string{}
@@ -491,7 +486,7 @@ var _ = Describe("plumber", func() {
 			Expect(runner.Invocations()).To(BeEmpty())
 		})
 
-		It("should remove empty command arguments before execution", func() {
+		It("should remove empty command arguments before execution", func(ctx SpecContext) {
 			task, runner := newTaskWithRunner()
 			command := task.
 				CreateCommand("mock", "", "-c", "", `printf 'ok\n'`)
@@ -501,7 +496,7 @@ var _ = Describe("plumber", func() {
 			Expect(command.GetFormattedCommand()).To(Equal("$ mock -c printf 'ok\\n'"))
 		})
 
-		It("should return an error when a script has no source", func() {
+		It("should return an error when a script has no source", func(ctx SpecContext) {
 			command := newTask().
 				CreateCommand("cat").
 				SetScript(func(_ *plumber.Command) *plumber.CommandScript {

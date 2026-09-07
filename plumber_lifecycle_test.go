@@ -82,7 +82,7 @@ var _ = Describe("plumber lifecycle", func() {
 			Expect(level).To(Equal(logrus.DebugLevel))
 		})
 
-		It("should run the wrapped Cli Before hook before actions", func() {
+		It("should run the wrapped Cli Before hook before actions", func(ctx SpecContext) {
 			plumbertests.WithArgs("before-test", "run")
 			order := []string{}
 			fixture := plumbertests.NewPlumber(func(_ *plumber.Plumber) *cli.Command {
@@ -221,7 +221,6 @@ var _ = Describe("plumber lifecycle", func() {
 	Describe("graceful shutdown", func() {
 		It("should yield nil from RunJobs when a fatal error shuts the application down while a job of its own still fails", func(_ SpecContext) {
 			fixture := plumbertests.NewPlumber()
-			fixture.Plumber.Log.ExitFunc = func(int) {}
 
 			Expect(fixture.Plumber.RunJobs(plumber.CreateJob(func() error {
 				return errors.New("job failed")
@@ -234,6 +233,8 @@ var _ = Describe("plumber lifecycle", func() {
 
 				return fmt.Errorf("signal: killed")
 			})).To(Succeed())
+
+			Eventually(fixture.ExitCodes).Should(Equal([]int{1}))
 		}, SpecTimeout(time.Second*10))
 
 		It("should yield nil from RunJobs when the terminator shuts the application down", func(_ SpecContext) {
@@ -242,22 +243,19 @@ var _ = Describe("plumber lifecycle", func() {
 			fixture.NewTaskList("terminating")
 
 			Expect(fixture.Plumber.RunJobs(func(ctx context.Context) error {
-				for {
-					fixture.Plumber.Terminator.ShouldTerminate.TrySubmit(syscall.SIGTERM)
+				go fixture.Plumber.SendTerminate(syscall.SIGTERM, 0)
 
-					select {
-					case <-ctx.Done():
-						return fmt.Errorf("signal: killed")
-					case <-time.After(time.Millisecond * 5):
-					}
-				}
+				<-ctx.Done()
+
+				return fmt.Errorf("signal: killed")
 			})).To(Succeed())
 		}, SpecTimeout(time.Second*10))
 
-		It("should surface the error of a flow that is cancelled by whoever runs it", func(_ SpecContext) {
+		It("should surface the error of a flow that is cancelled by whoever runs it", func(spec SpecContext) {
 			fixture := plumbertests.NewPlumber()
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(spec)
+			defer cancel()
 
 			Expect(fixture.Plumber.RunJobsWith(ctx, func(ctx context.Context) error {
 				cancel()
@@ -266,6 +264,112 @@ var _ = Describe("plumber lifecycle", func() {
 
 				return ctx.Err()
 			})).To(MatchError(context.Canceled))
+		}, SpecTimeout(time.Second*10))
+	})
+
+	Describe("terminator", func() {
+		It("should exit with the code that is requested through the terminator", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.EnableTerminator()
+
+			fixture.Plumber.Terminate(9)
+
+			Expect(fixture.ExitCodes()).To(Equal([]int{9}))
+		}, SpecTimeout(time.Second*10))
+
+		It("should exit with the interrupt code when the application is terminated through a signal", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.EnableTerminator()
+
+			fixture.Plumber.SendTerminate(syscall.SIGINT, 127)
+
+			Expect(fixture.ExitCodes()).To(Equal([]int{127}))
+		}, SpecTimeout(time.Second*10))
+
+		It("should exit immediately when nothing is registered to the terminator", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.EnableTerminator()
+			fixture.Plumber.SetTerminatorTimeout(time.Minute)
+
+			started := time.Now()
+
+			fixture.Plumber.SendTerminate(syscall.SIGTERM, 0)
+
+			Expect(time.Since(started)).To(BeNumerically("<", time.Second))
+			Expect(fixture.ExitCodes()).To(Equal([]int{0}))
+		}, SpecTimeout(time.Second*10))
+
+		It("should ignore the terminate signals that come after the first one", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.EnableTerminator()
+
+			fixture.Plumber.SendTerminate(syscall.SIGTERM, 127)
+			fixture.Plumber.SendTerminate(syscall.SIGINT, 1)
+
+			Expect(fixture.ExitCodes()).To(Equal([]int{127}))
+		}, SpecTimeout(time.Second*10))
+
+		It("should not run the terminator hook of a task that is already done running", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.EnableTerminator()
+
+			hooked := make(chan bool, 1)
+
+			task := fixture.NewTaskList("terminator").CreateTask("done").
+				SetOnTerminator(func(_ context.Context, _ *plumber.Task) error {
+					hooked <- true
+
+					return nil
+				}).
+				EnableTerminator()
+
+			Expect(fixture.Plumber.RunJobs(task.Job())).To(Succeed())
+
+			fixture.Plumber.SendTerminate(syscall.SIGTERM, 0)
+
+			Expect(hooked).ToNot(Receive())
+			Expect(fixture.ExitCodes()).To(Equal([]int{0}))
+		}, SpecTimeout(time.Second*10))
+
+		It("should force the exit when the hooks of the terminator do not finish in time", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.EnableTerminator()
+			fixture.Plumber.SetTerminatorTimeout(time.Millisecond * 50)
+
+			running := make(chan bool)
+			release := make(chan bool)
+			done := make(chan error, 1)
+
+			task := fixture.NewTaskList("terminator").CreateTask("hanging").
+				Set(func(ctx context.Context, _ *plumber.Task) error {
+					close(running)
+
+					<-ctx.Done()
+
+					return ctx.Err()
+				}).
+				SetOnTerminator(func(_ context.Context, _ *plumber.Task) error {
+					<-release
+
+					return nil
+				}).
+				EnableTerminator()
+
+			go func() {
+				defer GinkgoRecover()
+
+				done <- fixture.Plumber.RunJobs(task.Job())
+			}()
+
+			<-running
+
+			fixture.Plumber.SendTerminate(syscall.SIGTERM, 5)
+
+			Expect(fixture.ExitCodes()).To(Equal([]int{5}))
+
+			close(release)
+
+			Eventually(done).Should(Receive(BeNil()))
 		}, SpecTimeout(time.Second*10))
 	})
 })

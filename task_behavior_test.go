@@ -45,15 +45,12 @@ type taskListLifecycleErrorCase struct {
 
 var _ = Describe("task behavior", func() {
 	var fixture *plumbertests.PlumberFixture
-	var ctx context.Context
-
 	BeforeEach(func() {
 		fixture = plumbertests.NewPlumber()
-		ctx = context.Background()
 	})
 
 	DescribeTable("should stop tasks before running hooks or body",
-		func(configure func(*plumber.Task), expectedContext string) {
+		func(ctx SpecContext, configure func(*plumber.Task), expectedContext string) {
 			task := fixture.NewTaskList("tasks").CreateTask(expectedContext)
 			order := []string{}
 
@@ -86,8 +83,7 @@ var _ = Describe("task behavior", func() {
 	)
 
 	DescribeTable("should return task lifecycle errors from the failing phase",
-		func(tc taskLifecycleErrorCase) {
-			fixture.Plumber.Log.ExitFunc = func(int) {}
+		func(ctx SpecContext, tc taskLifecycleErrorCase) {
 			task := fixture.NewTaskList("tasks").CreateTask("failing")
 			order := []string{}
 
@@ -164,7 +160,7 @@ var _ = Describe("task behavior", func() {
 		}),
 	)
 
-	It("should run task jobs through wrappers", func() {
+	It("should run task jobs through wrappers", func(ctx SpecContext) {
 		task := fixture.NewTaskList("tasks").CreateTask("wrapped")
 		order := []string{}
 
@@ -186,7 +182,7 @@ var _ = Describe("task behavior", func() {
 		Expect(order).To(Equal([]string{"wrapper:wrapped", "run"}))
 	})
 
-	It("should use scoped command runners while running a task", func() {
+	It("should use scoped command runners while running a task", func(ctx SpecContext) {
 		defaultRunner := plumbertests.NewTestingCommandRunner()
 		scopedRunner := plumbertests.NewTestingCommandRunner()
 		task := fixture.NewTaskList("commands").CreateTask("task").
@@ -204,7 +200,7 @@ var _ = Describe("task behavior", func() {
 	})
 
 	DescribeTable("should aggregate and run command jobs",
-		func(tc commandJobCase) {
+		func(ctx SpecContext, tc commandJobCase) {
 			runner := plumbertests.NewTestingCommandRunner()
 			task := fixture.NewTaskList("commands").CreateTask("task").SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
 
@@ -261,7 +257,7 @@ var _ = Describe("task behavior", func() {
 		}),
 	)
 
-	It("should run command jobs through command wrappers", func() {
+	It("should run command jobs through command wrappers", func(ctx SpecContext) {
 		runner := plumbertests.NewTestingCommandRunner()
 		task := fixture.NewTaskList("commands").CreateTask("task").SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
 		order := []string{}
@@ -279,7 +275,7 @@ var _ = Describe("task behavior", func() {
 		Expect(runner.Invocations()).To(HaveLen(1))
 	})
 
-	It("should add commands to another task", func() {
+	It("should add commands to another task", func(ctx SpecContext) {
 		runner := plumbertests.NewTestingCommandRunner()
 		parent := fixture.NewTaskList("commands").CreateTask("parent")
 		child := fixture.NewTaskList("commands").CreateTask("child")
@@ -293,15 +289,12 @@ var _ = Describe("task behavior", func() {
 
 var _ = Describe("subtasks", func() {
 	var fixture *plumbertests.PlumberFixture
-	var ctx context.Context
-
 	BeforeEach(func() {
 		fixture = plumbertests.NewPlumber()
-		ctx = context.Background()
 	})
 
 	DescribeTable("should create and run subtasks",
-		func(tc subtaskCase) {
+		func(ctx SpecContext, tc subtaskCase) {
 			parent := fixture.NewTaskList("tasks").CreateTask("parent")
 			var lock sync.Mutex
 			order := []string{}
@@ -350,7 +343,7 @@ var _ = Describe("subtasks", func() {
 		}),
 	)
 
-	It("should attach subtasks with a custom parent wrapper", func() {
+	It("should attach subtasks with a custom parent wrapper", func(ctx SpecContext) {
 		parent := fixture.NewTaskList("tasks").CreateTask("parent")
 		child := parent.CreateSubtask("child").Set(func(_ context.Context, _ *plumber.Task) error {
 			return nil
@@ -363,7 +356,7 @@ var _ = Describe("subtasks", func() {
 		Expect(parent.RunSubtasks(ctx)).To(Succeed())
 	})
 
-	It("should attach subtasks to an arbitrary parent", func() {
+	It("should attach subtasks to an arbitrary parent", func(ctx SpecContext) {
 		source := fixture.NewTaskList("tasks").CreateTask("source")
 		target := fixture.NewTaskList("tasks").CreateTask("target")
 		order := []string{}
@@ -382,7 +375,7 @@ var _ = Describe("subtasks", func() {
 		Expect(order).To(Equal([]string{"child"}))
 	})
 
-	It("should extend subtask jobs with wrappers", func() {
+	It("should extend subtask jobs with wrappers", func(ctx SpecContext) {
 		parent := fixture.NewTaskList("tasks").CreateTask("parent")
 		order := []string{}
 
@@ -404,7 +397,7 @@ var _ = Describe("subtasks", func() {
 		Expect(order).To(Equal([]string{"base", "extended"}))
 	})
 
-	It("should reset nil subtasks to an empty job", func() {
+	It("should reset nil subtasks to an empty job", func(ctx SpecContext) {
 		parent := fixture.NewTaskList("tasks").CreateTask("parent")
 
 		parent.SetSubtask(nil)
@@ -415,14 +408,9 @@ var _ = Describe("subtasks", func() {
 })
 
 var _ = Describe("task lists", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
 
 	DescribeTable("should return task list lifecycle errors from the failing phase",
-		func(tc taskListLifecycleErrorCase) {
+		func(ctx SpecContext, tc taskListLifecycleErrorCase) {
 			fixture := plumbertests.NewPlumber()
 			tl := fixture.NewTaskList("failing")
 			order := []string{}
@@ -479,7 +467,7 @@ var _ = Describe("task lists", func() {
 	)
 
 	DescribeTable("should stop task list phases before running work",
-		func(tc taskListStopCase) {
+		func(ctx SpecContext, tc taskListStopCase) {
 			fixture := plumbertests.NewPlumber()
 			tl := fixture.NewTaskList("stopped").
 				SetRuntimeDepth(2).
@@ -609,7 +597,7 @@ var _ = Describe("task lists", func() {
 		Expect(order).ToNot(ContainElements("two:run", "one:after", "two:after"))
 	})
 
-	It("should use scoped command runners while running a task list", func() {
+	It("should use scoped command runners while running a task list", func(ctx SpecContext) {
 		fixture := plumbertests.NewPlumber()
 		defaultRunner := plumbertests.NewTestingCommandRunner()
 		scopedRunner := plumbertests.NewTestingCommandRunner()

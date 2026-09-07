@@ -2,7 +2,6 @@ package plumber
 
 import (
 	"context"
-	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -15,7 +14,6 @@ type Task struct {
 	Plumber *Plumber
 	TL      *TaskList
 	Log     *logrus.Entry
-	Channel *AppChannel
 	Name    string
 
 	Lock     *sync.RWMutex
@@ -37,6 +35,7 @@ type Task struct {
 type TaskOptions struct {
 	skipPredicateFn    TaskPredicateFn
 	disablePredicateFn TaskPredicateFn
+	terminator         bool
 }
 
 type TaskStatus struct {
@@ -63,7 +62,6 @@ func NewTask(tl *TaskList, name ...string) *Task {
 		Plumber:  tl.Plumber,
 		Lock:     tl.Lock,
 		taskLock: &sync.RWMutex{},
-		Channel:  tl.Channel,
 	}
 
 	t.Log = tl.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
@@ -126,12 +124,16 @@ func (t *Task) IsSkipped() bool {
 	return t.options.skipPredicateFn(t)
 }
 
-// Enables global plumber terminator on this task.
+// Enables global plumber terminator on this task, which registers the task to the terminator for as
+// long as it is running.
 func (t *Task) EnableTerminator() *Task {
-	t.Log.Tracef("Registered terminator.")
-	t.Plumber.RegisterTerminator()
+	if !t.Plumber.ensureTerminator() {
+		return t
+	}
 
-	go t.handleTerminator()
+	t.Log.Tracef("Enabled terminator.")
+
+	t.options.terminator = true
 
 	return t
 }
@@ -160,6 +162,11 @@ func (t *Task) SetRuntime(runtime Runtime) *Task {
 func (t *Task) Run(ctx context.Context) error {
 	if stop := t.handleStopCases(); stop {
 		return nil
+	}
+
+	if t.options.terminator {
+		release := t.Plumber.registerTerminatorHook(t.handleTerminator)
+		defer release()
 	}
 
 	started := time.Now()
@@ -288,31 +295,15 @@ func (t *Task) handleErrors(err error) error {
 	return err
 }
 
-// Handles the plumber terminator when terminator is triggered.
-func (t *Task) handleTerminator() {
-	if t.IsDisabled() || t.IsSkipped() {
-		t.Log.Traceln("Sending terminated directly because the task is already not available.")
-
-		t.Plumber.DeregisterTerminator()
-
+// Handles the plumber terminator when terminator is triggered while the task is running.
+func (t *Task) handleTerminator(ctx context.Context) {
+	if t.onTerminatorFn == nil {
 		return
 	}
 
-	ch := make(chan os.Signal, 1)
+	t.Log.Traceln("Forwarding terminator to the task.")
 
-	t.Plumber.Terminator.ShouldTerminate.Register(ch)
+	t.SendError(t.onTerminatorFn(ctx, t))
 
-	sig := <-ch
-
-	t.Log.Tracef("Forwarding signal to task: %s", sig)
-
-	if t.onTerminatorFn != nil {
-		ctx, cancel := t.Plumber.shutdownContext()
-		defer cancel()
-
-		t.SendError(t.onTerminatorFn(ctx, t))
-	}
-
-	t.Log.Tracef("Registered as terminated.")
-	t.Plumber.RegisterTerminated()
+	t.Log.Traceln("Registered as terminated.")
 }

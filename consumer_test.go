@@ -29,7 +29,7 @@ type pipeCliConditionCase struct {
 }
 
 var _ = Describe("consumer-shaped flows", func() {
-	It("should let consumers test Cli flags arguments commands and generated subtasks with a runtime command runner", func() {
+	It("should let consumers test Cli flags arguments commands and generated subtasks with a runtime command runner", func(ctx SpecContext) {
 		runner := plumbertests.NewTestingCommandRunner().
 			AddResponses(
 				plumbertests.TestingCommandResponse{Name: "corepack", Args: []string{"enable"}},
@@ -141,7 +141,7 @@ var _ = Describe("consumer-shaped flows", func() {
 	})
 
 	DescribeTable("should let consumers drive task-list conditions through urfave Cli helpers",
-		func(tc pipeCliConditionCase) {
+		func(ctx SpecContext, tc pipeCliConditionCase) {
 			type packageConfig struct {
 				Enabled    bool
 				Cwd        string
@@ -293,7 +293,7 @@ var _ = Describe("consumer-shaped flows", func() {
 	)
 
 	DescribeTable("should exercise pipe task shapes through runtime command runners",
-		func(tc pipeShapeCase) {
+		func(ctx SpecContext, tc pipeShapeCase) {
 			fixture := plumbertests.NewPlumber()
 			runner := plumbertests.NewTestingCommandRunner()
 			fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
