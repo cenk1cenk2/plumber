@@ -31,13 +31,7 @@ var _ = Describe("Handler", func() {
 	})
 
 	It("should format ordered fields and trim messages", func(_ SpecContext) {
-		handler := logger.NewHandler(logger.Options{
-			FieldsOrder:   []string{"context", "status"},
-			HideKeys:      true,
-			NoColors:      true,
-			NoEmptyFields: true,
-			TrimMessages:  true,
-		})
+		handler := logger.NewHandler(nil)
 		handler.SetOutput(output)
 
 		with := handler.WithAttrs([]slog.Attr{
@@ -48,64 +42,33 @@ var _ = Describe("Handler", func() {
 
 		Expect(with.Handle(context.Background(), record(slog.LevelInfo, "done \n"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("[I] [task] [RUN] done\n"))
-	})
-
-	It("should format compact fields with keys", func(_ SpecContext) {
-		handler := logger.NewHandler(logger.Options{
-			FieldsOrder:      []string{"context", "status"},
-			NoColors:         true,
-			NoFieldsSpace:    true,
-			ShowFullLevel:    true,
-			NoUppercaseLevel: true,
-		})
-		handler.SetOutput(output)
-
-		with := handler.WithAttrs([]slog.Attr{
-			slog.String("context", "task"),
-			slog.String("status", "END"),
-		})
-
-		Expect(with.Handle(context.Background(), record(slog.LevelWarn, "done"))).To(Succeed())
-
-		Expect(output.String()).To(Equal("[warning][context:task][status:END] done\n"))
+		Expect(output.String()).To(Equal("\x1b[36m[I] [task] [RUN] \x1b[0mdone\n"))
 	})
 
 	It("should redact configured secrets from messages", func(_ SpecContext) {
 		secrets := []string{"secret-token"}
-		handler := logger.NewHandler(logger.Options{
-			NoColors: true,
-			Secrets:  &secrets,
-		})
+		handler := logger.NewHandler(&secrets)
 		handler.SetOutput(output)
 
 		handle(handler, record(slog.LevelInfo, "using secret-token"))
 
-		Expect(output.String()).To(Equal("[I] using [REDACTED]\n"))
+		Expect(output.String()).To(Equal("\x1b[36m[I] \x1b[0musing [REDACTED]\n"))
 	})
 
 	It("should not redact the secrets from the fields", func(_ SpecContext) {
 		secrets := []string{"secret-token"}
-		handler := logger.NewHandler(logger.Options{
-			HideKeys: true,
-			NoColors: true,
-			Secrets:  &secrets,
-		})
+		handler := logger.NewHandler(&secrets)
 		handler.SetOutput(output)
 
 		with := handler.WithAttrs([]slog.Attr{slog.String("context", "secret-token")})
 
 		Expect(with.Handle(context.Background(), record(slog.LevelInfo, "done"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("[I] [secret-token] done\n"))
+		Expect(output.String()).To(Equal("\x1b[36m[I] [secret-token] \x1b[0mdone\n"))
 	})
 
 	It("should overwrite a field that is set more than once", func(_ SpecContext) {
-		handler := logger.NewHandler(logger.Options{
-			FieldsOrder: []string{"context"},
-			HideKeys:    true,
-			NoColors:    true,
-		})
+		handler := logger.NewHandler(nil)
 		handler.SetOutput(output)
 
 		with := handler.
@@ -114,15 +77,11 @@ var _ = Describe("Handler", func() {
 
 		Expect(with.Handle(context.Background(), record(slog.LevelInfo, "done"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("[I] [DISABLE] done\n"))
+		Expect(output.String()).To(Equal("\x1b[36m[I] [DISABLE] \x1b[0mdone\n"))
 	})
 
 	It("should carry the attributes of the loggers that are derived from it", func(_ SpecContext) {
-		handler := logger.NewHandler(logger.Options{
-			FieldsOrder: []string{"context", "status"},
-			HideKeys:    true,
-			NoColors:    true,
-		})
+		handler := logger.NewHandler(nil)
 		handler.SetOutput(output)
 
 		log := slog.New(handler)
@@ -131,11 +90,11 @@ var _ = Describe("Handler", func() {
 		derived.Info("done")
 		log.Info("root")
 
-		Expect(output.String()).To(Equal("[I] [task] [RUN] done\n[I] root\n"))
+		Expect(output.String()).To(Equal("\x1b[36m[I] [task] [RUN] \x1b[0mdone\n\x1b[36m[I] \x1b[0mroot\n"))
 	})
 
 	It("should report the caller of the message and never the logger itself", func(_ SpecContext) {
-		handler := logger.NewHandler(logger.Options{NoColors: true, CallerFirst: true})
+		handler := logger.NewHandler(nil)
 		handler.SetOutput(output)
 		handler.SetReportCaller(true)
 
@@ -146,10 +105,7 @@ var _ = Describe("Handler", func() {
 	})
 
 	It("should sort the fields that are not ordered alphabetically", func(_ SpecContext) {
-		handler := logger.NewHandler(logger.Options{
-			FieldsOrder: []string{"context"},
-			NoColors:    true,
-		})
+		handler := logger.NewHandler(nil)
 		handler.SetOutput(output)
 
 		with := handler.WithAttrs([]slog.Attr{
@@ -160,13 +116,13 @@ var _ = Describe("Handler", func() {
 
 		Expect(with.Handle(context.Background(), record(slog.LevelInfo, "done"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("[I] [context:task] [alpha:a] [zulu:z] done\n"))
+		Expect(output.String()).To(Equal("\x1b[36m[I] [task] [a] [z] \x1b[0mdone\n"))
 	})
 
 	DescribeTable(
 		"should color the message depending on the level",
 		func(_ SpecContext, level slog.Level, expected string) {
-			handler := logger.NewHandler(logger.Options{})
+			handler := logger.NewHandler(nil)
 			handler.SetOutput(output)
 
 			handle(handler, record(level, "done"))
@@ -181,7 +137,7 @@ var _ = Describe("Handler", func() {
 	)
 
 	It("should gate the records with the level that is set", func(_ SpecContext) {
-		handler := logger.NewHandler(logger.Options{})
+		handler := logger.NewHandler(nil)
 
 		Expect(handler.Enabled(context.Background(), slog.LevelInfo)).To(BeTrue())
 		Expect(handler.Enabled(context.Background(), slog.LevelDebug)).To(BeFalse())
@@ -193,7 +149,7 @@ var _ = Describe("Handler", func() {
 	})
 
 	It("should share the state with the handlers that are derived from it", func(_ SpecContext) {
-		handler := logger.NewHandler(logger.Options{NoColors: true})
+		handler := logger.NewHandler(nil)
 		with := handler.WithAttrs([]slog.Attr{slog.String("context", "task")})
 
 		handler.SetOutput(output)
@@ -202,11 +158,11 @@ var _ = Describe("Handler", func() {
 		Expect(with.Enabled(context.Background(), logger.LevelTrace)).To(BeTrue())
 		Expect(with.Handle(context.Background(), record(logger.LevelTrace, "done"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("[T] [context:task] done\n"))
+		Expect(output.String()).To(Equal("\x1b[35m[T] [task] \x1b[0mdone\n"))
 	})
 
 	It("should not report the caller unless it is asked for", func(_ SpecContext) {
-		handler := logger.NewHandler(logger.Options{NoColors: true})
+		handler := logger.NewHandler(nil)
 		handler.SetOutput(output)
 
 		var pcs [1]uintptr
@@ -214,7 +170,7 @@ var _ = Describe("Handler", func() {
 
 		handle(handler, slog.NewRecord(time.Unix(0, 0), slog.LevelInfo, "done", pcs[0]))
 
-		Expect(output.String()).To(Equal("[I] done\n"))
+		Expect(output.String()).To(Equal("\x1b[36m[I] \x1b[0mdone\n"))
 
 		output.Reset()
 		handler.SetReportCaller(true)

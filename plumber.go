@@ -150,20 +150,7 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 	p.Environment = AppEnvironment{}
 
 	// presetup logger to not have it nil in edge cases
-	p.Log = slog.New(logger.NewHandler(logger.Options{
-		FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
-		TimestampFormat:  "",
-		HideKeys:         true,
-		NoColors:         false,
-		NoFieldsColors:   false,
-		NoFieldsSpace:    false,
-		NoEmptyFields:    true,
-		ShowFullLevel:    false,
-		NoUppercaseLevel: false,
-		TrimMessages:     true,
-		CallerFirst:      true,
-		Secrets:          &p.secrets,
-	}))
+	p.Log = slog.New(logger.NewHandler(&p.secrets))
 	p.SetLoggerLevel(LOG_LEVEL_INFO)
 
 	p.registerInterruptHandler()
@@ -283,17 +270,6 @@ func (p *Plumber) SetExitFunc(fn PlumberExitFn) *Plumber {
 	return p
 }
 
-// Sets the formatting options of the logger of the application.
-func (p *Plumber) SetLoggerOptions(options logger.Options) *Plumber {
-	options.Secrets = &p.secrets
-
-	if handler := p.handler(); handler != nil {
-		handler.SetOptions(options)
-	}
-
-	return p
-}
-
 // Sets the level of the application, which every logger that is derived from the root of it is
 // gated with.
 func (p *Plumber) SetLoggerLevel(level LogLevel) *Plumber {
@@ -324,17 +300,6 @@ func (p *Plumber) SetLoggerOutput(out io.Writer) *Plumber {
 	return p
 }
 
-// Returns the writer that the application logs to.
-func (p *Plumber) GetLoggerOutput() io.Writer {
-	handler := p.handler()
-
-	if handler == nil {
-		return nil
-	}
-
-	return handler.Output()
-}
-
 // Sets whether the caller of a message should be reported with it.
 func (p *Plumber) SetLoggerReportCaller(report bool) *Plumber {
 	if handler := p.handler(); handler != nil {
@@ -342,17 +307,6 @@ func (p *Plumber) SetLoggerReportCaller(report bool) *Plumber {
 	}
 
 	return p
-}
-
-// Returns whether the caller of a message is reported with it.
-func (p *Plumber) GetLoggerReportCaller() bool {
-	handler := p.handler()
-
-	if handler == nil {
-		return false
-	}
-
-	return handler.ReportCaller()
 }
 
 // Returns the handler of the application whenever it still writes through a handler of plumber,

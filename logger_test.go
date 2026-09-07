@@ -1,6 +1,7 @@
 package plumber_test
 
 import (
+	"bytes"
 	"log/slog"
 
 	"github.com/cenk1cenk2/plumber/v7"
@@ -79,13 +80,20 @@ var _ = Describe("logger", func() {
 
 		It("should hand over the writer and the caller reporting of the application", func(_ SpecContext) {
 			app := plumbertests.NewPlumber().Plumber
+			output := &bytes.Buffer{}
+			app.SetLoggerOutput(output)
 
-			Expect(app.GetLoggerOutput()).To(Equal(GinkgoWriter))
-			Expect(app.GetLoggerReportCaller()).To(BeFalse())
+			app.Log.Info("done")
 
+			Expect(output.String()).To(ContainSubstring("done"))
+			Expect(output.String()).ToNot(ContainSubstring("logger_test.go:"))
+
+			output.Reset()
 			app.SetLoggerReportCaller(true)
 
-			Expect(app.GetLoggerReportCaller()).To(BeTrue())
+			app.Log.Info("done")
+
+			Expect(output.String()).To(ContainSubstring("logger_test.go:"))
 		})
 	})
 })
