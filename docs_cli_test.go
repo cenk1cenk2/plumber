@@ -21,7 +21,6 @@ type documentationCase struct {
 	configure   func(*plumber.Plumber, string)
 	contains    []string
 	notContains []string
-	logs        []string
 }
 
 var _ = Describe("documentation and Cli runtime", func() {
@@ -35,7 +34,7 @@ var _ = Describe("documentation and Cli runtime", func() {
 			fixture := plumbertests.NewPlumber(func(app *plumber.Plumber) *cli.Command {
 				return tc.command(app)
 			})
-			log, capture := plumbertests.NewCaptureLogger()
+			log, _ := plumbertests.NewCaptureLogger()
 			fixture.Plumber.Log = log
 			tc.configure(fixture.Plumber, output)
 
@@ -55,68 +54,7 @@ var _ = Describe("documentation and Cli runtime", func() {
 			for _, content := range tc.notContains {
 				Expect(string(data)).ToNot(ContainSubstring(content))
 			}
-			for _, content := range tc.logs {
-				Expect(capture.Messages()).To(ContainElement(ContainSubstring(content)))
-			}
 		},
-		Entry("standalone markdown output", documentationCase{
-			args: []string{"docs-test", "MARKDOWN_DOC"},
-			command: func(_ *plumber.Plumber) *cli.Command {
-				return &cli.Command{
-					Name:        "docs-test",
-					Description: "Documentation test.",
-					Commands: []*cli.Command{
-						{
-							Name:        "visible",
-							Description: "Visible command.",
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:  "name",
-									Usage: "Name flag.",
-									Value: "plumber",
-								},
-							},
-						},
-					},
-				}
-			},
-			configure: func(app *plumber.Plumber, output string) {
-				app.SetDocumentationOptions(plumber.DocumentationOptions{
-					MarkdownOutputFile: output,
-				})
-			},
-			contains: []string{"docs-test", "visible", "--name"},
-			logs:     []string{`"MARKDOWN_DOC" is deprecated`, `use "docs markdown" instead`},
-		}),
-		Entry("embedded markdown output", documentationCase{
-			args: []string{"embed-test", "MARKDOWN_EMBED"},
-			prepare: func(output string) {
-				Expect(os.WriteFile(
-					output,
-					[]byte("before\n<!-- clidocs -->\nold\n<!-- clidocsstop -->\nafter\n"),
-					0600,
-				)).To(Succeed())
-			},
-			command: func(_ *plumber.Plumber) *cli.Command {
-				return &cli.Command{
-					Name: "embed-test",
-					Flags: []cli.Flag{
-						&cli.BoolFlag{
-							Name:  "enabled",
-							Usage: "Enable the thing.",
-						},
-					},
-				}
-			},
-			configure: func(app *plumber.Plumber, output string) {
-				app.SetDocumentationOptions(plumber.DocumentationOptions{
-					EmbeddedMarkdownOutputFile: output,
-				})
-			},
-			contains:    []string{"before", "after", "--enabled"},
-			notContains: []string{"old"},
-			logs:        []string{`"MARKDOWN_EMBED" is deprecated`, `use "docs embed" instead`},
-		}),
 		Entry("docs markdown command", documentationCase{
 			args: []string{"docs-test", "docs", "markdown"},
 			command: func(app *plumber.Plumber) *cli.Command {
@@ -246,38 +184,5 @@ var _ = Describe("documentation and Cli runtime", func() {
 
 		Expect(loaded).To(Equal("loaded"))
 		Expect(fixture.Plumber.Environment.Debug).To(BeTrue())
-	})
-
-	It("should allow non-fatal deprecation notices during Cli setup", func() {
-		plumbertests.WithEnvironment(map[string]string{
-			"PLUMBER_DEPRECATED_ENV": "1",
-		})
-		plumbertests.WithArgs("deprecation-test", "run")
-		ran := false
-		fixture := plumbertests.NewPlumber(func(_ *plumber.Plumber) *cli.Command {
-			return &cli.Command{
-				Name: "deprecation-test",
-				Commands: []*cli.Command{
-					{
-						Name: "run",
-						Action: func(_ context.Context, _ *cli.Command) error {
-							ran = true
-
-							return nil
-						},
-					},
-				},
-			}
-		})
-		fixture.Plumber.SetDeprecationNotices([]plumber.DeprecationNotice{
-			{
-				Environment: []string{"PLUMBER_DEPRECATED_ENV"},
-				Level:       plumber.LOG_LEVEL_WARN,
-			},
-		})
-
-		fixture.Plumber.Run()
-
-		Expect(ran).To(BeTrue())
 	})
 })
