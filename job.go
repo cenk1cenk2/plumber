@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 type (
@@ -207,7 +205,7 @@ func JobDelay(job Job, delay time.Duration) Job {
 // JobBackground starts the job in its own goroutine and returns immediately. The job still runs in
 // the context of the flow around it, therefore it is cancelled together with it, but its error can
 // not be returned anywhere anymore and is only logged when a logger is given.
-func JobBackground(job Job, log ...logrus.FieldLogger) Job {
+func JobBackground(job Job, log ...*Logger) Job {
 	return func(ctx context.Context) error {
 		go func() {
 			if err := job(ctx); err != nil {
@@ -357,7 +355,7 @@ func wait(ctx context.Context, duration time.Duration) error {
 }
 
 // Picks the first logger that is handed over to a combinator, if there is any.
-func resolveLogger(log []logrus.FieldLogger) logrus.FieldLogger {
+func resolveLogger(log []*Logger) *Logger {
 	for _, l := range log {
 		if l != nil {
 			return l

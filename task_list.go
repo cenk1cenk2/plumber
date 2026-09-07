@@ -6,8 +6,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 type TaskList struct {
@@ -16,7 +14,7 @@ type TaskList struct {
 	Name    string
 	options TaskListOptions
 	Lock    *sync.RWMutex
-	Log     *logrus.Entry
+	Log     *Logger
 
 	shouldRunBeforeFn TaskListFn
 	fn                TaskListJobFn
@@ -145,7 +143,7 @@ func (p *TaskList) RunBefore(ctx context.Context) error {
 
 	started := time.Now()
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunBefore: %s", p.Name)
+	p.Log.With(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunBefore: %s", p.Name)
 
 	if p.shouldRunBeforeFn != nil {
 		if err := p.shouldRunBeforeFn(ctx, p); err != nil {
@@ -153,7 +151,7 @@ func (p *TaskList) RunBefore(ctx context.Context) error {
 		}
 	}
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_end).
+	p.Log.With(LOG_FIELD_STATUS, log_status_end).
 		Tracef("ShouldRunBefore: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
 
 	return nil
@@ -167,13 +165,13 @@ func (p *TaskList) Run(ctx context.Context) error {
 
 	started := time.Now()
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("Run: %s", p.Name)
+	p.Log.With(LOG_FIELD_STATUS, log_status_run).Tracef("Run: %s", p.Name)
 
 	if err := p.Plumber.runJobs(ctx, p.fn(p)); err != nil {
 		return err
 	}
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_end).
+	p.Log.With(LOG_FIELD_STATUS, log_status_end).
 		Tracef("Run: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
 
 	return nil
@@ -194,7 +192,7 @@ func (p *TaskList) RunAfter(ctx context.Context) error {
 
 	started := time.Now()
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunAfter: %s", p.Name)
+	p.Log.With(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunAfter: %s", p.Name)
 
 	if p.shouldRunAfterFn != nil {
 		if err := p.shouldRunAfterFn(ctx, p); err != nil {
@@ -202,7 +200,7 @@ func (p *TaskList) RunAfter(ctx context.Context) error {
 		}
 	}
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_end).
+	p.Log.With(LOG_FIELD_STATUS, log_status_end).
 		Tracef("ShouldRunAfter: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
 
 	return nil
@@ -230,12 +228,12 @@ func (p *TaskList) JobAfter() Job {
 // Handles the cases where the task list should not be executed.
 func (p *TaskList) handleStopCases() bool {
 	if result := p.IsDisabled(); result {
-		p.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
+		p.Log.With(LOG_FIELD_CONTEXT, log_context_disable).
 			Debugf("%s", p.Name)
 
 		return true
 	} else if result := p.IsSkipped(); result {
-		p.Log.WithField(LOG_FIELD_CONTEXT, log_context_skipped).
+		p.Log.With(LOG_FIELD_CONTEXT, log_context_skipped).
 			Warnf("%s", p.Name)
 
 		return true
@@ -253,9 +251,9 @@ func (p *TaskList) setupLogger() {
 
 		p.Name = strings.Join(f[len(f)-p.options.runtimeDepth:], "/")
 
-		p.Log = p.Plumber.Log.WithField(LOG_FIELD_CONTEXT, p.Name)
+		p.Log = p.Plumber.Log.With(LOG_FIELD_CONTEXT, p.Name)
 	} else {
-		p.Log = p.Plumber.Log.WithField(LOG_FIELD_CONTEXT, "TL")
+		p.Log = p.Plumber.Log.With(LOG_FIELD_CONTEXT, "TL")
 		p.Log.Tracef("Runtime caller has failed using default: %s", file)
 	}
 }

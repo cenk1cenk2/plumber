@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"github.com/cenk1cenk2/plumber/v6"
+	plumbertests "github.com/cenk1cenk2/plumber/v6/tests"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
-	logrustest "github.com/sirupsen/logrus/hooks/test"
 )
 
 type guardCase struct {
@@ -165,14 +164,13 @@ var _ = Describe("guards", func() {
 
 	Describe("resume", func() {
 		It("should log and swallow every error", func(ctx SpecContext) {
-			log, hook := logrustest.NewNullLogger()
-			log.SetLevel(logrus.TraceLevel)
+			log, capture := plumbertests.NewCaptureLogger()
 
 			Expect(plumber.GuardResume(plumber.CreateJob(func() error {
 				return fmt.Errorf("failed")
 			}), log)(ctx)).To(Succeed())
 
-			Expect(hook.LastEntry().Message).To(Equal("Job has failed, resuming the flow: failed"))
+			Expect(capture.Messages()).To(ContainElement("Job has failed, resuming the flow: failed"))
 		})
 	})
 

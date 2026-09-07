@@ -13,15 +13,13 @@ import (
 	"syscall"
 	"text/template"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 type Command struct {
 	Plumber *Plumber
 	T       *Task
 	TL      *TaskList
-	Log     *logrus.Entry
+	Log     *Logger
 
 	// the command itself and the arguments it is invoked with, where the first entry is the command
 	args        []string
@@ -235,20 +233,20 @@ func (c *Command) SetLogLevel(
 	stderr LogLevel,
 	lifetime LogLevel,
 ) *Command {
-	if stdout == 0 {
-		c.stdoutLevel = logrus.InfoLevel
+	if stdout == LOG_LEVEL_DEFAULT {
+		c.stdoutLevel = LOG_LEVEL_INFO
 	} else {
 		c.stdoutLevel = stdout
 	}
 
-	if stderr == 0 {
-		c.stderrLevel = logrus.WarnLevel
+	if stderr == LOG_LEVEL_DEFAULT {
+		c.stderrLevel = LOG_LEVEL_WARN
 	} else {
 		c.stderrLevel = stderr
 	}
 
-	if lifetime == 0 {
-		c.lifetimeLevel = logrus.InfoLevel
+	if lifetime == LOG_LEVEL_DEFAULT {
+		c.lifetimeLevel = LOG_LEVEL_INFO
 	} else {
 		c.lifetimeLevel = lifetime
 	}
@@ -428,7 +426,7 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 		c.environment = append(c.environment, os.Environ()...)
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, log_status_run).
+	c.Log.With(LOG_FIELD_STATUS, log_status_run).
 		Log(c.lifetimeLevel, c.GetFormattedCommand())
 
 	if c.shouldRunBeforeFn != nil {
@@ -438,7 +436,7 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 	}
 
 	if err := c.pipe(ctx, runtime); err != nil {
-		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
+		c.Log.With(LOG_FIELD_STATUS, log_status_fail).
 			Errorf("%s > %s", c.GetFormattedCommand(), err.Error())
 
 		return err
@@ -450,7 +448,7 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 		}
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).
+	c.Log.With(LOG_FIELD_STATUS, log_status_end).
 		Logf(c.lifetimeLevel, "%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String())
 
 	return nil
@@ -518,7 +516,7 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 		if result.Started {
 			if exiterr, ok := errors.AsType[*exec.ExitError](err); ok {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					c.Log.WithField(LOG_FIELD_STATUS, log_status_exit).
+					c.Log.With(LOG_FIELD_STATUS, log_status_exit).
 						Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus())
 				}
 			}
@@ -526,7 +524,7 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 			return c.retry(ctx, err, runtime)
 		}
 
-		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
+		c.Log.With(LOG_FIELD_STATUS, log_status_fail).
 			Debugf("%s > Can not start command!", c.GetFormattedCommand())
 
 		return err
@@ -537,7 +535,7 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 			command:  c.GetFormattedCommand(),
 			exitCode: result.ExitCode,
 		}
-		c.Log.WithField(LOG_FIELD_STATUS, log_status_exit).
+		c.Log.With(LOG_FIELD_STATUS, log_status_exit).
 			Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), result.ExitCode)
 
 		return c.retry(ctx, err, runtime)
@@ -567,7 +565,7 @@ func (c *Command) retry(ctx context.Context, err error, runtime Runtime) error {
 		return c.handleError(err)
 	}
 
-	log := c.Log.WithField(LOG_FIELD_STATUS, log_status_retry)
+	log := c.Log.With(LOG_FIELD_STATUS, log_status_retry)
 
 	delay := c.options.retry.Delay
 	if delay == 0 {
@@ -749,9 +747,7 @@ func (w *commandStreamWriter) Write(p []byte) (int, error) {
 }
 
 func (c *Command) handleStreamLine(stream string, level LogLevel, line string) {
-	log := c.Log.WithFields(logrus.Fields{})
-
-	log.Logln(level, line)
+	c.Log.Logln(level, line)
 
 	if c.options.recordStream {
 		c.lockStream.Lock()
@@ -776,7 +772,7 @@ func (c *Command) handleStopCases() bool {
 	c.status.stopCases.handled = true
 
 	if result := c.IsDisabled(); result {
-		c.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
+		c.Log.With(LOG_FIELD_CONTEXT, log_context_disable).
 			Debugf("%s", c.T.Name)
 
 		c.status.stopCases.result = true
@@ -813,7 +809,7 @@ func (c *Command) templateScript(script *CommandScript, tmpl string) (io.Reader,
 	}
 
 	for t := range strings.SplitSeq(tpl, "\n") {
-		c.Log.WithField(LOG_FIELD_STATUS, log_status_script).Infoln(t)
+		c.Log.With(LOG_FIELD_STATUS, log_status_script).Infoln(t)
 	}
 
 	return strings.NewReader(tpl), nil

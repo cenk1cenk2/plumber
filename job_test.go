@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/cenk1cenk2/plumber/v6"
+	plumbertests "github.com/cenk1cenk2/plumber/v6/tests"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
-	logrustest "github.com/sirupsen/logrus/hooks/test"
 )
 
 type predicateCase struct {
@@ -360,22 +359,13 @@ var _ = Describe("jobs", func() {
 		})
 
 		It("should log and drop the error of the job", func(ctx SpecContext) {
-			log, hook := logrustest.NewNullLogger()
-			log.SetLevel(logrus.TraceLevel)
+			log, capture := plumbertests.NewCaptureLogger()
 
 			Expect(plumber.JobBackground(plumber.CreateJob(func() error {
 				return fmt.Errorf("failed")
 			}), log)(ctx)).To(Succeed())
 
-			Eventually(func() []string {
-				messages := []string{}
-
-				for _, entry := range hook.AllEntries() {
-					messages = append(messages, entry.Message)
-				}
-
-				return messages
-			}).Should(ContainElement("Background job has failed: failed"))
+			Eventually(capture.Messages).Should(ContainElement("Background job has failed: failed"))
 		})
 
 		It("should be cancelled together with the flow around it", func(ctx SpecContext) {

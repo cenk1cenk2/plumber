@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 // GuardHandlerFn is the callback of the guards that hand over the control to the caller.
@@ -95,7 +93,7 @@ func GuardIgnoreCancel(job Job) Job {
 
 // GuardResume resumes the execution of the flow that is possibly finished by the job, therefore
 // every error of the job is swallowed and only logged when a logger is given.
-func GuardResume(job Job, log ...logrus.FieldLogger) Job {
+func GuardResume(job Job, log ...*Logger) Job {
 	return func(ctx context.Context) error {
 		if err := job(ctx); err != nil {
 			if l := resolveLogger(log); l != nil {

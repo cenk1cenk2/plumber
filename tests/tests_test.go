@@ -8,7 +8,6 @@ import (
 	plumbertests "github.com/cenk1cenk2/plumber/v6/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 	"github.com/urfave/cli/v3"
 )
@@ -20,8 +19,8 @@ var _ = Describe("test helpers", func() {
 		fixture.Plumber.Log.Info("hello")
 
 		Expect(fixture.Plumber.Cli.Name).To(Equal("plumber-test"))
-		Expect(fixture.Plumber.Log.Out).To(Equal(GinkgoWriter))
-		Expect(fixture.Plumber.Log.GetLevel()).To(Equal(logrus.TraceLevel))
+		Expect(fixture.Plumber.Log.GetOutput()).To(Equal(GinkgoWriter))
+		Expect(fixture.Plumber.Log.GetLevel()).To(Equal(plumber.LOG_LEVEL_TRACE))
 	})
 
 	It("should set process arguments for the current spec", func() {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/cenk1cenk2/plumber/v6"
 	plumbertests "github.com/cenk1cenk2/plumber/v6/tests"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -56,7 +55,7 @@ var _ = Describe("plumber lifecycle", func() {
 			plumbertests.WithArgs("setup-test", "--ci", "--log-level", "warn", "--debug", "run")
 			var debug bool
 			var ci bool
-			var level logrus.Level
+			var level plumber.LogLevel
 			fixture := plumbertests.NewPlumber(func(app *plumber.Plumber) *cli.Command {
 				return &cli.Command{
 					Name: "setup-test",
@@ -79,7 +78,7 @@ var _ = Describe("plumber lifecycle", func() {
 
 			Expect(debug).To(BeTrue())
 			Expect(ci).To(BeTrue())
-			Expect(level).To(Equal(logrus.DebugLevel))
+			Expect(level).To(Equal(plumber.LOG_LEVEL_DEBUG))
 		})
 
 		It("should run the wrapped Cli Before hook before actions", func(ctx SpecContext) {

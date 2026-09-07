@@ -6,14 +6,12 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 type Task struct {
 	Plumber *Plumber
 	TL      *TaskList
-	Log     *logrus.Entry
+	Log     *Logger
 	Name    string
 
 	Lock     *sync.RWMutex
@@ -64,7 +62,7 @@ func NewTask(tl *TaskList, name ...string) *Task {
 		taskLock: &sync.RWMutex{},
 	}
 
-	t.Log = tl.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
+	t.Log = tl.Log.With(LOG_FIELD_CONTEXT, t.Name)
 
 	t.subtask = CreateEmptyJob()
 
@@ -170,7 +168,7 @@ func (t *Task) Run(ctx context.Context) error {
 	}
 
 	started := time.Now()
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln(t.Name)
+	t.Log.With(LOG_FIELD_STATUS, log_status_run).Traceln(t.Name)
 
 	if t.shouldRunBeforeFn != nil {
 		if err := t.shouldRunBeforeFn(ctx, t); err != nil {
@@ -196,7 +194,7 @@ func (t *Task) Run(ctx context.Context) error {
 		}
 	}
 
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("%s -> %s", t.Name, time.Since(started).Round(time.Millisecond).String())
+	t.Log.With(LOG_FIELD_STATUS, log_status_end).Tracef("%s -> %s", t.Name, time.Since(started).Round(time.Millisecond).String())
 
 	return nil
 }
@@ -271,13 +269,13 @@ func (t *Task) handleStopCases() bool {
 	t.status.stopCases.handled = true
 
 	if result := t.IsDisabled(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
+		t.Log.With(LOG_FIELD_CONTEXT, log_context_disable).
 			Debugf("%s", t.Name)
 
 		t.status.stopCases.result = true
 		return t.status.stopCases.result
 	} else if result := t.IsSkipped(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_skipped).
+		t.Log.With(LOG_FIELD_CONTEXT, log_context_skipped).
 			Warnf("%s", t.Name)
 
 		t.status.stopCases.result = true

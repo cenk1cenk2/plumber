@@ -1,7 +1,6 @@
 package plumber
 
 import (
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
 
@@ -36,7 +35,7 @@ var CliDefaultFlags = []cli.Flag{
 		Sources: cli.NewValueSourceChain(
 			cli.EnvVar("LOG_LEVEL"),
 		),
-		Value: logrus.InfoLevel.String(),
+		Value: LOG_LEVEL_INFO.String(),
 	},
 
 	&cli.StringSliceFlag{
