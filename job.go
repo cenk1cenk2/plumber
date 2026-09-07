@@ -1,4 +1,4 @@
-package flow
+package plumber
 
 import (
 	"context"
@@ -231,6 +231,29 @@ func CreateJob(fn func() error) Job {
 func CreateEmptyJob() Job {
 	return func(_ context.Context) error {
 		return nil
+	}
+}
+
+// JobWaitForTerminator blocks until everything that is registered to the terminator of the
+// application is terminated or until the flow it runs in is cancelled.
+func JobWaitForTerminator(p *Plumber) Job {
+	return func(ctx context.Context) error {
+		if !p.Terminator.Enabled {
+			return fmt.Errorf("Terminator is not enabled.")
+		}
+
+		p.Log.Traceln("Waiting for the terminator signal...")
+
+		ch := make(chan bool, 1)
+		p.Terminator.Terminated.Register(ch)
+		defer p.Terminator.Terminated.Unregister(ch)
+
+		select {
+		case <-ch:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 

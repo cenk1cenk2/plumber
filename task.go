@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"context"
 	"os"
 	"slices"
 	"strings"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/workanator/go-floc/v3"
 )
 
 type Task struct {
@@ -32,7 +32,6 @@ type Task struct {
 	jobWrapperFn      TaskJobWrapperFn
 	runtime           Runtime
 	status            TaskStatus
-	flocContext       floc.Context
 }
 
 type TaskOptions struct {
@@ -45,7 +44,7 @@ type TaskStatus struct {
 }
 
 type (
-	TaskFn           func(t *Task) error
+	TaskFn           func(ctx context.Context, t *Task) error
 	TaskPredicateFn  func(t *Task) bool
 	TaskJobWrapperFn func(job Job, t *Task) Job
 	TaskJobParserFn  func(t *Task) Job
@@ -158,7 +157,7 @@ func (t *Task) SetRuntime(runtime Runtime) *Task {
 }
 
 // Runs the current task.
-func (t *Task) Run() error {
+func (t *Task) Run(ctx context.Context) error {
 	if stop := t.handleStopCases(); stop {
 		return nil
 	}
@@ -167,7 +166,7 @@ func (t *Task) Run() error {
 	t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln(t.Name)
 
 	if t.shouldRunBeforeFn != nil {
-		if err := t.shouldRunBeforeFn(t); err != nil {
+		if err := t.shouldRunBeforeFn(ctx, t); err != nil {
 			t.Log.Errorln(err)
 
 			return t.handleErrors(err)
@@ -175,7 +174,7 @@ func (t *Task) Run() error {
 	}
 
 	if t.fn != nil {
-		if err := t.fn(t); err != nil {
+		if err := t.fn(ctx, t); err != nil {
 			t.Log.Errorln(err)
 
 			return t.handleErrors(err)
@@ -183,7 +182,7 @@ func (t *Task) Run() error {
 	}
 
 	if t.shouldRunAfterFn != nil {
-		if err := t.shouldRunAfterFn(t); err != nil {
+		if err := t.shouldRunAfterFn(ctx, t); err != nil {
 			t.Log.Errorln(err)
 
 			return t.handleErrors(err)
@@ -195,7 +194,7 @@ func (t *Task) Run() error {
 	return nil
 }
 
-func (t *Task) RunWith(runtime Runtime) error {
+func (t *Task) RunWith(ctx context.Context, runtime Runtime) error {
 	scoped := *t
 	scoped.runtime = runtime.inherit(t.runtime)
 	scoped.taskLock = &sync.RWMutex{}
@@ -209,7 +208,7 @@ func (t *Task) RunWith(runtime Runtime) error {
 		scoped.commands = append(scoped.commands, &scopedCommand)
 	}
 
-	return scoped.Run()
+	return scoped.Run(ctx)
 }
 
 // Runs the current task as a job.
@@ -218,26 +217,16 @@ func (t *Task) Job() Job {
 		Predicate(func() bool {
 			return t.handleStopCases()
 		}),
-		func(ctx floc.Context, _ floc.Control) error {
-			// The context only belongs to the flow that is running right now, therefore it is
-			// dropped again as soon as the flow is over instead of being left behind dead for
-			// whoever runs the task next.
-			if t.jobWrapperFn != nil {
-				return t.Plumber.runJobs(ctx, t.jobWrapperFn(
-					func(nested floc.Context, _ floc.Control) error {
-						t.flocContext = nested
-						defer func() { t.flocContext = nil }()
-
-						return t.Run()
-					},
-					t,
-				))
+		func(ctx context.Context) error {
+			run := func(ctx context.Context) error {
+				return t.Run(ctx)
 			}
 
-			t.flocContext = ctx
-			defer func() { t.flocContext = nil }()
+			if t.jobWrapperFn != nil {
+				return t.jobWrapperFn(run, t)(ctx)
+			}
 
-			return t.Run()
+			return run(ctx)
 		},
 		CreateJob(func() error {
 			return nil
@@ -318,7 +307,10 @@ func (t *Task) handleTerminator() {
 	t.Log.Tracef("Forwarding signal to task: %s", sig)
 
 	if t.onTerminatorFn != nil {
-		t.SendError(t.onTerminatorFn(t))
+		ctx, cancel := t.Plumber.shutdownContext()
+		defer cancel()
+
+		t.SendError(t.onTerminatorFn(ctx, t))
 	}
 
 	t.Log.Tracef("Registered as terminated.")

@@ -2,6 +2,7 @@ package plumber
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -18,7 +19,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
-	"github.com/workanator/go-floc/v3"
 )
 
 type Plumber struct {
@@ -29,11 +29,8 @@ type Plumber struct {
 	Terminator
 	Validator *validator.Validate
 
-	context         context.Context
-	cancel          context.CancelFunc
-	flocContext     floc.Context
-	flocRootControl floc.Control
-	flocFlows       *flocFlows
+	context context.Context
+	cancel  context.CancelCauseFunc
 
 	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
@@ -41,17 +38,10 @@ type Plumber struct {
 	runtime       Runtime
 }
 
-// The flows that are running at the moment, shared between the scoped copies of plumber.
-type flocFlows struct {
-	lock  sync.RWMutex
-	flows []*flocFlow
-}
-
-// A single flow with the context and the control that belong only to it.
-type flocFlow struct {
-	ctx     floc.Context
-	control floc.Control
-}
+// ErrShutdown is the cause the root context of the application is cancelled with whenever plumber
+// shuts itself down, therefore a flow that is interrupted by the shutdown can be told apart from a
+// flow that is cancelled by whoever runs it.
+var ErrShutdown = errors.New("Application is shutting down.")
 
 type PlumberOptions struct {
 	delimiter          string
@@ -127,11 +117,7 @@ const (
 func NewPlumber(fn PlumberNewFn) *Plumber {
 	p := &Plumber{}
 
-	p.context, p.cancel = context.WithCancel(context.Background())
-
-	p.flocFlows = &flocFlows{}
-	p.flocContext = floc.NewContext()
-	p.flocRootControl = floc.NewControl(p.flocContext)
+	p.context, p.cancel = context.WithCancelCause(context.Background())
 
 	p.Cli = fn(p)
 
@@ -316,7 +302,7 @@ func (p *Plumber) SendError(log *logrus.Entry, err error) *Plumber {
 
 // Sends an fatal error with its custom instance of logger through the channel.
 func (p *Plumber) SendFatal(log *logrus.Entry, err error) *Plumber {
-	p.cancelFloc(err)
+	p.shutdown(fmt.Sprintf("Fatal error has been received: %v", err))
 
 	e := PlumberError{
 		Err: err,
@@ -334,7 +320,7 @@ func (p *Plumber) SendFatal(log *logrus.Entry, err error) *Plumber {
 
 // Sends exit code to terminate the application.
 func (p *Plumber) SendExit(code int) *Plumber {
-	p.cancelFloc(fmt.Sprintf("Will exit with code: %d", code))
+	p.shutdown(fmt.Sprintf("Will exit with code: %d", code))
 
 	p.Log.WithFields(logrus.Fields{
 		LOG_FIELD_CONTEXT: p.Cli.Name,
@@ -342,8 +328,6 @@ func (p *Plumber) SendExit(code int) *Plumber {
 	}).Traceln(code)
 
 	p.Channel.Exit.Submit(code)
-
-	p.cancel()
 
 	return p
 }
@@ -519,109 +503,66 @@ func (p *Plumber) Validate(data any) error {
 	return nil
 }
 
-// Runs a the provided job.
-func (p *Plumber) RunJobs(job Job) error {
-	return p.runJobs(nil, job)
-}
-
 /*
-Runs the provided job as a flow that belongs to the flow of the given context.
+Runs a the provided job.
 
-The context of the flow around it can be reached through CreateJobWithContext. A flow that is
-started through RunJobs instead never belongs to another flow, therefore only the shutdown of
-the application can cancel it.
+A flow that is started through RunJobs never belongs to another flow, since guessing a parent
+chains flows that have nothing to do with each other and lets the one that finishes first cancel
+the other one, therefore only the shutdown of the application can cancel it.
 */
-func (p *Plumber) RunJobsWith(parent JobContext, job Job) error {
-	return p.runJobs(parent, job)
+func (p *Plumber) RunJobs(job Job) error {
+	return p.runJobs(p.context, job)
 }
 
 // Runs the provided job as a flow that belongs to the flow of the given context.
-func (p *Plumber) runJobs(parent floc.Context, job Job) error {
-	if job == nil {
-		return nil
-	}
-
-	result, data, err := p.runFloc(parent, job)
-
-	if err != nil {
-		return err
-	}
-
-	return p.handleFloc(result, data)
+func (p *Plumber) RunJobsWith(parent context.Context, job Job) error {
+	return p.runJobs(parent, job)
 }
 
 /*
 Runs the given job as a flow of its own.
 
-Every flow gets a context and a control of its own that are derived from the flow it belongs
-to, therefore a flow that is over can only cancel itself and never the flow that comes after
-it or the flow that runs next to it. Cancelling a parent, through the terminator, a fatal
-error or a failing job, still cancels every flow that is derived from it.
+Every flow gets a context of its own that is derived from the flow it belongs to and that is
+cancelled again as soon as the job returns, therefore a flow that is over can only cancel itself
+and never the flow that comes after it or the flow that runs next to it, while the jobs it has
+left running in the background are stopped together with it. Cancelling a parent, through the
+terminator, a fatal error or a failing job, still cancels every flow that is derived from it.
 */
-func (p *Plumber) runFloc(parent floc.Context, job Job) (Result, any, error) {
-	ctx, control, finish := p.startFloc(parent)
-	defer finish()
-
-	return floc.RunWith(ctx, control, job)
-}
-
-// Creates the context and the control of a new flow and returns the function that ends the flow again.
-func (p *Plumber) startFloc(parent floc.Context) (floc.Context, floc.Control, func()) {
-	p.flocFlows.lock.Lock()
-
-	// floc derives a cancellable context from the given one and installs it on the context
-	// while creating the control, then cancels it again as soon as the result of the flow is
-	// set. Hand every flow a context of its own, so a flow can never overwrite or cancel the
-	// context of another flow that is running at the same time.
-	flow := &flocFlow{ctx: floc.BorrowContext(p.resolveFlocParent(parent))}
-	flow.control = floc.NewControl(flow.ctx)
-	p.flocFlows.flows = append(p.flocFlows.flows, flow)
-
-	p.flocFlows.lock.Unlock()
-
-	return flow.ctx, flow.control, func() {
-		p.flocFlows.lock.Lock()
-		defer p.flocFlows.lock.Unlock()
-
-		flow.control.Release()
-
-		p.flocFlows.flows = slices.DeleteFunc(p.flocFlows.flows, func(running *flocFlow) bool {
-			return running == flow
-		})
-	}
-}
-
-// Resolves the context a new flow should be derived from.
-func (p *Plumber) resolveFlocParent(parent floc.Context) context.Context {
-	if parent != nil {
-		return parent.Ctx()
+func (p *Plumber) runJobs(parent context.Context, job Job) error {
+	if job == nil {
+		return nil
 	}
 
-	// A flow that is started without knowing which flow it belongs to, through the public
-	// RunJobs, hangs itself on the root instead of on whichever flow happens to run at the
-	// moment, since guessing a parent chains flows that have nothing to do with each other and
-	// lets the one that finishes first cancel the other one. The root is cancelled through
-	// cancelFloc on shutdown, therefore such a flow still dies with the application.
-	return p.flocContext.Ctx()
-}
+	ctx, cancel := context.WithCancelCause(parent)
+	defer cancel(nil)
 
-// Cancels every flow that is running at the moment together with the root flow, so the
-// cancellation reaches every context that is derived from any of them.
-func (p *Plumber) cancelFloc(data any) {
-	p.flocFlows.lock.RLock()
-	flows := slices.Clone(p.flocFlows.flows)
-	p.flocFlows.lock.RUnlock()
+	err := job(ctx)
 
-	for _, flow := range flows {
-		flow.control.Cancel(data)
+	// Shutting down the application cancels every flow that is running at the moment, which is
+	// not a failure of the flow itself but the application ending on purpose, therefore such an
+	// error never reaches the caller and never turns into a second fatal error or exit code.
+	if causedByCancellation(ctx, err) && errors.Is(context.Cause(p.context), ErrShutdown) {
+		return nil
 	}
 
-	p.flocRootControl.Cancel(data)
+	return err
 }
 
-// Handles output coming from floc.
-func (p *Plumber) handleFloc(_ floc.Result, _ any) error {
-	return nil
+// Cancels the root context of the application with the given reason, so the cancellation reaches
+// every flow that is derived from it and every flow can tell that the application is going down.
+func (p *Plumber) shutdown(reason string) {
+	p.cancel(fmt.Errorf("%s: %w", reason, ErrShutdown))
+}
+
+/*
+Creates the context that the hooks which run while the application is terminating are bound to.
+
+The hooks are detached from the cancellation of the application on purpose, since a hook that is
+handed the context of a flow that is already cancelled can not even start a command anymore, and
+are bound to the timeout of the terminator instead so they can never hold the shutdown forever.
+*/
+func (p *Plumber) shutdownContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(p.context), p.options.timeout)
 }
 
 // Starts the application.

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/workanator/go-floc/v3"
 )
 
 type Command struct {
@@ -24,11 +23,10 @@ type Command struct {
 	TL      *TaskList
 	Log     *logrus.Entry
 
-	Command     *exec.Cmd
-	scriptFn    CommandScriptFn
-	options     CommandOptions
-	runtime     Runtime
-	flocContext floc.Context
+	Command  *exec.Cmd
+	scriptFn CommandScriptFn
+	options  CommandOptions
+	runtime  Runtime
 
 	shouldRunBeforeFn CommandFn
 	fn                CommandFn
@@ -79,7 +77,7 @@ type CommandRetry struct {
 }
 
 type (
-	CommandFn           func(*Command) error
+	CommandFn           func(ctx context.Context, c *Command) error
 	CommandJobWrapperFn func(job Job, c *Command) Job
 	CommandStdinFn      func(c *Command) io.Reader
 	CommandScriptFn     func(c *Command) *CommandScript
@@ -388,18 +386,18 @@ func (c *Command) GetFormattedCommand() string {
 }
 
 // Run the command as defined.
-func (c *Command) Run() error {
-	return c.run(Runtime{})
+func (c *Command) Run(ctx context.Context) error {
+	return c.run(ctx, Runtime{})
 }
 
-func (c *Command) run(runtime Runtime) error {
+func (c *Command) run(ctx context.Context, runtime Runtime) error {
 	if stop := c.handleStopCases(); stop {
 		return nil
 	}
 
 	started := time.Now()
 	if c.fn != nil {
-		if err := c.fn(c); err != nil {
+		if err := c.fn(ctx, c); err != nil {
 			return err
 		}
 	}
@@ -416,12 +414,12 @@ func (c *Command) run(runtime Runtime) error {
 		Log(c.lifetimeLevel, c.GetFormattedCommand())
 
 	if c.shouldRunBeforeFn != nil {
-		if err := c.shouldRunBeforeFn(c); err != nil {
+		if err := c.shouldRunBeforeFn(ctx, c); err != nil {
 			return err
 		}
 	}
 
-	if err := c.pipe(runtime); err != nil {
+	if err := c.pipe(ctx, runtime); err != nil {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
 			Errorf("%s > %s", c.GetFormattedCommand(), err.Error())
 
@@ -429,7 +427,7 @@ func (c *Command) run(runtime Runtime) error {
 	}
 
 	if c.shouldRunAfterFn != nil {
-		if err := c.shouldRunAfterFn(c); err != nil {
+		if err := c.shouldRunAfterFn(ctx, c); err != nil {
 			return err
 		}
 	}
@@ -440,36 +438,26 @@ func (c *Command) run(runtime Runtime) error {
 	return nil
 }
 
-func (c *Command) RunWith(runtime Runtime) error {
-	return c.run(runtime)
+func (c *Command) RunWith(ctx context.Context, runtime Runtime) error {
+	return c.run(ctx, runtime)
 }
 
-// Convert Command.Run to a floc job.
+// Convert Command.Run to a job.
 func (c *Command) Job() Job {
 	return JobIfNot(
 		Predicate(func() bool {
 			return c.handleStopCases()
 		}),
-		func(ctx floc.Context, _ floc.Control) error {
-			// The context only belongs to the flow that is running right now, therefore it is
-			// dropped again as soon as the flow is over instead of being left behind dead for
-			// whoever runs the command next.
-			if c.jobWrapperFn != nil {
-				return c.Plumber.runJobs(ctx, c.jobWrapperFn(
-					func(nested floc.Context, _ floc.Control) error {
-						c.flocContext = nested
-						defer func() { c.flocContext = nil }()
-
-						return c.Run()
-					},
-					c,
-				))
+		func(ctx context.Context) error {
+			run := func(ctx context.Context) error {
+				return c.Run(ctx)
 			}
 
-			c.flocContext = ctx
-			defer func() { c.flocContext = nil }()
+			if c.jobWrapperFn != nil {
+				return c.jobWrapperFn(run, c)(ctx)
+			}
 
-			return c.Run()
+			return run(ctx)
 		},
 		CreateJob(func() error {
 			return nil
@@ -492,7 +480,7 @@ func (c *Command) AddSelfToTheParentTask(pt *Task) *Command {
 }
 
 // Executes the command and pipes the output through the logger.
-func (c *Command) pipe(runtime Runtime) error {
+func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 	invocation, err := c.createInvocation()
 	if err != nil {
 		return err
@@ -500,7 +488,7 @@ func (c *Command) pipe(runtime Runtime) error {
 
 	c.resetStreams()
 
-	result, err := c.resolveCommandRunner(runtime).Run(c.resolveFlocContext(), invocation, CommandRuntime{
+	result, err := c.resolveCommandRunner(runtime).Run(ctx, invocation, CommandRuntime{
 		Stdout: c.newStreamWriter(stream_stdout, c.stdoutLevel),
 		Stderr: c.newStreamWriter(stream_stderr, c.stderrLevel),
 		SetProcess: func(process *os.Process) {
@@ -521,7 +509,7 @@ func (c *Command) pipe(runtime Runtime) error {
 				}
 			}
 
-			return c.retry(err, runtime)
+			return c.retry(ctx, err, runtime)
 		}
 
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
@@ -538,7 +526,7 @@ func (c *Command) pipe(runtime Runtime) error {
 		c.Log.WithField(LOG_FIELD_STATUS, log_status_exit).
 			Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), result.ExitCode)
 
-		return c.retry(err, runtime)
+		return c.retry(ctx, err, runtime)
 	}
 
 	if c.options.ensureIsAlive {
@@ -560,7 +548,7 @@ func (c *Command) handleError(err error) error {
 }
 
 // Retries the task with the given options.
-func (c *Command) retry(err error, runtime Runtime) error {
+func (c *Command) retry(ctx context.Context, err error, runtime Runtime) error {
 	if c.options.retry == nil || !c.options.retry.Always && c.options.retry.Tries <= 0 {
 		return c.handleError(err)
 	}
@@ -585,33 +573,15 @@ func (c *Command) retry(err error, runtime Runtime) error {
 		c.options.retry.Tries--
 	}
 
-	// Abort the retry loop if the floc flow context is cancelled, otherwise an
+	// Abort the retry loop if the context of the flow is cancelled, otherwise an
 	// unbounded retry.Always would keep sleeping and re-piping against a dead flow.
 	select {
-	case <-c.resolveFlocContext().Done():
+	case <-ctx.Done():
 		return c.handleError(fmt.Errorf("Retry aborted, context cancelled: %s", c.GetFormattedCommand()))
 	case <-time.After(delay):
 	}
 
-	return c.pipe(runtime)
-}
-
-// Resolves the context of the flow the command is running in, so that the command dies
-// together with the flow it belongs to and never with an unrelated one.
-func (c *Command) resolveFlocContext() context.Context {
-	if c.flocContext != nil {
-		return c.flocContext.Ctx()
-	}
-
-	if c.T != nil && c.T.flocContext != nil {
-		return c.T.flocContext.Ctx()
-	}
-
-	if c.TL != nil && c.TL.flocContext != nil {
-		return c.TL.flocContext.Ctx()
-	}
-
-	return c.Plumber.flocContext.Ctx()
+	return c.pipe(ctx, runtime)
 }
 
 func (c *Command) resolveCommandRunner(runtime Runtime) CommandRunner {
@@ -837,7 +807,10 @@ func (c *Command) handleTerminator() {
 	}
 
 	if c.onTerminatorFn != nil {
-		c.T.SendError(c.onTerminatorFn(c))
+		ctx, cancel := c.Plumber.shutdownContext()
+		defer cancel()
+
+		c.T.SendError(c.onTerminatorFn(ctx, c))
 	}
 
 	c.Log.Tracef("Registered as terminated: %s", c.GetFormattedCommand())

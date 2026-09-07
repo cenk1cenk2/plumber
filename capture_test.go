@@ -1,11 +1,11 @@
-package flow_test
+package plumber_test
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/cenk1cenk2/plumber/v6/internal/flow"
+	"github.com/cenk1cenk2/plumber/v6"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,14 +26,14 @@ var _ = Describe("capture", func() {
 	It("should capture values in to the fields of a context", func() {
 		c := captureContext{}
 
-		Expect(flow.JobSequence(
-			flow.Capture(&c.Version, func(_ context.Context) (string, error) {
+		Expect(plumber.JobSequence(
+			plumber.Capture(&c.Version, func(_ context.Context) (string, error) {
 				return "v1.0.0", nil
 			}),
-			flow.Capture(&c.Count, func(_ context.Context) (int, error) {
+			plumber.Capture(&c.Count, func(_ context.Context) (int, error) {
 				return 2, nil
 			}),
-			flow.CreateJob(func() error {
+			plumber.CreateJob(func() error {
 				c.Version += "-tagged"
 
 				return nil
@@ -47,7 +47,7 @@ var _ = Describe("capture", func() {
 	It("should not capture anything when the job fails", func() {
 		c := captureContext{Version: "v0.0.0", Count: 0}
 
-		err := flow.Capture(&c.Version, func(_ context.Context) (string, error) {
+		err := plumber.Capture(&c.Version, func(_ context.Context) (string, error) {
 			return "v1.0.0", fmt.Errorf("failed")
 		})(ctx)
 
@@ -57,13 +57,13 @@ var _ = Describe("capture", func() {
 
 	It("should panic without a destination", func() {
 		Expect(func() {
-			flow.Capture(nil, func(_ context.Context) (string, error) {
+			plumber.Capture(nil, func(_ context.Context) (string, error) {
 				return "", nil
 			})
 		}).To(PanicWith(MatchError("Captured value requires a destination.")))
 
 		Expect(func() {
-			flow.CaptureResult(nil, func(_ context.Context) (string, error) {
+			plumber.CaptureResult(nil, func(_ context.Context) (string, error) {
 				return "", nil
 			})
 		}).To(PanicWith(MatchError("Captured result requires a destination.")))
@@ -71,21 +71,21 @@ var _ = Describe("capture", func() {
 
 	Describe("result", func() {
 		It("should carry the values of the jobs that run in parallel", func() {
-			version := flow.Result[string]{}
-			count := flow.Result[int]{}
+			version := plumber.Result[string]{}
+			count := plumber.Result[int]{}
 
-			Expect(flow.JobSequence(
-				flow.JobParallel(
-					flow.CaptureResult(&version, func(_ context.Context) (string, error) {
+			Expect(plumber.JobSequence(
+				plumber.JobParallel(
+					plumber.CaptureResult(&version, func(_ context.Context) (string, error) {
 						time.Sleep(time.Millisecond)
 
 						return "v1.0.0", nil
 					}),
-					flow.CaptureResult(&count, func(_ context.Context) (int, error) {
+					plumber.CaptureResult(&count, func(_ context.Context) (int, error) {
 						return 2, nil
 					}),
 				),
-				flow.CreateJob(func() error {
+				plumber.CreateJob(func() error {
 					if version.Get() != "v1.0.0" {
 						return fmt.Errorf("Captured version is not available.")
 					}
@@ -99,14 +99,14 @@ var _ = Describe("capture", func() {
 		})
 
 		It("should report whether it is captured at all", func() {
-			result := flow.Result[string]{}
+			result := plumber.Result[string]{}
 
 			value, ok := result.Ok()
 
 			Expect(value).To(BeEmpty())
 			Expect(ok).To(BeFalse())
 
-			Expect(flow.CaptureResult(&result, func(_ context.Context) (string, error) {
+			Expect(plumber.CaptureResult(&result, func(_ context.Context) (string, error) {
 				return "", nil
 			})(ctx)).To(Succeed())
 
@@ -117,9 +117,9 @@ var _ = Describe("capture", func() {
 		})
 
 		It("should not capture anything when the job fails", func() {
-			result := flow.Result[string]{}
+			result := plumber.Result[string]{}
 
-			err := flow.CaptureResult(&result, func(_ context.Context) (string, error) {
+			err := plumber.CaptureResult(&result, func(_ context.Context) (string, error) {
 				return "v1.0.0", fmt.Errorf("failed")
 			})(ctx)
 

@@ -1,11 +1,11 @@
-package flow_test
+package plumber_test
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/cenk1cenk2/plumber/v6/internal/flow"
+	"github.com/cenk1cenk2/plumber/v6"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -14,7 +14,7 @@ import (
 )
 
 type guardCase struct {
-	job    func(*bool) flow.Job
+	job    func(*bool) plumber.Job
 	assert func(bool)
 }
 
@@ -36,15 +36,15 @@ var _ = Describe("guards", func() {
 			}
 		},
 		Entry("ignore panic", guardCase{
-			job: func(_ *bool) flow.Job {
-				return flow.GuardIgnorePanic(flow.CreateJob(func() error {
+			job: func(_ *bool) plumber.Job {
+				return plumber.GuardIgnorePanic(plumber.CreateJob(func() error {
 					panic("ignored")
 				}))
 			},
 		}),
 		Entry("handle panic", guardCase{
-			job: func(handled *bool) flow.Job {
-				return flow.GuardOnPanic(flow.CreateJob(func() error {
+			job: func(handled *bool) plumber.Job {
+				return plumber.GuardOnPanic(plumber.CreateJob(func() error {
 					panic("handled")
 				}), func() {
 					*handled = true
@@ -55,15 +55,15 @@ var _ = Describe("guards", func() {
 			},
 		}),
 		Entry("resume failed job", guardCase{
-			job: func(_ *bool) flow.Job {
-				return flow.GuardResume(flow.CreateJob(func() error {
+			job: func(_ *bool) plumber.Job {
+				return plumber.GuardResume(plumber.CreateJob(func() error {
 					return fmt.Errorf("failed")
 				}))
 			},
 		}),
 		Entry("timeout successful job", guardCase{
-			job: func(_ *bool) flow.Job {
-				return flow.GuardTimeout(flow.CreateJob(func() error {
+			job: func(_ *bool) plumber.Job {
+				return plumber.GuardTimeout(plumber.CreateJob(func() error {
 					return nil
 				}), time.Millisecond)
 			},
@@ -72,7 +72,7 @@ var _ = Describe("guards", func() {
 
 	Describe("panic", func() {
 		It("should turn the panic into an error", func() {
-			err := flow.GuardPanic(flow.CreateJob(func() error {
+			err := plumber.GuardPanic(plumber.CreateJob(func() error {
 				panic("exploded")
 			}))(ctx)
 
@@ -82,7 +82,7 @@ var _ = Describe("guards", func() {
 		It("should keep the error of the panic wrapped", func() {
 			inner := fmt.Errorf("exploded")
 
-			err := flow.GuardPanic(flow.CreateJob(func() error {
+			err := plumber.GuardPanic(plumber.CreateJob(func() error {
 				panic(inner)
 			}))(ctx)
 
@@ -92,7 +92,7 @@ var _ = Describe("guards", func() {
 
 	Describe("timeout", func() {
 		It("should stop waiting for the job when the time is out", func() {
-			err := flow.GuardTimeout(func(ctx context.Context) error {
+			err := plumber.GuardTimeout(func(ctx context.Context) error {
 				<-ctx.Done()
 
 				return ctx.Err()
@@ -104,7 +104,7 @@ var _ = Describe("guards", func() {
 		It("should call the handler when the time is out", func() {
 			handled := false
 
-			err := flow.GuardOnTimeout(func(ctx context.Context) error {
+			err := plumber.GuardOnTimeout(func(ctx context.Context) error {
 				<-ctx.Done()
 
 				return ctx.Err()
@@ -124,7 +124,7 @@ var _ = Describe("guards", func() {
 				cancel()
 			}()
 
-			err := flow.GuardTimeout(func(ctx context.Context) error {
+			err := plumber.GuardTimeout(func(ctx context.Context) error {
 				<-ctx.Done()
 
 				return ctx.Err()
@@ -136,7 +136,7 @@ var _ = Describe("guards", func() {
 
 	Describe("ignore cancel", func() {
 		It("should pass through the errors that are not caused by cancellation", func() {
-			err := flow.GuardIgnoreCancel(flow.CreateJob(func() error {
+			err := plumber.GuardIgnoreCancel(plumber.CreateJob(func() error {
 				return fmt.Errorf("failed")
 			}))(ctx)
 
@@ -147,7 +147,7 @@ var _ = Describe("guards", func() {
 			cancelled, cancel := context.WithCancel(ctx)
 			cancel()
 
-			Expect(flow.GuardIgnoreCancel(flow.CreateJob(func() error {
+			Expect(plumber.GuardIgnoreCancel(plumber.CreateJob(func() error {
 				return fmt.Errorf("signal: killed")
 			}))(cancelled)).To(Succeed())
 		})
@@ -160,7 +160,7 @@ var _ = Describe("guards", func() {
 				cancel()
 			}()
 
-			Expect(flow.GuardIgnoreCancel(func(ctx context.Context) error {
+			Expect(plumber.GuardIgnoreCancel(func(ctx context.Context) error {
 				<-ctx.Done()
 
 				return fmt.Errorf("signal: killed")
@@ -173,7 +173,7 @@ var _ = Describe("guards", func() {
 			log, hook := logrustest.NewNullLogger()
 			log.SetLevel(logrus.TraceLevel)
 
-			Expect(flow.GuardResume(flow.CreateJob(func() error {
+			Expect(plumber.GuardResume(plumber.CreateJob(func() error {
 				return fmt.Errorf("failed")
 			}), log)(ctx)).To(Succeed())
 
@@ -188,7 +188,7 @@ var _ = Describe("guards", func() {
 
 			ran := false
 
-			Expect(flow.GuardAlways(func(ctx context.Context) error {
+			Expect(plumber.GuardAlways(func(ctx context.Context) error {
 				ran = ctx.Err() == nil
 
 				return nil
@@ -201,7 +201,7 @@ var _ = Describe("guards", func() {
 			cancelled, cancel := context.WithCancel(ctx)
 			cancel()
 
-			err := flow.GuardAlways(flow.CreateJob(func() error {
+			err := plumber.GuardAlways(plumber.CreateJob(func() error {
 				return fmt.Errorf("failed")
 			}))(cancelled)
 
@@ -212,7 +212,7 @@ var _ = Describe("guards", func() {
 			cancelled, cancel := context.WithCancel(ctx)
 			cancel()
 
-			Expect(flow.GuardAlways(func(ctx context.Context) error {
+			Expect(plumber.GuardAlways(func(ctx context.Context) error {
 				<-ctx.Done()
 
 				return fmt.Errorf("signal: killed")

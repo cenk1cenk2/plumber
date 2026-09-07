@@ -1,4 +1,4 @@
-package flow_test
+package plumber_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cenk1cenk2/plumber/v6/internal/flow"
+	"github.com/cenk1cenk2/plumber/v6"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,7 +16,7 @@ import (
 )
 
 type predicateCase struct {
-	build func(flow.Predicate, flow.Predicate) flow.Predicate
+	build func(plumber.Predicate, plumber.Predicate) plumber.Predicate
 }
 
 var _ = Describe("jobs", func() {
@@ -28,38 +28,38 @@ var _ = Describe("jobs", func() {
 
 	DescribeTable("should compose predicates",
 		func(tc predicateCase) {
-			truthy := flow.Predicate(func() bool {
+			truthy := plumber.Predicate(func() bool {
 				return true
 			})
-			falsey := flow.Predicate(func() bool {
+			falsey := plumber.Predicate(func() bool {
 				return false
 			})
 
 			Expect(tc.build(truthy, falsey)()).To(BeTrue())
 		},
 		Entry("simple predicate", predicateCase{
-			build: func(truthy flow.Predicate, _ flow.Predicate) flow.Predicate {
+			build: func(truthy plumber.Predicate, _ plumber.Predicate) plumber.Predicate {
 				return truthy
 			},
 		}),
 		Entry("and", predicateCase{
-			build: func(truthy flow.Predicate, _ flow.Predicate) flow.Predicate {
-				return flow.PredicateAnd(truthy, truthy)
+			build: func(truthy plumber.Predicate, _ plumber.Predicate) plumber.Predicate {
+				return plumber.PredicateAnd(truthy, truthy)
 			},
 		}),
 		Entry("or", predicateCase{
-			build: func(truthy flow.Predicate, falsey flow.Predicate) flow.Predicate {
-				return flow.PredicateOr(falsey, truthy)
+			build: func(truthy plumber.Predicate, falsey plumber.Predicate) plumber.Predicate {
+				return plumber.PredicateOr(falsey, truthy)
 			},
 		}),
 		Entry("not", predicateCase{
-			build: func(_ flow.Predicate, falsey flow.Predicate) flow.Predicate {
-				return flow.PredicateNot(falsey)
+			build: func(_ plumber.Predicate, falsey plumber.Predicate) plumber.Predicate {
+				return plumber.PredicateNot(falsey)
 			},
 		}),
 		Entry("xor", predicateCase{
-			build: func(truthy flow.Predicate, falsey flow.Predicate) flow.Predicate {
-				return flow.PredicateXor(truthy, falsey)
+			build: func(truthy plumber.Predicate, falsey plumber.Predicate) plumber.Predicate {
+				return plumber.PredicateXor(truthy, falsey)
 			},
 		}),
 	)
@@ -73,26 +73,26 @@ var _ = Describe("jobs", func() {
 			lock.Unlock()
 		}
 
-		Expect(flow.JobSequence(
-			flow.CreateJob(func() error {
+		Expect(plumber.JobSequence(
+			plumber.CreateJob(func() error {
 				appendOrder("one")
 
 				return nil
 			}),
-			flow.JobParallel(
-				flow.CreateJob(func() error {
+			plumber.JobParallel(
+				plumber.CreateJob(func() error {
 					appendOrder("two")
 
 					return nil
 				}),
-				flow.CreateJob(func() error {
+				plumber.CreateJob(func() error {
 					appendOrder("three")
 
 					return nil
 				}),
 			),
-			flow.JobRepeat(
-				flow.CreateJob(func() error {
+			plumber.JobRepeat(
+				plumber.CreateJob(func() error {
 					appendOrder("repeat")
 
 					return nil
@@ -108,60 +108,60 @@ var _ = Describe("jobs", func() {
 		order := []string{}
 		ready := false
 
-		Expect(flow.JobSequence(
-			flow.JobIf(
+		Expect(plumber.JobSequence(
+			plumber.JobIf(
 				func() bool {
 					return true
 				},
-				flow.CreateJob(func() error {
+				plumber.CreateJob(func() error {
 					order = append(order, "then")
 
 					return nil
 				}),
-				flow.CreateJob(func() error {
+				plumber.CreateJob(func() error {
 					order = append(order, "else")
 
 					return nil
 				}),
 			),
-			flow.JobIfNot(
+			plumber.JobIfNot(
 				func() bool {
 					return false
 				},
-				flow.CreateJob(func() error {
+				plumber.CreateJob(func() error {
 					order = append(order, "if-not")
 
 					return nil
 				}),
 			),
-			flow.JobDelay(flow.CreateJob(func() error {
+			plumber.JobDelay(plumber.CreateJob(func() error {
 				ready = true
 
 				return nil
 			}), time.Millisecond),
-			flow.JobWait(func() bool {
+			plumber.JobWait(func() bool {
 				return ready
 			}, time.Millisecond),
-			flow.CreateEmptyJob(),
+			plumber.CreateEmptyJob(),
 		)(ctx)).To(Succeed())
 		Expect(order).To(Equal([]string{"then", "if-not"}))
 	})
 
 	It("should panic when the conditional job is not given a job", func() {
 		Expect(func() {
-			flow.JobIf(func() bool {
+			plumber.JobIf(func() bool {
 				return true
 			})
 		}).To(PanicWith(MatchError("Conditional job requires a job and optionally its alternative.")))
 
 		Expect(func() {
-			flow.JobIf(
+			plumber.JobIf(
 				func() bool {
 					return true
 				},
-				flow.CreateEmptyJob(),
-				flow.CreateEmptyJob(),
-				flow.CreateEmptyJob(),
+				plumber.CreateEmptyJob(),
+				plumber.CreateEmptyJob(),
+				plumber.CreateEmptyJob(),
 			)
 		}).To(PanicWith(MatchError("Conditional job requires a job and optionally its alternative.")))
 	})
@@ -170,11 +170,11 @@ var _ = Describe("jobs", func() {
 		It("should stop on the first error", func() {
 			ran := false
 
-			err := flow.JobSequence(
-				flow.CreateJob(func() error {
+			err := plumber.JobSequence(
+				plumber.CreateJob(func() error {
 					return fmt.Errorf("failed")
 				}),
-				flow.CreateJob(func() error {
+				plumber.CreateJob(func() error {
 					ran = true
 
 					return nil
@@ -191,7 +191,7 @@ var _ = Describe("jobs", func() {
 
 			ran := false
 
-			err := flow.JobSequence(flow.CreateJob(func() error {
+			err := plumber.JobSequence(plumber.CreateJob(func() error {
 				ran = true
 
 				return nil
@@ -206,7 +206,7 @@ var _ = Describe("jobs", func() {
 		It("should return the first real error and cancel its siblings", func() {
 			cancelled := make(chan struct{})
 
-			err := flow.JobParallel(
+			err := plumber.JobParallel(
 				func(_ context.Context) error {
 					return fmt.Errorf("failed")
 				},
@@ -226,7 +226,7 @@ var _ = Describe("jobs", func() {
 		It("should return the error of the flow when everything is cancelled", func() {
 			cancelled, cancel := context.WithCancel(ctx)
 
-			err := flow.JobParallel(
+			err := plumber.JobParallel(
 				func(ctx context.Context) error {
 					cancel()
 
@@ -242,13 +242,13 @@ var _ = Describe("jobs", func() {
 		It("should wait for every job to finish", func() {
 			var finished atomic.Int32
 
-			Expect(flow.JobParallel(
-				flow.JobDelay(flow.CreateJob(func() error {
+			Expect(plumber.JobParallel(
+				plumber.JobDelay(plumber.CreateJob(func() error {
 					finished.Add(1)
 
 					return nil
 				}), time.Millisecond),
-				flow.JobDelay(flow.CreateJob(func() error {
+				plumber.JobDelay(plumber.CreateJob(func() error {
 					finished.Add(1)
 
 					return nil
@@ -263,7 +263,7 @@ var _ = Describe("jobs", func() {
 		It("should stop looping when the job fails", func() {
 			count := 0
 
-			err := flow.JobLoop(flow.CreateJob(func() error {
+			err := plumber.JobLoop(plumber.CreateJob(func() error {
 				count++
 
 				if count == 3 {
@@ -283,7 +283,7 @@ var _ = Describe("jobs", func() {
 
 			var count atomic.Int32
 
-			err := flow.JobLoopWithWaitAfter(flow.CreateJob(func() error {
+			err := plumber.JobLoopWithWaitAfter(plumber.CreateJob(func() error {
 				if count.Add(1) == 2 {
 					cancel()
 				}
@@ -298,9 +298,9 @@ var _ = Describe("jobs", func() {
 		It("should repeat while the condition is met", func() {
 			count := 0
 
-			Expect(flow.JobWhile(func() bool {
+			Expect(plumber.JobWhile(func() bool {
 				return count < 3
-			}, flow.CreateJob(func() error {
+			}, plumber.CreateJob(func() error {
 				count++
 
 				return nil
@@ -317,7 +317,7 @@ var _ = Describe("jobs", func() {
 				cancel()
 			}()
 
-			err := flow.JobWait(func() bool {
+			err := plumber.JobWait(func() bool {
 				return false
 			}, time.Hour)(cancelled)
 
@@ -336,7 +336,7 @@ var _ = Describe("jobs", func() {
 
 			ran := false
 
-			err := flow.JobDelay(flow.CreateJob(func() error {
+			err := plumber.JobDelay(plumber.CreateJob(func() error {
 				ran = true
 
 				return nil
@@ -352,7 +352,7 @@ var _ = Describe("jobs", func() {
 			started := make(chan struct{})
 			release := make(chan struct{})
 
-			Expect(flow.JobBackground(func(_ context.Context) error {
+			Expect(plumber.JobBackground(func(_ context.Context) error {
 				close(started)
 
 				<-release
@@ -368,7 +368,7 @@ var _ = Describe("jobs", func() {
 			log, hook := logrustest.NewNullLogger()
 			log.SetLevel(logrus.TraceLevel)
 
-			Expect(flow.JobBackground(flow.CreateJob(func() error {
+			Expect(plumber.JobBackground(plumber.CreateJob(func() error {
 				return fmt.Errorf("failed")
 			}), log)(ctx)).To(Succeed())
 
@@ -388,7 +388,7 @@ var _ = Describe("jobs", func() {
 
 			var count atomic.Int32
 
-			Expect(flow.JobBackground(flow.JobLoopWithWaitAfter(flow.CreateJob(func() error {
+			Expect(plumber.JobBackground(plumber.JobLoopWithWaitAfter(plumber.CreateJob(func() error {
 				count.Add(1)
 
 				return nil

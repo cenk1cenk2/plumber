@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"context"
 	"os"
 	"runtime"
 	"strings"
@@ -8,9 +9,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/workanator/go-floc/v3"
-
-	"fmt"
 )
 
 type TaskList struct {
@@ -26,11 +24,10 @@ type TaskList struct {
 	fn                TaskListJobFn
 	shouldRunAfterFn  TaskListFn
 	runtime           Runtime
-	flocContext       floc.Context
 }
 
 type (
-	TaskListFn          func(tl *TaskList) error
+	TaskListFn          func(ctx context.Context, tl *TaskList) error
 	TaskListJobFn       func(tl *TaskList) Job
 	TaskListPredicateFn func(tl *TaskList) bool
 )
@@ -146,7 +143,7 @@ func (p *TaskList) SetRuntimeDepth(depth int) *TaskList {
 	return p
 }
 
-func (p *TaskList) RunBefore() error {
+func (p *TaskList) RunBefore(ctx context.Context) error {
 	if stop := p.handleStopCases(); stop {
 		return nil
 	}
@@ -156,7 +153,7 @@ func (p *TaskList) RunBefore() error {
 	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunBefore: %s", p.Name)
 
 	if p.shouldRunBeforeFn != nil {
-		if err := p.shouldRunBeforeFn(p); err != nil {
+		if err := p.shouldRunBeforeFn(ctx, p); err != nil {
 			return err
 		}
 	}
@@ -168,7 +165,7 @@ func (p *TaskList) RunBefore() error {
 }
 
 // Runs the current task list.
-func (p *TaskList) Run() error {
+func (p *TaskList) Run(ctx context.Context) error {
 	if stop := p.handleStopCases(); stop {
 		return nil
 	}
@@ -177,13 +174,7 @@ func (p *TaskList) Run() error {
 
 	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("Run: %s", p.Name)
 
-	result, data, err := p.Plumber.runFloc(p.flocContext, p.fn(p))
-
-	if err != nil {
-		return err
-	}
-
-	if err := p.Plumber.handleFloc(result, data); err != nil {
+	if err := p.Plumber.runJobs(ctx, p.fn(p)); err != nil {
 		return err
 	}
 
@@ -193,15 +184,15 @@ func (p *TaskList) Run() error {
 	return nil
 }
 
-func (p *TaskList) RunWith(runtime Runtime) error {
+func (p *TaskList) RunWith(ctx context.Context, runtime Runtime) error {
 	scoped := *p
 	scoped.Lock = &sync.RWMutex{}
 	scoped.runtime = runtime.inherit(p.runtime)
 
-	return scoped.Run()
+	return scoped.Run(ctx)
 }
 
-func (p *TaskList) RunAfter() error {
+func (p *TaskList) RunAfter(ctx context.Context) error {
 	if stop := p.handleStopCases(); stop {
 		return nil
 	}
@@ -211,7 +202,7 @@ func (p *TaskList) RunAfter() error {
 	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunAfter: %s", p.Name)
 
 	if p.shouldRunAfterFn != nil {
-		if err := p.shouldRunAfterFn(p); err != nil {
+		if err := p.shouldRunAfterFn(ctx, p); err != nil {
 			return err
 		}
 	}
@@ -223,33 +214,21 @@ func (p *TaskList) RunAfter() error {
 }
 
 func (p *TaskList) JobBefore() Job {
-	return func(ctx floc.Context, _ floc.Control) error {
-		p.flocContext = ctx
-		defer func() { p.flocContext = nil }()
-
-		return p.RunBefore()
+	return func(ctx context.Context) error {
+		return p.RunBefore(ctx)
 	}
 }
 
 // Returns this task list as a job.
-//
-// The context of the flow is only kept around while the flow is running, so a task list that is
-// combined with others or reused later never holds on to the context of a flow that is over.
 func (p *TaskList) Job() Job {
-	return func(ctx floc.Context, _ floc.Control) error {
-		p.flocContext = ctx
-		defer func() { p.flocContext = nil }()
-
-		return p.Run()
+	return func(ctx context.Context) error {
+		return p.Run(ctx)
 	}
 }
 
 func (p *TaskList) JobAfter() Job {
-	return func(ctx floc.Context, _ floc.Control) error {
-		p.flocContext = ctx
-		defer func() { p.flocContext = nil }()
-
-		return p.RunAfter()
+	return func(ctx context.Context) error {
+		return p.RunAfter(ctx)
 	}
 }
 
@@ -280,7 +259,7 @@ func (p *TaskList) registerTerminateHandler() {
 
 		<-ch
 
-		p.Plumber.cancelFloc(fmt.Errorf("Trying to terminate..."))
+		p.Plumber.shutdown("Trying to terminate...")
 	}
 }
 
@@ -300,15 +279,15 @@ func (p *TaskList) setupLogger() {
 	}
 }
 
-func CombineTaskLists(tls ...*TaskList) Job {
+func CombineTaskLists(tls ...TaskLister) Job {
 	before := []Job{}
 	job := []Job{}
 	after := []Job{}
 
 	for _, tl := range tls {
-		before = append(before, GuardResume(tl.JobBefore(), TASK_CANCELLED))
+		before = append(before, GuardIgnoreCancel(tl.JobBefore()))
 		job = append(job, tl.Job())
-		after = append(after, GuardResume(tl.JobAfter(), TASK_CANCELLED))
+		after = append(after, GuardIgnoreCancel(tl.JobAfter()))
 	}
 
 	return JobSequence(

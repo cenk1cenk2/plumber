@@ -12,7 +12,6 @@ require (
 	github.com/sirupsen/logrus v1.10.2
 	github.com/stretchr/testify v1.12.1
 	github.com/urfave/cli/v3 v3.11.0
-	github.com/workanator/go-floc/v3 v3.0.1
 )
 
 require (
