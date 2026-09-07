@@ -65,7 +65,7 @@ var _ = Describe("plumber lifecycle", func() {
 							Action: func(_ context.Context, _ *cli.Command) error {
 								debug = app.Environment.Debug
 								ci = app.Environment.CI
-								level = app.Log.GetLevel()
+								level = app.GetLoggerLevel()
 
 								return nil
 							},

@@ -2,16 +2,20 @@ package plumber
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cenk1cenk2/plumber/v7/logger"
 )
 
 type Task struct {
 	Plumber *Plumber
 	TL      *TaskList
-	Log     *Logger
+	Log     *slog.Logger
 	Name    string
 
 	Lock     *sync.RWMutex
@@ -62,7 +66,7 @@ func NewTask(tl *TaskList, name ...string) *Task {
 		taskLock: &sync.RWMutex{},
 	}
 
-	t.Log = tl.Log.With(LOG_FIELD_CONTEXT, t.Name)
+	t.Log = tl.Log.With(slog.String(LOG_FIELD_CONTEXT, t.Name))
 
 	t.subtask = CreateEmptyJob()
 
@@ -129,7 +133,7 @@ func (t *Task) EnableTerminator() *Task {
 		return t
 	}
 
-	t.Log.Tracef("Enabled terminator.")
+	t.Log.Log(context.Background(), logger.LevelTrace, "Enabled terminator.")
 
 	t.options.terminator = true
 
@@ -168,11 +172,11 @@ func (t *Task) Run(ctx context.Context) error {
 	}
 
 	started := time.Now()
-	t.Log.With(LOG_FIELD_STATUS, log_status_run).Traceln(t.Name)
+	t.Log.With(slog.String(LOG_FIELD_STATUS, log_status_run)).Log(ctx, logger.LevelTrace, t.Name)
 
 	if t.shouldRunBeforeFn != nil {
 		if err := t.shouldRunBeforeFn(ctx, t); err != nil {
-			t.Log.Errorln(err)
+			t.Log.Error(err.Error())
 
 			return t.handleErrors(err)
 		}
@@ -180,7 +184,7 @@ func (t *Task) Run(ctx context.Context) error {
 
 	if t.fn != nil {
 		if err := t.fn(ctx, t); err != nil {
-			t.Log.Errorln(err)
+			t.Log.Error(err.Error())
 
 			return t.handleErrors(err)
 		}
@@ -188,13 +192,18 @@ func (t *Task) Run(ctx context.Context) error {
 
 	if t.shouldRunAfterFn != nil {
 		if err := t.shouldRunAfterFn(ctx, t); err != nil {
-			t.Log.Errorln(err)
+			t.Log.Error(err.Error())
 
 			return t.handleErrors(err)
 		}
 	}
 
-	t.Log.With(LOG_FIELD_STATUS, log_status_end).Tracef("%s -> %s", t.Name, time.Since(started).Round(time.Millisecond).String())
+	t.Log.With(slog.String(LOG_FIELD_STATUS, log_status_end)).
+		Log(
+			ctx,
+			logger.LevelTrace,
+			fmt.Sprintf("%s -> %s", t.Name, time.Since(started).Round(time.Millisecond).String()),
+		)
 
 	return nil
 }
@@ -269,14 +278,14 @@ func (t *Task) handleStopCases() bool {
 	t.status.stopCases.handled = true
 
 	if result := t.IsDisabled(); result {
-		t.Log.With(LOG_FIELD_CONTEXT, log_context_disable).
-			Debugf("%s", t.Name)
+		t.Log.With(slog.String(LOG_FIELD_CONTEXT, log_context_disable)).
+			Debug(t.Name)
 
 		t.status.stopCases.result = true
 		return t.status.stopCases.result
 	} else if result := t.IsSkipped(); result {
-		t.Log.With(LOG_FIELD_CONTEXT, log_context_skipped).
-			Warnf("%s", t.Name)
+		t.Log.With(slog.String(LOG_FIELD_CONTEXT, log_context_skipped)).
+			Warn(t.Name)
 
 		t.status.stopCases.result = true
 		return t.status.stopCases.result
@@ -299,9 +308,9 @@ func (t *Task) handleTerminator(ctx context.Context) {
 		return
 	}
 
-	t.Log.Traceln("Forwarding terminator to the task.")
+	t.Log.Log(ctx, logger.LevelTrace, "Forwarding terminator to the task.")
 
 	t.SendError(t.onTerminatorFn(ctx, t))
 
-	t.Log.Traceln("Registered as terminated.")
+	t.Log.Log(ctx, logger.LevelTrace, "Registered as terminated.")
 }

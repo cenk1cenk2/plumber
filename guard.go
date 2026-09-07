@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -93,11 +94,11 @@ func GuardIgnoreCancel(job Job) Job {
 
 // GuardResume resumes the execution of the flow that is possibly finished by the job, therefore
 // every error of the job is swallowed and only logged when a logger is given.
-func GuardResume(job Job, log ...*Logger) Job {
+func GuardResume(job Job, log ...*slog.Logger) Job {
 	return func(ctx context.Context) error {
 		if err := job(ctx); err != nil {
 			if l := resolveLogger(log); l != nil {
-				l.Warnf("Job has failed, resuming the flow: %s", err)
+				l.Warn(fmt.Sprintf("Job has failed, resuming the flow: %s", err))
 			}
 		}
 

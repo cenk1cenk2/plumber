@@ -1,12 +1,14 @@
 package plumber
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 
+	"github.com/cenk1cenk2/plumber/v7/logger"
 	"github.com/urfave/cli/v3"
 )
 
@@ -60,7 +62,7 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 		return err
 	}
 
-	p.Log.Infof("Wrote to file: %s", p.options.documentation.MarkdownOutputFile)
+	p.Log.Info(fmt.Sprintf("Wrote to file: %s", p.options.documentation.MarkdownOutputFile))
 
 	return nil
 }
@@ -74,7 +76,7 @@ func (p *Plumber) embedMarkdownDocumentation() error {
 	const end = "<!-- clidocsstop -->"
 	expr := fmt.Sprintf(`(?s)%s(.*)%s`, start, end)
 
-	p.Log.Debugf("Using expression: %s", expr)
+	p.Log.Debug(fmt.Sprintf("Using expression: %s", expr))
 
 	data, err := p.toEmbeddedMarkdown()
 
@@ -82,7 +84,7 @@ func (p *Plumber) embedMarkdownDocumentation() error {
 		return err
 	}
 
-	p.Log.Infof("Trying to read file: %s", p.options.documentation.EmbeddedMarkdownOutputFile)
+	p.Log.Info(fmt.Sprintf("Trying to read file: %s", p.options.documentation.EmbeddedMarkdownOutputFile))
 
 	content, err := os.ReadFile(p.options.documentation.EmbeddedMarkdownOutputFile)
 
@@ -104,7 +106,7 @@ func (p *Plumber) embedMarkdownDocumentation() error {
 		return err
 	}
 
-	p.Log.Infof("Embedded into file: %s", p.options.documentation.EmbeddedMarkdownOutputFile)
+	p.Log.Info(fmt.Sprintf("Embedded into file: %s", p.options.documentation.EmbeddedMarkdownOutputFile))
 
 	return nil
 }
@@ -129,7 +131,7 @@ func (p *Plumber) toMarkdown() (string, error) {
 
 	input := p.generateMarkdownTemplateCtx()
 
-	p.Log.Tracef("Executing the template: %+v", input)
+	p.Log.Log(context.Background(), logger.LevelTrace, fmt.Sprintf("Executing the template: %+v", input))
 
 	return InlineTemplate(string(tmpl), input)
 }
@@ -143,7 +145,7 @@ func (p *Plumber) toEmbeddedMarkdown() (string, error) {
 
 	input := p.generateMarkdownTemplateCtx()
 
-	p.Log.Tracef("Executing the embedded template: %+v", input)
+	p.Log.Log(context.Background(), logger.LevelTrace, fmt.Sprintf("Executing the embedded template: %+v", input))
 
 	return InlineTemplate(string(tmpl), input)
 }
@@ -171,7 +173,7 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*tem
 
 		processed = append(processed, parsed)
 
-		p.Log.Debugf("Processed command: %+v", parsed)
+		p.Log.Debug(fmt.Sprintf("Processed command: %+v", parsed))
 
 		if len(command.Commands) > 0 {
 			processed = append(
@@ -194,7 +196,7 @@ func (p *Plumber) generateDocFlags(
 		current, ok := f.(cli.DocGenerationFlag)
 
 		if !ok {
-			p.Log.Errorf("Is not a valid flag: %s", f.String())
+			p.Log.Error(fmt.Sprintf("Is not a valid flag: %s", f.String()))
 
 			continue
 		}
@@ -254,12 +256,12 @@ func (p *Plumber) generateDocFlags(
 		}
 
 		if len(parsed.Name) == 0 {
-			p.Log.Debugf("Skipped flag: %+v", parsed)
+			p.Log.Debug(fmt.Sprintf("Skipped flag: %+v", parsed))
 
 			continue
 		}
 
-		p.Log.Debugf("Processed flag: %+v", parsed)
+		p.Log.Debug(fmt.Sprintf("Processed flag: %+v", parsed))
 
 		all = append(
 			all,

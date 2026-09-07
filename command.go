@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"slices"
@@ -13,13 +14,15 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+
+	"github.com/cenk1cenk2/plumber/v7/logger"
 )
 
 type Command struct {
 	Plumber *Plumber
 	T       *Task
 	TL      *TaskList
-	Log     *Logger
+	Log     *slog.Logger
 
 	// the command itself and the arguments it is invoked with, where the first entry is the command
 	args        []string
@@ -169,7 +172,11 @@ func (c *Command) EnableTerminator() *Command {
 		return c
 	}
 
-	c.Log.Tracef("Enabled terminator: %s", c.GetFormattedCommand())
+	c.Log.Log(
+		context.Background(),
+		logger.LevelTrace,
+		fmt.Sprintf("Enabled terminator: %s", c.GetFormattedCommand()),
+	)
 
 	c.options.terminator = true
 
@@ -426,8 +433,8 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 		c.environment = append(c.environment, os.Environ()...)
 	}
 
-	c.Log.With(LOG_FIELD_STATUS, log_status_run).
-		Log(c.lifetimeLevel, c.GetFormattedCommand())
+	c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_run)).
+		Log(ctx, c.lifetimeLevel.slog(), c.GetFormattedCommand())
 
 	if c.shouldRunBeforeFn != nil {
 		if err := c.shouldRunBeforeFn(ctx, c); err != nil {
@@ -436,8 +443,8 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 	}
 
 	if err := c.pipe(ctx, runtime); err != nil {
-		c.Log.With(LOG_FIELD_STATUS, log_status_fail).
-			Errorf("%s > %s", c.GetFormattedCommand(), err.Error())
+		c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_fail)).
+			Error(fmt.Sprintf("%s > %s", c.GetFormattedCommand(), err.Error()))
 
 		return err
 	}
@@ -448,8 +455,12 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 		}
 	}
 
-	c.Log.With(LOG_FIELD_STATUS, log_status_end).
-		Logf(c.lifetimeLevel, "%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String())
+	c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_end)).
+		Log(
+			ctx,
+			c.lifetimeLevel.slog(),
+			fmt.Sprintf("%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String()),
+		)
 
 	return nil
 }
@@ -516,16 +527,16 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 		if result.Started {
 			if exiterr, ok := errors.AsType[*exec.ExitError](err); ok {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					c.Log.With(LOG_FIELD_STATUS, log_status_exit).
-						Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus())
+					c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_exit)).
+						Debug(fmt.Sprintf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus()))
 				}
 			}
 
 			return c.retry(ctx, err, runtime)
 		}
 
-		c.Log.With(LOG_FIELD_STATUS, log_status_fail).
-			Debugf("%s > Can not start command!", c.GetFormattedCommand())
+		c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_fail)).
+			Debug(fmt.Sprintf("%s > Can not start command!", c.GetFormattedCommand()))
 
 		return err
 	}
@@ -535,8 +546,8 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 			command:  c.GetFormattedCommand(),
 			exitCode: result.ExitCode,
 		}
-		c.Log.With(LOG_FIELD_STATUS, log_status_exit).
-			Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), result.ExitCode)
+		c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_exit)).
+			Debug(fmt.Sprintf("%s > Exit Code: %v", c.GetFormattedCommand(), result.ExitCode))
 
 		return c.retry(ctx, err, runtime)
 	}
@@ -551,7 +562,7 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 // Handles the error depending on the options.
 func (c *Command) handleError(err error) error {
 	if c.options.ignoreError {
-		c.Log.Debugf("%s -> Error ignored: %s", c.GetFormattedCommand(), err.Error())
+		c.Log.Debug(fmt.Sprintf("%s -> Error ignored: %s", c.GetFormattedCommand(), err.Error()))
 
 		return nil
 	}
@@ -565,7 +576,7 @@ func (c *Command) retry(ctx context.Context, err error, runtime Runtime) error {
 		return c.handleError(err)
 	}
 
-	log := c.Log.With(LOG_FIELD_STATUS, log_status_retry)
+	log := c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_retry))
 
 	delay := c.options.retry.Delay
 	if delay == 0 {
@@ -573,14 +584,24 @@ func (c *Command) retry(ctx context.Context, err error, runtime Runtime) error {
 	}
 
 	if c.options.retry.Always {
-		log.Warnf(
-			"%s -> has failed, will retry to run in %s: %s",
-			c.GetFormattedCommand(),
-			delay.String(),
-			err,
+		log.Warn(
+			fmt.Sprintf(
+				"%s -> has failed, will retry to run in %s: %s",
+				c.GetFormattedCommand(),
+				delay.String(),
+				err,
+			),
 		)
 	} else {
-		log.Warnf("%s -> has failed, will retry to run for %d more times in %s: %s", c.GetFormattedCommand(), c.options.retry.Tries, delay.String(), err)
+		log.Warn(
+			fmt.Sprintf(
+				"%s -> has failed, will retry to run for %d more times in %s: %s",
+				c.GetFormattedCommand(),
+				c.options.retry.Tries,
+				delay.String(),
+				err,
+			),
+		)
 
 		c.options.retry.Tries--
 	}
@@ -679,7 +700,11 @@ func (c *Command) createStdin() (io.Reader, error) {
 				return nil, err
 			}
 
-			c.Log.Tracef("Templated file for command script: %s -> with context %+v", script.File, script.Ctx)
+			c.Log.Log(
+				context.Background(),
+				logger.LevelTrace,
+				fmt.Sprintf("Templated file for command script: %s -> with context %+v", script.File, script.Ctx),
+			)
 
 			return stdin, nil
 		}
@@ -690,7 +715,11 @@ func (c *Command) createStdin() (io.Reader, error) {
 				return nil, err
 			}
 
-			c.Log.Tracef("Templated inline for command script: inline -> with context %+v", script.Ctx)
+			c.Log.Log(
+				context.Background(),
+				logger.LevelTrace,
+				fmt.Sprintf("Templated inline for command script: inline -> with context %+v", script.Ctx),
+			)
 
 			return stdin, nil
 		}
@@ -717,7 +746,11 @@ func (c *Command) resetStreams() {
 		c.stderrStream = []string{}
 		c.lockStream.Unlock()
 
-		c.Log.Tracef("Resetting output streams: %s", c.GetFormattedCommand())
+		c.Log.Log(
+			context.Background(),
+			logger.LevelTrace,
+			fmt.Sprintf("Resetting output streams: %s", c.GetFormattedCommand()),
+		)
 	}
 }
 
@@ -747,7 +780,7 @@ func (w *commandStreamWriter) Write(p []byte) (int, error) {
 }
 
 func (c *Command) handleStreamLine(stream string, level LogLevel, line string) {
-	c.Log.Logln(level, line)
+	c.Log.Log(context.Background(), level.slog(), line)
 
 	if c.options.recordStream {
 		c.lockStream.Lock()
@@ -772,8 +805,8 @@ func (c *Command) handleStopCases() bool {
 	c.status.stopCases.handled = true
 
 	if result := c.IsDisabled(); result {
-		c.Log.With(LOG_FIELD_CONTEXT, log_context_disable).
-			Debugf("%s", c.T.Name)
+		c.Log.With(slog.String(LOG_FIELD_CONTEXT, log_context_disable)).
+			Debug(c.T.Name)
 
 		c.status.stopCases.result = true
 		return c.status.stopCases.result
@@ -794,11 +827,19 @@ func (c *Command) handleTerminator(ctx context.Context) {
 		return
 	}
 
-	c.Log.Tracef("Forwarding terminator to the command: %s", c.GetFormattedCommand())
+	c.Log.Log(
+		ctx,
+		logger.LevelTrace,
+		fmt.Sprintf("Forwarding terminator to the command: %s", c.GetFormattedCommand()),
+	)
 
 	c.T.SendError(c.onTerminatorFn(ctx, c))
 
-	c.Log.Tracef("Registered as terminated: %s", c.GetFormattedCommand())
+	c.Log.Log(
+		ctx,
+		logger.LevelTrace,
+		fmt.Sprintf("Registered as terminated: %s", c.GetFormattedCommand()),
+	)
 }
 
 func (c *Command) templateScript(script *CommandScript, tmpl string) (io.Reader, error) {
@@ -809,7 +850,7 @@ func (c *Command) templateScript(script *CommandScript, tmpl string) (io.Reader,
 	}
 
 	for t := range strings.SplitSeq(tpl, "\n") {
-		c.Log.With(LOG_FIELD_STATUS, log_status_script).Infoln(t)
+		c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_script)).Info(t)
 	}
 
 	return strings.NewReader(tpl), nil

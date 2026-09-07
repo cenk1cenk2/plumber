@@ -52,7 +52,7 @@ var _ = Describe("plumber", func() {
 		It("should redact appended secrets from logger output", func() {
 			fixture := plumbertests.NewPlumber()
 			output := &bytes.Buffer{}
-			fixture.Plumber.Log.SetOutput(io.MultiWriter(GinkgoWriter, output))
+			fixture.Plumber.SetLoggerOutput(io.MultiWriter(GinkgoWriter, output))
 
 			fixture.Plumber.AppendSecrets("secret-token")
 			fixture.Plumber.Log.Info("using secret-token")

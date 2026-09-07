@@ -63,9 +63,9 @@ func (f *PlumberFixture) exit(code int) {
 func UseGinkgoLogger(app *plumber.Plumber) *plumber.Plumber {
 	GinkgoHelper()
 
-	app.Log.SetOutput(GinkgoWriter)
-	app.Log.SetLevel(plumber.LOG_LEVEL_TRACE)
-	app.Log.SetReportCaller(false)
+	app.SetLoggerOutput(GinkgoWriter)
+	app.SetLoggerLevel(plumber.LOG_LEVEL_TRACE)
+	app.SetLoggerReportCaller(false)
 
 	return app
 }

@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/cenk1cenk2/plumber/v7/logger"
 )
 
 type (
@@ -205,12 +208,12 @@ func JobDelay(job Job, delay time.Duration) Job {
 // JobBackground starts the job in its own goroutine and returns immediately. The job still runs in
 // the context of the flow around it, therefore it is cancelled together with it, but its error can
 // not be returned anywhere anymore and is only logged when a logger is given.
-func JobBackground(job Job, log ...*Logger) Job {
+func JobBackground(job Job, log ...*slog.Logger) Job {
 	return func(ctx context.Context) error {
 		go func() {
 			if err := job(ctx); err != nil {
 				if l := resolveLogger(log); l != nil {
-					l.Errorf("Background job has failed: %s", err)
+					l.Error(fmt.Sprintf("Background job has failed: %s", err))
 				}
 			}
 		}()
@@ -241,7 +244,7 @@ func JobWaitForTerminator(p *Plumber) Job {
 			return fmt.Errorf("Terminator is not enabled.")
 		}
 
-		p.Log.Traceln("Waiting for the terminator signal...")
+		p.Log.Log(ctx, logger.LevelTrace, "Waiting for the terminator signal...")
 
 		select {
 		case <-p.Terminator.drainedChannel():
@@ -355,7 +358,7 @@ func wait(ctx context.Context, duration time.Duration) error {
 }
 
 // Picks the first logger that is handed over to a combinator, if there is any.
-func resolveLogger(log []*Logger) *Logger {
+func resolveLogger(log []*slog.Logger) *slog.Logger {
 	for _, l := range log {
 		if l != nil {
 			return l
