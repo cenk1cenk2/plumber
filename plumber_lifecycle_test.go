@@ -139,38 +139,6 @@ var _ = Describe("plumber lifecycle", func() {
 			Expect(order).To(Equal([]string{"greeter", "action"}))
 		})
 
-		It("should allow non-fatal deprecation notices for parsed flags", func() {
-			plumbertests.WithArgs("deprecation-flag-test", "--old-mode", "run")
-			ran := false
-			fixture := plumbertests.NewPlumber(func(_ *plumber.Plumber) *cli.Command {
-				return &cli.Command{
-					Name: "deprecation-flag-test",
-					Flags: []cli.Flag{
-						&cli.BoolFlag{Name: "old-mode"},
-					},
-					Commands: []*cli.Command{
-						{
-							Name: "run",
-							Action: func(_ context.Context, _ *cli.Command) error {
-								ran = true
-
-								return nil
-							},
-						},
-					},
-				}
-			})
-			fixture.Plumber.SetDeprecationNotices([]plumber.DeprecationNotice{
-				{
-					Flag:  []string{"--old-mode"},
-					Level: plumber.LOG_LEVEL_WARN,
-				},
-			})
-
-			fixture.Plumber.Run()
-
-			Expect(ran).To(BeTrue())
-		})
 	})
 
 	Describe("configuration and jobs", func() {

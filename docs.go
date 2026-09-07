@@ -45,21 +45,7 @@ type markdownTemplateInput struct {
 //go:embed templates
 var templates embed.FS
 
-const (
-	docs_command                 string = "docs"
-	docs_legacy_markdown_command string = "MARKDOWN_DOC"
-	docs_legacy_embed_command    string = "MARKDOWN_EMBED"
-)
-
-// Returns the notice of a documentation command that is deprecated, since the deprecation notices of
-// the application only ever key on the flags and on the environment variables of it.
-func deprecatedDocsCommand(command string, replacement string) string {
-	return fmt.Sprintf(
-		`"%s" is deprecated and will be removed in a later release, use "%s" instead.`,
-		command,
-		replacement,
-	)
-}
+const docs_command string = "docs"
 
 /*
 Creates the command that generates the documentation of the application.

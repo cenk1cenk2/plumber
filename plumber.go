@@ -45,11 +45,10 @@ type Plumber struct {
 var ErrShutdown = errors.New("Application is shutting down.")
 
 type PlumberOptions struct {
-	delimiter          string
-	documentation      DocumentationOptions
-	deprecationNotices []DeprecationNotice
-	timeout            time.Duration
-	greeter            PlumberFn
+	delimiter     string
+	documentation DocumentationOptions
+	timeout       time.Duration
+	greeter       PlumberFn
 }
 
 type AppEnvironment struct {
@@ -97,13 +96,6 @@ type DocumentationOptions struct {
 	IncludeDefaultFlags         bool
 }
 
-type DeprecationNotice struct {
-	Message     string
-	Environment []string
-	Flag        []string
-	Level       LogLevel
-}
-
 type (
 	PlumberOnTerminateFn func() error
 	PlumberNewFn         func(p *Plumber) *cli.Command
@@ -114,7 +106,6 @@ type (
 
 const (
 	log_status_plumber_terminator  string = "terminate"
-	log_status_plumber_parser      string = "parse"
 	log_status_plumber_environment string = "env"
 	log_status_plumber_setup       string = "setup"
 )
@@ -184,15 +175,6 @@ func (p *Plumber) SetDelimiter(delimiter string) *Plumber {
 // Sets timeout for terminator of the application.
 func (p *Plumber) SetTerminatorTimeout(timeout time.Duration) *Plumber {
 	p.options.timeout = timeout
-
-	return p
-}
-
-// Sets the deprecation notices for the application.
-func (p *Plumber) SetDeprecationNotices(notices ...[]DeprecationNotice) *Plumber {
-	for _, notice := range notices {
-		p.options.deprecationNotices = append(p.options.deprecationNotices, notice...)
-	}
 
 	return p
 }
@@ -775,38 +757,11 @@ func (p *Plumber) Run() {
 	// The documentation of the application is generated without the flags of it ever being parsed,
 	// since the application is never actually set up for a run while its documentation is written.
 	if len(args) > 1 && slices.Contains(
-		[]string{docs_command, docs_legacy_markdown_command, docs_legacy_embed_command},
+		[]string{docs_command},
 		args[1],
 	) {
 		p.Cli.SkipFlagParsing = true
 	}
-
-	p.Cli.Commands = append(
-		p.Cli.Commands,
-		&cli.Command{
-			Name:            docs_legacy_markdown_command,
-			Hidden:          true,
-			SkipFlagParsing: true,
-			Action: func(_ context.Context, _ *cli.Command) error {
-				p.Log.Warn(deprecatedDocsCommand(docs_legacy_markdown_command, "docs markdown"))
-				p.Log.Info("Only running the documentation generation without the CLI.")
-
-				return p.generateMarkdownDocumentation()
-			},
-		},
-
-		&cli.Command{
-			Name:            docs_legacy_embed_command,
-			Hidden:          true,
-			SkipFlagParsing: true,
-			Action: func(_ context.Context, _ *cli.Command) error {
-				p.Log.Warn(deprecatedDocsCommand(docs_legacy_embed_command, "docs embed"))
-				p.Log.Info("Only running the documentation generation to embed to file without the CLI.")
-
-				return p.embedMarkdownDocumentation()
-			},
-		},
-	)
 
 	if p.options.greeter != nil {
 		if err := p.options.greeter(p); err != nil {
@@ -819,61 +774,6 @@ func (p *Plumber) Run() {
 	if err := p.Cli.Run(p.context, args); err != nil {
 		p.SendFatal(nil, err)
 	}
-}
-
-// Prints out DeprecationNotices.
-func (p *Plumber) deprecationNoticeHandler(ctx context.Context) error {
-	if len(p.options.deprecationNotices) == 0 {
-		return nil
-	}
-
-	exit := false
-	log := p.Log.With(
-		slog.String(LOG_FIELD_CONTEXT, p.Cli.Name),
-		slog.String(LOG_FIELD_STATUS, log_status_plumber_parser),
-	)
-
-	for _, notice := range p.options.deprecationNotices {
-		if notice.Level == LOG_LEVEL_DEFAULT {
-			notice.Level = LOG_LEVEL_WARN
-		}
-
-		if notice.Message == "" && notice.Level <= LOG_LEVEL_ERROR {
-			notice.Message = `"%s" is deprecated and is not valid anymore.`
-		} else if notice.Message == "" {
-			notice.Message = `"%s" is deprecated and will be removed in a later release.`
-		}
-
-		for _, environment := range notice.Environment {
-			if os.Getenv(environment) != "" {
-				log.Log(
-					ctx,
-					notice.Level.slog(),
-					fmt.Sprintf(notice.Message, fmt.Sprintf("$%s", environment)),
-				)
-
-				if notice.Level <= LOG_LEVEL_ERROR {
-					exit = true
-				}
-			}
-		}
-
-		for _, flag := range notice.Flag {
-			if slices.Contains(os.Args, flag) {
-				log.Log(ctx, notice.Level.slog(), fmt.Sprint(notice.Message, flag))
-
-				if notice.Level <= LOG_LEVEL_ERROR {
-					exit = true
-				}
-			}
-		}
-	}
-
-	if exit {
-		return fmt.Errorf("Quitting since deprecation notices can cause unintended behavior.")
-	}
-
-	return nil
 }
 
 // Appends the default CLI flags to the application.
@@ -930,10 +830,6 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			if ctx, err := before(ctx, command); err != nil {
 				return ctx, err
 			}
-		}
-
-		if err := p.deprecationNoticeHandler(ctx); err != nil {
-			return ctx, err
 		}
 
 		return ctx, nil
