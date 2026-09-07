@@ -816,18 +816,25 @@ func (p *Plumber) Run() {
 		p.SendFatal(nil, err)
 	}
 
-	if slices.Contains(os.Args, "MARKDOWN_DOC") ||
-		slices.Contains(os.Args, "MARKDOWN_EMBED") {
+	args := append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)
+
+	// The documentation of the application is generated without the flags of it ever being parsed,
+	// since the application is never actually set up for a run while its documentation is written.
+	if len(args) > 1 && slices.Contains(
+		[]string{docs_command, docs_legacy_markdown_command, docs_legacy_embed_command},
+		args[1],
+	) {
 		p.Cli.SkipFlagParsing = true
 	}
 
 	p.Cli.Commands = append(
 		p.Cli.Commands,
 		&cli.Command{
-			Name:            "MARKDOWN_DOC",
+			Name:            docs_legacy_markdown_command,
 			Hidden:          true,
 			SkipFlagParsing: true,
 			Action: func(_ context.Context, _ *cli.Command) error {
+				p.Log.Warn(deprecatedDocsCommand(docs_legacy_markdown_command, "docs markdown"))
 				p.Log.Info("Only running the documentation generation without the CLI.")
 
 				return p.generateMarkdownDocumentation()
@@ -835,10 +842,11 @@ func (p *Plumber) Run() {
 		},
 
 		&cli.Command{
-			Name:            "MARKDOWN_EMBED",
+			Name:            docs_legacy_embed_command,
 			Hidden:          true,
 			SkipFlagParsing: true,
 			Action: func(_ context.Context, _ *cli.Command) error {
+				p.Log.Warn(deprecatedDocsCommand(docs_legacy_embed_command, "docs embed"))
 				p.Log.Info("Only running the documentation generation to embed to file without the CLI.")
 
 				return p.embedMarkdownDocumentation()
@@ -854,7 +862,7 @@ func (p *Plumber) Run() {
 		}
 	}
 
-	if err := p.Cli.Run(p.context, append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
+	if err := p.Cli.Run(p.context, args); err != nil {
 		p.SendFatal(nil, err)
 	}
 }
