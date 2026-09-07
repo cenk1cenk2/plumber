@@ -3,7 +3,7 @@ package tests
 import (
 	"sync"
 
-	"github.com/cenk1cenk2/plumber/v6"
+	"github.com/cenk1cenk2/plumber/v7"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/urfave/cli/v3"
 )

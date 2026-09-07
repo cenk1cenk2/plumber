@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/cenk1cenk2/plumber/v6"
-	"github.com/cenk1cenk2/plumber/v6/tests/mocks"
+	"github.com/cenk1cenk2/plumber/v7"
+	"github.com/cenk1cenk2/plumber/v7/tests/mocks"
 	"github.com/stretchr/testify/mock"
 
 	. "github.com/onsi/ginkgo/v2"

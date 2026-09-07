@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cenk1cenk2/plumber/v6"
-	plumbertests "github.com/cenk1cenk2/plumber/v6/tests"
+	"github.com/cenk1cenk2/plumber/v7"
+	plumbertests "github.com/cenk1cenk2/plumber/v7/tests"
 	"github.com/urfave/cli/v3"
 
 	. "github.com/onsi/ginkgo/v2"
