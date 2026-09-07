@@ -175,24 +175,24 @@ var _ = Describe("test helpers", func() {
 						}).
 						Set(func(tl *plumber.TaskList) plumber.Job {
 							return tl.CreateTask("repositories").
-								Set(func(parent *plumber.Task) error {
+								Set(func(ctx context.Context, parent *plumber.Task) error {
 									for _, repository := range config.Repositories {
 										parent.CreateSubtask(repository).
-											Set(func(task *plumber.Task) error {
+											Set(func(ctx context.Context, task *plumber.Task) error {
 												task.CreateCommand("build", repository).
 													AppendArgs(config.Args...).
 													SetDir(config.Root).
 													AddSelfToTheTask()
 
-												return task.RunCommandJobAsJobSequence()
+												return task.RunCommandJobAsJobSequence(ctx)
 											}).
 											AddSelfToTheParentAsParallel()
 									}
 
 									return nil
 								}).
-								ShouldRunAfter(func(task *plumber.Task) error {
-									return task.RunSubtasks()
+								ShouldRunAfter(func(ctx context.Context, task *plumber.Task) error {
+									return task.RunSubtasks(ctx)
 								}).
 								Job()
 						})
@@ -256,10 +256,10 @@ var _ = Describe("test helpers", func() {
 						}).
 						Set(func(tl *plumber.TaskList) plumber.Job {
 							return tl.CreateTask("should-not-run").
-								Set(func(task *plumber.Task) error {
+								Set(func(ctx context.Context, task *plumber.Task) error {
 									task.CreateCommand("mock").AddSelfToTheTask()
 
-									return task.RunCommandJobAsJobSequence()
+									return task.RunCommandJobAsJobSequence(ctx)
 								}).
 								Job()
 						})

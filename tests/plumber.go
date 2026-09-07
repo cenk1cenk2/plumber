@@ -50,6 +50,12 @@ func UseGinkgoLogger(app *plumber.Plumber) *plumber.Plumber {
 	app.Log.SetLevel(logrus.TraceLevel)
 	app.Log.SetReportCaller(false)
 
+	// The formatter fills this default in lazily while formatting an entry, which races when the
+	// flows of a spec log from more than one goroutine at the same time.
+	if formatter, ok := app.Log.Formatter.(*logger.Formatter); ok {
+		formatter.LevelChars = 1
+	}
+
 	return app
 }
 

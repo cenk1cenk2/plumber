@@ -57,13 +57,13 @@ var _ = Describe("consumer-shaped flows", func() {
 							setup.Name = "setup"
 							setup.Set(func(tl *plumber.TaskList) plumber.Job {
 								return tl.CreateTask("corepack").
-									Set(func(t *plumber.Task) error {
+									Set(func(_ context.Context, t *plumber.Task) error {
 										t.CreateCommand("corepack", "enable").AddSelfToTheTask()
 
 										return nil
 									}).
-									ShouldRunAfter(func(t *plumber.Task) error {
-										return t.RunCommandJobAsJobSequence()
+									ShouldRunAfter(func(ctx context.Context, t *plumber.Task) error {
+										return t.RunCommandJobAsJobSequence(ctx)
 									}).
 									Job()
 							})
@@ -73,7 +73,7 @@ var _ = Describe("consumer-shaped flows", func() {
 							run.Set(func(tl *plumber.TaskList) plumber.Job {
 								return plumber.JobSequence(
 									tl.CreateTask("npm", command.String("script")).
-										Set(func(t *plumber.Task) error {
+										Set(func(_ context.Context, t *plumber.Task) error {
 											npm := t.CreateCommand("npm", "run", command.String("script"), "--")
 											npm.AppendArgs(command.StringArgs("args")...)
 											npm.SetDir(command.String("cwd"))
@@ -81,15 +81,15 @@ var _ = Describe("consumer-shaped flows", func() {
 
 											return nil
 										}).
-										ShouldRunAfter(func(t *plumber.Task) error {
-											return t.RunCommandJobAsJobSequence()
+										ShouldRunAfter(func(ctx context.Context, t *plumber.Task) error {
+											return t.RunCommandJobAsJobSequence(ctx)
 										}).
 										Job(),
 									tl.CreateTask("repositories").
-										Set(func(t *plumber.Task) error {
+										Set(func(_ context.Context, t *plumber.Task) error {
 											for _, repository := range command.StringSlice("repository") {
 												t.CreateSubtask(repository).
-													Set(func(_ *plumber.Task) error {
+													Set(func(_ context.Context, _ *plumber.Task) error {
 														subtaskLock.Lock()
 														subtaskOrder = append(subtaskOrder, repository)
 														subtaskLock.Unlock()
@@ -101,16 +101,14 @@ var _ = Describe("consumer-shaped flows", func() {
 
 											return nil
 										}).
-										ShouldRunAfter(func(t *plumber.Task) error {
-											return t.RunSubtasks()
+										ShouldRunAfter(func(ctx context.Context, t *plumber.Task) error {
+											return t.RunSubtasks(ctx)
 										}).
 										Job(),
 								)
 							})
 
-							_ = ctx
-
-							return p.RunJobs(plumber.CombineTaskLists(setup, run))
+							return p.RunJobsWith(ctx, plumber.CombineTaskLists(setup, run))
 						},
 					},
 				},
@@ -195,24 +193,24 @@ var _ = Describe("consumer-shaped flows", func() {
 							}).
 							Set(func(tl *plumber.TaskList) plumber.Job {
 								return tl.CreateTask("packages", "node").
-									Set(func(parent *plumber.Task) error {
+									Set(func(ctx context.Context, parent *plumber.Task) error {
 										for _, packageName := range config.Packages {
 											parent.CreateSubtask(packageName).
-												Set(func(task *plumber.Task) error {
+												Set(func(ctx context.Context, task *plumber.Task) error {
 													task.CreateCommand("npm", "add", packageName).
 														AppendArgs(config.ScriptArgs...).
 														SetDir(config.Cwd).
 														AddSelfToTheTask()
 
-													return task.RunCommandJobAsJobSequence()
+													return task.RunCommandJobAsJobSequence(ctx)
 												}).
 												AddSelfToTheParentAsParallel()
 										}
 
 										return nil
 									}).
-									ShouldRunAfter(func(task *plumber.Task) error {
-										return task.RunSubtasks()
+									ShouldRunAfter(func(ctx context.Context, task *plumber.Task) error {
+										return task.RunSubtasks(ctx)
 									}).
 									Job()
 							})
@@ -316,7 +314,7 @@ var _ = Describe("consumer-shaped flows", func() {
 				tl := fixture.NewTaskList("setup").
 					Set(func(tl *plumber.TaskList) plumber.Job {
 						return tl.CreateTask("version").
-							Set(func(t *plumber.Task) error {
+							Set(func(ctx context.Context, t *plumber.Task) error {
 								for _, spec := range []struct {
 									name string
 									args []string
@@ -326,7 +324,7 @@ var _ = Describe("consumer-shaped flows", func() {
 								} {
 									t.CreateCommand(spec.name, spec.args...).
 										EnableStreamRecording().
-										ShouldRunAfter(func(c *plumber.Command) error {
+										ShouldRunAfter(func(ctx context.Context, c *plumber.Command) error {
 											lock.Lock()
 											versions = append(versions, strings.TrimSpace(c.GetCombinedStream()[0]))
 											lock.Unlock()
@@ -338,8 +336,8 @@ var _ = Describe("consumer-shaped flows", func() {
 
 								return nil
 							}).
-							ShouldRunAfter(func(t *plumber.Task) error {
-								return t.RunCommandJobAsJobParallel()
+							ShouldRunAfter(func(ctx context.Context, t *plumber.Task) error {
+								return t.RunCommandJobAsJobParallel(ctx)
 							}).
 							Job()
 					})
@@ -356,7 +354,7 @@ var _ = Describe("consumer-shaped flows", func() {
 				tl := fixture.NewTaskList("login").
 					Set(func(tl *plumber.TaskList) plumber.Job {
 						return tl.CreateTask("registry").
-							Set(func(t *plumber.Task) error {
+							Set(func(_ context.Context, t *plumber.Task) error {
 								t.CreateCommand("helm", "registry", "login", "registry.example", "--username", "ci", "--password-stdin").
 									SetStdin(func(_ *plumber.Command) io.Reader {
 										return strings.NewReader("secret-token\n")
@@ -365,8 +363,8 @@ var _ = Describe("consumer-shaped flows", func() {
 
 								return nil
 							}).
-							ShouldRunAfter(func(t *plumber.Task) error {
-								return t.RunCommandJobAsJobSequence()
+							ShouldRunAfter(func(ctx context.Context, t *plumber.Task) error {
+								return t.RunCommandJobAsJobSequence(ctx)
 							}).
 							Job()
 					})
@@ -401,10 +399,10 @@ var _ = Describe("consumer-shaped flows", func() {
 				tl := fixture.NewTaskList("build").
 					Set(func(tl *plumber.TaskList) plumber.Job {
 						return tl.CreateTask("build").
-							Set(func(parent *plumber.Task) error {
+							Set(func(ctx context.Context, parent *plumber.Task) error {
 								for _, target := range targets {
 									parent.CreateSubtask("api", target.os+"/"+target.arch).
-										Set(func(t *plumber.Task) error {
+										Set(func(ctx context.Context, t *plumber.Task) error {
 											t.CreateCommand("go", "build", "-mod=vendor").
 												SetDir(cwd).
 												AppendEnvironment(map[string]string{
@@ -415,16 +413,16 @@ var _ = Describe("consumer-shaped flows", func() {
 
 											return nil
 										}).
-										ShouldRunAfter(func(t *plumber.Task) error {
-											return t.RunCommandJobAsJobParallel()
+										ShouldRunAfter(func(ctx context.Context, t *plumber.Task) error {
+											return t.RunCommandJobAsJobParallel(ctx)
 										}).
 										AddSelfToTheParentAsParallel()
 								}
 
 								return nil
 							}).
-							ShouldRunAfter(func(t *plumber.Task) error {
-								return t.RunSubtasks()
+							ShouldRunAfter(func(ctx context.Context, t *plumber.Task) error {
+								return t.RunSubtasks(ctx)
 							}).
 							Job()
 					})
@@ -453,15 +451,15 @@ var _ = Describe("consumer-shaped flows", func() {
 				tl := fixture.NewTaskList("terraform").
 					Set(func(tl *plumber.TaskList) plumber.Job {
 						return tl.CreateTask("plan").
-							Set(func(t *plumber.Task) error {
+							Set(func(_ context.Context, t *plumber.Task) error {
 								t.CreateCommand("terraform", "plan", "-input=false").
 									SetRetries(retry).
 									AddSelfToTheTask()
 
 								return nil
 							}).
-							ShouldRunAfter(func(t *plumber.Task) error {
-								return t.RunCommandJobAsJobSequence()
+							ShouldRunAfter(func(ctx context.Context, t *plumber.Task) error {
+								return t.RunCommandJobAsJobSequence(ctx)
 							}).
 							Job()
 					})

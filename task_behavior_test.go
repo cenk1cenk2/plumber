@@ -1,6 +1,7 @@
 package plumber_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -15,7 +16,7 @@ import (
 
 type commandJobCase struct {
 	prepare func(*plumber.Task, *plumbertests.TestingCommandRunner)
-	run     func(*plumber.Task) error
+	run     func(context.Context, *plumber.Task) error
 	assert  func(*plumbertests.TestingCommandRunner)
 }
 
@@ -37,16 +38,18 @@ type taskLifecycleErrorCase struct {
 
 type taskListLifecycleErrorCase struct {
 	configure     func(*plumber.TaskList, *[]string)
-	run           func(*plumber.TaskList) error
+	run           func(context.Context, *plumber.TaskList) error
 	expectedError string
 	expectedOrder []string
 }
 
 var _ = Describe("task behavior", func() {
 	var fixture *plumbertests.PlumberFixture
+	var ctx context.Context
 
 	BeforeEach(func() {
 		fixture = plumbertests.NewPlumber()
+		ctx = context.Background()
 	})
 
 	DescribeTable("should stop tasks before running hooks or body",
@@ -56,18 +59,18 @@ var _ = Describe("task behavior", func() {
 
 			configure(task)
 			task.
-				ShouldRunBefore(func(_ *plumber.Task) error {
+				ShouldRunBefore(func(_ context.Context, _ *plumber.Task) error {
 					order = append(order, "before")
 
 					return nil
 				}).
-				Set(func(_ *plumber.Task) error {
+				Set(func(_ context.Context, _ *plumber.Task) error {
 					order = append(order, "run")
 
 					return nil
 				})
 
-			Expect(task.Run()).To(Succeed())
+			Expect(task.Run(ctx)).To(Succeed())
 			Expect(order).To(BeEmpty())
 		},
 		Entry("disabled task", func(task *plumber.Task) {
@@ -90,23 +93,23 @@ var _ = Describe("task behavior", func() {
 
 			tc.configure(task, &order)
 
-			Expect(task.Run()).To(MatchError(tc.expectedError))
+			Expect(task.Run(ctx)).To(MatchError(tc.expectedError))
 			Expect(order).To(Equal(tc.expectedOrder))
 		},
 		Entry("before hook", taskLifecycleErrorCase{
 			configure: func(task *plumber.Task, order *[]string) {
 				task.
-					ShouldRunBefore(func(_ *plumber.Task) error {
+					ShouldRunBefore(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "before")
 
 						return errors.New("before failed")
 					}).
-					Set(func(_ *plumber.Task) error {
+					Set(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "run")
 
 						return nil
 					}).
-					ShouldRunAfter(func(_ *plumber.Task) error {
+					ShouldRunAfter(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "after")
 
 						return nil
@@ -118,17 +121,17 @@ var _ = Describe("task behavior", func() {
 		Entry("body", taskLifecycleErrorCase{
 			configure: func(task *plumber.Task, order *[]string) {
 				task.
-					ShouldRunBefore(func(_ *plumber.Task) error {
+					ShouldRunBefore(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "before")
 
 						return nil
 					}).
-					Set(func(_ *plumber.Task) error {
+					Set(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "run")
 
 						return errors.New("run failed")
 					}).
-					ShouldRunAfter(func(_ *plumber.Task) error {
+					ShouldRunAfter(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "after")
 
 						return nil
@@ -140,17 +143,17 @@ var _ = Describe("task behavior", func() {
 		Entry("after hook", taskLifecycleErrorCase{
 			configure: func(task *plumber.Task, order *[]string) {
 				task.
-					ShouldRunBefore(func(_ *plumber.Task) error {
+					ShouldRunBefore(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "before")
 
 						return nil
 					}).
-					Set(func(_ *plumber.Task) error {
+					Set(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "run")
 
 						return nil
 					}).
-					ShouldRunAfter(func(_ *plumber.Task) error {
+					ShouldRunAfter(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "after")
 
 						return errors.New("after failed")
@@ -166,17 +169,17 @@ var _ = Describe("task behavior", func() {
 		order := []string{}
 
 		task.
-			Set(func(_ *plumber.Task) error {
+			Set(func(_ context.Context, _ *plumber.Task) error {
 				order = append(order, "run")
 
 				return nil
 			}).
 			SetJobWrapper(func(job plumber.Job, t *plumber.Task) plumber.Job {
-				return plumber.CreateBasicJob(func() error {
+				return func(ctx context.Context) error {
 					order = append(order, fmt.Sprintf("wrapper:%s", t.Name))
 
-					return t.Plumber.RunJobs(job)
-				})
+					return t.Plumber.RunJobsWith(ctx, job)
+				}
 			})
 
 		Expect(fixture.Plumber.RunJobs(task.Job())).To(Succeed())
@@ -188,15 +191,15 @@ var _ = Describe("task behavior", func() {
 		scopedRunner := plumbertests.NewTestingCommandRunner()
 		task := fixture.NewTaskList("commands").CreateTask("task").
 			SetRuntime(plumber.Runtime{CommandRunner: defaultRunner.Runner()}).
-			Set(func(t *plumber.Task) error {
-				return t.CreateCommand("scoped").Run()
+			Set(func(ctx context.Context, t *plumber.Task) error {
+				return t.CreateCommand("scoped").Run(ctx)
 			})
 
-		Expect(task.RunWith(plumber.Runtime{CommandRunner: scopedRunner.Runner()})).To(Succeed())
+		Expect(task.RunWith(ctx, plumber.Runtime{CommandRunner: scopedRunner.Runner()})).To(Succeed())
 		Expect(scopedRunner.InvocationNames()).To(Equal([]string{"scoped"}))
 		Expect(defaultRunner.Invocations()).To(BeEmpty())
 
-		Expect(task.Run()).To(Succeed())
+		Expect(task.Run(ctx)).To(Succeed())
 		Expect(defaultRunner.InvocationNames()).To(Equal([]string{"scoped"}))
 	})
 
@@ -207,7 +210,7 @@ var _ = Describe("task behavior", func() {
 
 			tc.prepare(task, runner)
 
-			Expect(tc.run(task)).To(Succeed())
+			Expect(tc.run(ctx, task)).To(Succeed())
 			tc.assert(runner)
 		},
 		Entry("as a sequence", commandJobCase{
@@ -220,8 +223,8 @@ var _ = Describe("task behavior", func() {
 				Expect(task.GetCommandJobAsJobSequence()).ToNot(BeNil())
 				Expect(task.GetCommandJobAsJobParallel()).ToNot(BeNil())
 			},
-			run: func(task *plumber.Task) error {
-				return task.RunCommandJobAsJobSequence()
+			run: func(ctx context.Context, task *plumber.Task) error {
+				return task.RunCommandJobAsJobSequence(ctx)
 			},
 			assert: func(runner *plumbertests.TestingCommandRunner) {
 				Expect(runner.InvocationNames()).To(Equal([]string{"one", "two"}))
@@ -236,8 +239,8 @@ var _ = Describe("task behavior", func() {
 				task.CreateCommand("one").AddSelfToTheTask()
 				task.CreateCommand("two").AddSelfToTheTask()
 			},
-			run: func(task *plumber.Task) error {
-				return task.RunCommandJobAsJobParallel()
+			run: func(ctx context.Context, task *plumber.Task) error {
+				return task.RunCommandJobAsJobParallel(ctx)
 			},
 			assert: func(runner *plumbertests.TestingCommandRunner) {
 				Expect(runner.InvocationNames()).To(ConsistOf("one", "two"))
@@ -247,8 +250,8 @@ var _ = Describe("task behavior", func() {
 			prepare: func(task *plumber.Task, _ *plumbertests.TestingCommandRunner) {
 				task.CreateCommand("mock").AddSelfToTheTask()
 			},
-			run: func(task *plumber.Task) error {
-				return task.RunCommandJob(func(t *plumber.Task) plumber.Job {
+			run: func(ctx context.Context, task *plumber.Task) error {
+				return task.RunCommandJob(ctx, func(t *plumber.Task) plumber.Job {
 					return t.GetCommandJobAsJobSequence()
 				})
 			},
@@ -264,11 +267,11 @@ var _ = Describe("task behavior", func() {
 		order := []string{}
 		command := task.CreateCommand("mock").
 			SetJobWrapper(func(job plumber.Job, c *plumber.Command) plumber.Job {
-				return plumber.CreateBasicJob(func() error {
+				return func(ctx context.Context) error {
 					order = append(order, c.GetFormattedCommand())
 
-					return c.Plumber.RunJobs(job)
-				})
+					return c.Plumber.RunJobsWith(ctx, job)
+				}
 			})
 
 		Expect(fixture.Plumber.RunJobs(command.Job())).To(Succeed())
@@ -283,16 +286,18 @@ var _ = Describe("task behavior", func() {
 		command := child.CreateCommand("mock").SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()}).AddSelfToTheParentTask(parent)
 
 		Expect(parent.GetCommands()).To(Equal([]*plumber.Command{command}))
-		Expect(parent.RunCommandJobAsJobSequence()).To(Succeed())
+		Expect(parent.RunCommandJobAsJobSequence(ctx)).To(Succeed())
 		Expect(runner.Invocations()).To(HaveLen(1))
 	})
 })
 
 var _ = Describe("subtasks", func() {
 	var fixture *plumbertests.PlumberFixture
+	var ctx context.Context
 
 	BeforeEach(func() {
 		fixture = plumbertests.NewPlumber()
+		ctx = context.Background()
 	})
 
 	DescribeTable("should create and run subtasks",
@@ -303,13 +308,13 @@ var _ = Describe("subtasks", func() {
 
 			tc.prepare(parent, &order, &lock)
 
-			Expect(parent.RunSubtasks()).To(Succeed())
+			Expect(parent.RunSubtasks(ctx)).To(Succeed())
 			tc.assert(order)
 		},
 		Entry("in sequence", subtaskCase{
 			prepare: func(parent *plumber.Task, order *[]string, _ *sync.Mutex) {
 				child := parent.CreateSubtask("child").
-					Set(func(_ *plumber.Task) error {
+					Set(func(_ context.Context, _ *plumber.Task) error {
 						*order = append(*order, "child")
 
 						return nil
@@ -329,7 +334,7 @@ var _ = Describe("subtasks", func() {
 				for _, name := range []string{"one", "two"} {
 					current := name
 					parent.CreateSubtask(current).
-						Set(func(_ *plumber.Task) error {
+						Set(func(_ context.Context, _ *plumber.Task) error {
 							lock.Lock()
 							*order = append(*order, current)
 							lock.Unlock()
@@ -347,7 +352,7 @@ var _ = Describe("subtasks", func() {
 
 	It("should attach subtasks with a custom parent wrapper", func() {
 		parent := fixture.NewTaskList("tasks").CreateTask("parent")
-		child := parent.CreateSubtask("child").Set(func(_ *plumber.Task) error {
+		child := parent.CreateSubtask("child").Set(func(_ context.Context, _ *plumber.Task) error {
 			return nil
 		})
 
@@ -355,14 +360,14 @@ var _ = Describe("subtasks", func() {
 			parent.SetSubtask(child.Job())
 		})
 
-		Expect(parent.RunSubtasks()).To(Succeed())
+		Expect(parent.RunSubtasks(ctx)).To(Succeed())
 	})
 
 	It("should attach subtasks to an arbitrary parent", func() {
 		source := fixture.NewTaskList("tasks").CreateTask("source")
 		target := fixture.NewTaskList("tasks").CreateTask("target")
 		order := []string{}
-		child := source.CreateSubtask("child").Set(func(_ *plumber.Task) error {
+		child := source.CreateSubtask("child").Set(func(_ context.Context, _ *plumber.Task) error {
 			order = append(order, "child")
 
 			return nil
@@ -373,7 +378,7 @@ var _ = Describe("subtasks", func() {
 		})
 
 		Expect(result).To(BeIdenticalTo(child))
-		Expect(target.RunSubtasks()).To(Succeed())
+		Expect(target.RunSubtasks(ctx)).To(Succeed())
 		Expect(order).To(Equal([]string{"child"}))
 	})
 
@@ -382,20 +387,20 @@ var _ = Describe("subtasks", func() {
 		order := []string{}
 
 		parent.
-			SetSubtask(plumber.CreateBasicJob(func() error {
+			SetSubtask(plumber.CreateJob(func() error {
 				order = append(order, "base")
 
 				return nil
 			})).
 			ExtendSubtask(func(job plumber.Job) plumber.Job {
-				return plumber.JobSequence(job, plumber.CreateBasicJob(func() error {
+				return plumber.JobSequence(job, plumber.CreateJob(func() error {
 					order = append(order, "extended")
 
 					return nil
 				}))
 			})
 
-		Expect(parent.RunSubtasks()).To(Succeed())
+		Expect(parent.RunSubtasks(ctx)).To(Succeed())
 		Expect(order).To(Equal([]string{"base", "extended"}))
 	})
 
@@ -404,12 +409,18 @@ var _ = Describe("subtasks", func() {
 
 		parent.SetSubtask(nil)
 
-		Expect(parent.RunSubtasks()).To(Succeed())
+		Expect(parent.RunSubtasks(ctx)).To(Succeed())
 		Expect(parent.GetSubtasks()).ToNot(BeNil())
 	})
 })
 
 var _ = Describe("task lists", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
 	DescribeTable("should return task list lifecycle errors from the failing phase",
 		func(tc taskListLifecycleErrorCase) {
 			fixture := plumbertests.NewPlumber()
@@ -418,19 +429,19 @@ var _ = Describe("task lists", func() {
 
 			tc.configure(tl, &order)
 
-			Expect(tc.run(tl)).To(MatchError(tc.expectedError))
+			Expect(tc.run(ctx, tl)).To(MatchError(tc.expectedError))
 			Expect(order).To(Equal(tc.expectedOrder))
 		},
 		Entry("before hook", taskListLifecycleErrorCase{
 			configure: func(tl *plumber.TaskList, order *[]string) {
-				tl.ShouldRunBefore(func(_ *plumber.TaskList) error {
+				tl.ShouldRunBefore(func(_ context.Context, _ *plumber.TaskList) error {
 					*order = append(*order, "before")
 
 					return errors.New("before failed")
 				})
 			},
-			run: func(tl *plumber.TaskList) error {
-				return tl.RunBefore()
+			run: func(ctx context.Context, tl *plumber.TaskList) error {
+				return tl.RunBefore(ctx)
 			},
 			expectedError: "before failed",
 			expectedOrder: []string{"before"},
@@ -438,29 +449,29 @@ var _ = Describe("task lists", func() {
 		Entry("run job", taskListLifecycleErrorCase{
 			configure: func(tl *plumber.TaskList, order *[]string) {
 				tl.Set(func(_ *plumber.TaskList) plumber.Job {
-					return plumber.CreateBasicJob(func() error {
+					return plumber.CreateJob(func() error {
 						*order = append(*order, "run")
 
 						return errors.New("run failed")
 					})
 				})
 			},
-			run: func(tl *plumber.TaskList) error {
-				return tl.Run()
+			run: func(ctx context.Context, tl *plumber.TaskList) error {
+				return tl.Run(ctx)
 			},
 			expectedError: "run failed",
 			expectedOrder: []string{"run"},
 		}),
 		Entry("after hook", taskListLifecycleErrorCase{
 			configure: func(tl *plumber.TaskList, order *[]string) {
-				tl.ShouldRunAfter(func(_ *plumber.TaskList) error {
+				tl.ShouldRunAfter(func(_ context.Context, _ *plumber.TaskList) error {
 					*order = append(*order, "after")
 
 					return errors.New("after failed")
 				})
 			},
-			run: func(tl *plumber.TaskList) error {
-				return tl.RunAfter()
+			run: func(ctx context.Context, tl *plumber.TaskList) error {
+				return tl.RunAfter(ctx)
 			},
 			expectedError: "after failed",
 			expectedOrder: []string{"after"},
@@ -473,16 +484,16 @@ var _ = Describe("task lists", func() {
 			tl := fixture.NewTaskList("stopped").
 				SetRuntimeDepth(2).
 				Set(func(_ *plumber.TaskList) plumber.Job {
-					return plumber.CreateBasicJob(func() error {
+					return plumber.CreateJob(func() error {
 						return fmt.Errorf("should not run")
 					})
 				})
 
 			tc.configure(tl)
 
-			Expect(tl.RunBefore()).To(Succeed())
-			Expect(tl.Run()).To(Succeed())
-			Expect(tl.RunAfter()).To(Succeed())
+			Expect(tl.RunBefore(ctx)).To(Succeed())
+			Expect(tl.Run(ctx)).To(Succeed())
+			Expect(tl.RunAfter(ctx)).To(Succeed())
 			tc.assert(tl)
 		},
 		Entry("disabled", taskListStopCase{
@@ -534,19 +545,19 @@ var _ = Describe("task lists", func() {
 		}
 		create := func(name string) *plumber.TaskList {
 			return fixture.NewTaskList(name).
-				ShouldRunBefore(func(_ *plumber.TaskList) error {
+				ShouldRunBefore(func(_ context.Context, _ *plumber.TaskList) error {
 					appendOrder(name + ":before")
 
 					return nil
 				}).
 				Set(func(_ *plumber.TaskList) plumber.Job {
-					return plumber.CreateBasicJob(func() error {
+					return plumber.CreateJob(func() error {
 						appendOrder(name + ":run")
 
 						return nil
 					})
 				}).
-				ShouldRunAfter(func(_ *plumber.TaskList) error {
+				ShouldRunAfter(func(_ context.Context, _ *plumber.TaskList) error {
 					appendOrder(name + ":after")
 
 					return nil
@@ -569,19 +580,19 @@ var _ = Describe("task lists", func() {
 		}
 		create := func(name string, err error) *plumber.TaskList {
 			return fixture.NewTaskList(name).
-				ShouldRunBefore(func(_ *plumber.TaskList) error {
+				ShouldRunBefore(func(_ context.Context, _ *plumber.TaskList) error {
 					appendOrder(name + ":before")
 
 					return nil
 				}).
 				Set(func(_ *plumber.TaskList) plumber.Job {
-					return plumber.CreateBasicJob(func() error {
+					return plumber.CreateJob(func() error {
 						appendOrder(name + ":run")
 
 						return err
 					})
 				}).
-				ShouldRunAfter(func(_ *plumber.TaskList) error {
+				ShouldRunAfter(func(_ context.Context, _ *plumber.TaskList) error {
 					appendOrder(name + ":after")
 
 					return nil
@@ -608,11 +619,11 @@ var _ = Describe("task lists", func() {
 				return tl.CreateTask("task").CreateCommand("scoped").Job()
 			})
 
-		Expect(tl.RunWith(plumber.Runtime{CommandRunner: scopedRunner.Runner()})).To(Succeed())
+		Expect(tl.RunWith(ctx, plumber.Runtime{CommandRunner: scopedRunner.Runner()})).To(Succeed())
 		Expect(scopedRunner.InvocationNames()).To(Equal([]string{"scoped"}))
 		Expect(defaultRunner.Invocations()).To(BeEmpty())
 
-		Expect(tl.Run()).To(Succeed())
+		Expect(tl.Run(ctx)).To(Succeed())
 		Expect(defaultRunner.InvocationNames()).To(Equal([]string{"scoped"}))
 	})
 })

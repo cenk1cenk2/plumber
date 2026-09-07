@@ -3,6 +3,8 @@ package plumber_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"syscall"
 	"time"
 
 	"github.com/cenk1cenk2/plumber/v6"
@@ -207,12 +209,63 @@ var _ = Describe("plumber lifecycle", func() {
 				Expect(err).To(MatchError(expected))
 			},
 			Entry("nil jobs", nil, nil),
-			Entry("successful jobs", plumber.CreateBasicJob(func() error {
+			Entry("successful jobs", plumber.CreateJob(func() error {
 				return nil
 			}), nil),
-			Entry("failed jobs", plumber.CreateBasicJob(func() error {
+			Entry("failed jobs", plumber.CreateJob(func() error {
 				return errors.New("job failed")
 			}), errors.New("job failed")),
 		)
+	})
+
+	Describe("graceful shutdown", func() {
+		It("should yield nil from RunJobs when a fatal error shuts the application down while a job of its own still fails", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.Log.ExitFunc = func(int) {}
+
+			Expect(fixture.Plumber.RunJobs(plumber.CreateJob(func() error {
+				return errors.New("job failed")
+			}))).To(MatchError("job failed"))
+
+			Expect(fixture.Plumber.RunJobs(func(ctx context.Context) error {
+				go fixture.Plumber.SendFatal(nil, errors.New("fatal error"))
+
+				<-ctx.Done()
+
+				return fmt.Errorf("signal: killed")
+			})).To(Succeed())
+		}, SpecTimeout(time.Second*10))
+
+		It("should yield nil from RunJobs when the terminator shuts the application down", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.EnableTerminator()
+			fixture.NewTaskList("terminating")
+
+			Expect(fixture.Plumber.RunJobs(func(ctx context.Context) error {
+				for {
+					fixture.Plumber.Terminator.ShouldTerminate.TrySubmit(syscall.SIGTERM)
+
+					select {
+					case <-ctx.Done():
+						return fmt.Errorf("signal: killed")
+					case <-time.After(time.Millisecond * 5):
+					}
+				}
+			})).To(Succeed())
+		}, SpecTimeout(time.Second*10))
+
+		It("should surface the error of a flow that is cancelled by whoever runs it", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+
+			ctx, cancel := context.WithCancel(context.Background())
+
+			Expect(fixture.Plumber.RunJobsWith(ctx, func(ctx context.Context) error {
+				cancel()
+
+				<-ctx.Done()
+
+				return ctx.Err()
+			})).To(MatchError(context.Canceled))
+		}, SpecTimeout(time.Second*10))
 	})
 })

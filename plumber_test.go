@@ -2,6 +2,7 @@ package plumber_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,12 @@ import (
 )
 
 var _ = Describe("plumber", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
 	Describe("construction", func() {
 		It("should create a Cli application with default flags", func() {
 			var provided *plumber.Plumber
@@ -230,23 +237,23 @@ var _ = Describe("plumber", func() {
 			order := []string{}
 
 			task.
-				ShouldRunBefore(func(_ *plumber.Task) error {
+				ShouldRunBefore(func(_ context.Context, _ *plumber.Task) error {
 					order = append(order, "before")
 
 					return nil
 				}).
-				Set(func(_ *plumber.Task) error {
+				Set(func(_ context.Context, _ *plumber.Task) error {
 					order = append(order, "run")
 
 					return nil
 				}).
-				ShouldRunAfter(func(_ *plumber.Task) error {
+				ShouldRunAfter(func(_ context.Context, _ *plumber.Task) error {
 					order = append(order, "after")
 
 					return nil
 				})
 
-			Expect(task.Run()).To(Succeed())
+			Expect(task.Run(ctx)).To(Succeed())
 			Expect(order).To(Equal([]string{"before", "run", "after"}))
 		})
 
@@ -259,18 +266,18 @@ var _ = Describe("plumber", func() {
 				ShouldDisable(func(_ *plumber.Task) bool {
 					return true
 				}).
-				ShouldRunBefore(func(_ *plumber.Task) error {
+				ShouldRunBefore(func(_ context.Context, _ *plumber.Task) error {
 					order = append(order, "before")
 
 					return nil
 				}).
-				Set(func(_ *plumber.Task) error {
+				Set(func(_ context.Context, _ *plumber.Task) error {
 					order = append(order, "run")
 
 					return nil
 				})
 
-			Expect(task.Run()).To(Succeed())
+			Expect(task.Run(ctx)).To(Succeed())
 			Expect(order).To(BeEmpty())
 		})
 
@@ -291,27 +298,27 @@ var _ = Describe("plumber", func() {
 			order := []string{}
 
 			tl.
-				ShouldRunBefore(func(_ *plumber.TaskList) error {
+				ShouldRunBefore(func(_ context.Context, _ *plumber.TaskList) error {
 					order = append(order, "before")
 
 					return nil
 				}).
 				Set(func(_ *plumber.TaskList) plumber.Job {
-					return plumber.CreateBasicJob(func() error {
+					return plumber.CreateJob(func() error {
 						order = append(order, "run")
 
 						return nil
 					})
 				}).
-				ShouldRunAfter(func(_ *plumber.TaskList) error {
+				ShouldRunAfter(func(_ context.Context, _ *plumber.TaskList) error {
 					order = append(order, "after")
 
 					return nil
 				})
 
-			Expect(tl.RunBefore()).To(Succeed())
-			Expect(tl.Run()).To(Succeed())
-			Expect(tl.RunAfter()).To(Succeed())
+			Expect(tl.RunBefore(ctx)).To(Succeed())
+			Expect(tl.Run(ctx)).To(Succeed())
+			Expect(tl.RunAfter(ctx)).To(Succeed())
 			Expect(order).To(Equal([]string{"before", "run", "after"}))
 		})
 	})
@@ -350,7 +357,7 @@ var _ = Describe("plumber", func() {
 				CreateCommand("mock").
 				EnableStreamRecording()
 
-			Expect(command.Run()).To(Succeed())
+			Expect(command.Run(ctx)).To(Succeed())
 			Expect(command.GetStdoutStream()).To(Equal([]string{"out\n"}))
 			Expect(command.GetStderrStream()).To(Equal([]string{"err\n"}))
 			Expect(command.GetCombinedStream()).To(ConsistOf("out\n", "err\n"))
@@ -369,7 +376,7 @@ var _ = Describe("plumber", func() {
 					"PLUMBER_TEST_COMMAND_ENV": "from-command",
 				})
 
-			Expect(command.Run()).To(Succeed())
+			Expect(command.Run(ctx)).To(Succeed())
 			Expect(runner.Invocations()).To(HaveLen(1))
 			Expect(runner.Invocations()[0].Env).To(Equal([]string{"PLUMBER_TEST_COMMAND_ENV=from-command"}))
 		})
@@ -379,7 +386,7 @@ var _ = Describe("plumber", func() {
 				task, runner := newTaskWithRunner()
 				command := configure(task)
 
-				Expect(command.Run()).To(Succeed())
+				Expect(command.Run(ctx)).To(Succeed())
 				Expect(runner.Invocations()).To(HaveLen(1))
 				stdin, err := plumbertests.ReadInvocationStdin(runner.Invocations()[0])
 				Expect(err).ToNot(HaveOccurred())
@@ -416,7 +423,7 @@ var _ = Describe("plumber", func() {
 				CreateCommand("mock").
 				SetIgnoreError()
 
-			Expect(command.Run()).To(Succeed())
+			Expect(command.Run(ctx)).To(Succeed())
 		})
 
 		It("should retry failed commands until tries are exhausted", func() {
@@ -433,7 +440,7 @@ var _ = Describe("plumber", func() {
 				CreateCommand("mock").
 				SetRetries(retry)
 
-			Expect(command.Run()).To(HaveOccurred())
+			Expect(command.Run(ctx)).To(HaveOccurred())
 			Expect(retry.Tries).To(BeEquivalentTo(0))
 			Expect(runner.Invocations()).To(HaveLen(2))
 		})
@@ -444,23 +451,23 @@ var _ = Describe("plumber", func() {
 			order := []string{}
 
 			command.
-				ShouldRunBefore(func(_ *plumber.Command) error {
+				ShouldRunBefore(func(_ context.Context, _ *plumber.Command) error {
 					order = append(order, "before")
 
 					return nil
 				}).
-				ShouldRunAfter(func(_ *plumber.Command) error {
+				ShouldRunAfter(func(_ context.Context, _ *plumber.Command) error {
 					order = append(order, "after")
 
 					return nil
 				}).
-				Set(func(c *plumber.Command) error {
+				Set(func(_ context.Context, c *plumber.Command) error {
 					order = append(order, fmt.Sprintf("set:%s", c.GetFormattedCommand()))
 
 					return nil
 				})
 
-			Expect(command.Run()).To(Succeed())
+			Expect(command.Run(ctx)).To(Succeed())
 			Expect(order).To(Equal([]string{"set:$ mock", "before", "after"}))
 		})
 
@@ -473,13 +480,13 @@ var _ = Describe("plumber", func() {
 				ShouldDisable(func(_ *plumber.Task) bool {
 					return true
 				}).
-				ShouldRunBefore(func(_ *plumber.Command) error {
+				ShouldRunBefore(func(_ context.Context, _ *plumber.Command) error {
 					order = append(order, "before")
 
 					return nil
 				})
 
-			Expect(command.Run()).To(Succeed())
+			Expect(command.Run(ctx)).To(Succeed())
 			Expect(order).To(BeEmpty())
 			Expect(runner.Invocations()).To(BeEmpty())
 		})
@@ -489,7 +496,7 @@ var _ = Describe("plumber", func() {
 			command := task.
 				CreateCommand("mock", "", "-c", "", `printf 'ok\n'`)
 
-			Expect(command.Run()).To(Succeed())
+			Expect(command.Run(ctx)).To(Succeed())
 			Expect(runner.Invocations()[0].Args).To(Equal([]string{"-c", `printf 'ok\n'`}))
 			Expect(command.GetFormattedCommand()).To(Equal("$ mock -c printf 'ok\\n'"))
 		})
@@ -501,7 +508,7 @@ var _ = Describe("plumber", func() {
 					return &plumber.CommandScript{}
 				})
 
-			Expect(command.Run()).To(MatchError("Either file or inline has to be set for command script."))
+			Expect(command.Run(ctx)).To(MatchError("Either file or inline has to be set for command script."))
 		})
 	})
 
