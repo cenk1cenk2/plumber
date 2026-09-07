@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/cenk1cenk2/plumber/v6/logger"
+	"github.com/cenk1cenk2/plumber/v7/logger"
 )
 
 /*

@@ -13,7 +13,7 @@ require-template-schema-exists: true
 template: testify
 template-schema: '{{.Template}}.schema.json'
 packages:
-  github.com/cenk1cenk2/plumber/v6:
+  github.com/cenk1cenk2/plumber/v7:
     config:
       dir: tests/mocks
       filename: command_runner.go

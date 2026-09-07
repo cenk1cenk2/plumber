@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/cenk1cenk2/plumber/v6"
+	"github.com/cenk1cenk2/plumber/v7"
 )
 
 // LogRecord is a single message that a capture logger has recorded.

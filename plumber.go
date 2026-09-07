@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cenk1cenk2/plumber/v6/logger"
+	"github.com/cenk1cenk2/plumber/v7/logger"
 	"github.com/creasty/defaults"
 	validator "github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"

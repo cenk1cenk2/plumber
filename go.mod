@@ -1,4 +1,4 @@
-module github.com/cenk1cenk2/plumber/v6
+module github.com/cenk1cenk2/plumber/v7
 
 go 1.27.0
 
