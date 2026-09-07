@@ -15,26 +15,35 @@ import (
 
 type documentationCase struct {
 	args        []string
-	command     func() *cli.Command
+	outputFlag  bool
+	command     func(*plumber.Plumber) *cli.Command
 	prepare     func(string)
 	configure   func(*plumber.Plumber, string)
 	contains    []string
 	notContains []string
+	logs        []string
 }
 
 var _ = Describe("documentation and Cli runtime", func() {
 	DescribeTable("should render markdown documentation files",
-		func(tc documentationCase) {
+		func(_ SpecContext, tc documentationCase) {
 			output := filepath.Join(plumbertests.TempDir(), "README.md")
 			if tc.prepare != nil {
 				tc.prepare(output)
 			}
 
-			fixture := plumbertests.NewPlumber(func(_ *plumber.Plumber) *cli.Command {
-				return tc.command()
+			fixture := plumbertests.NewPlumber(func(app *plumber.Plumber) *cli.Command {
+				return tc.command(app)
 			})
+			log, capture := plumbertests.NewCaptureLogger()
+			fixture.Plumber.Log = log
 			tc.configure(fixture.Plumber, output)
-			plumbertests.WithArgs(tc.args...)
+
+			args := append([]string{}, tc.args...)
+			if tc.outputFlag {
+				args = append(args, "--output", output)
+			}
+			plumbertests.WithArgs(args...)
 
 			fixture.Plumber.Run()
 
@@ -46,10 +55,13 @@ var _ = Describe("documentation and Cli runtime", func() {
 			for _, content := range tc.notContains {
 				Expect(string(data)).ToNot(ContainSubstring(content))
 			}
+			for _, content := range tc.logs {
+				Expect(capture.Messages()).To(ContainElement(ContainSubstring(content)))
+			}
 		},
 		Entry("standalone markdown output", documentationCase{
 			args: []string{"docs-test", "MARKDOWN_DOC"},
-			command: func() *cli.Command {
+			command: func(_ *plumber.Plumber) *cli.Command {
 				return &cli.Command{
 					Name:        "docs-test",
 					Description: "Documentation test.",
@@ -74,6 +86,7 @@ var _ = Describe("documentation and Cli runtime", func() {
 				})
 			},
 			contains: []string{"docs-test", "visible", "--name"},
+			logs:     []string{`"MARKDOWN_DOC" is deprecated`, `use "docs markdown" instead`},
 		}),
 		Entry("embedded markdown output", documentationCase{
 			args: []string{"embed-test", "MARKDOWN_EMBED"},
@@ -84,7 +97,7 @@ var _ = Describe("documentation and Cli runtime", func() {
 					0600,
 				)).To(Succeed())
 			},
-			command: func() *cli.Command {
+			command: func(_ *plumber.Plumber) *cli.Command {
 				return &cli.Command{
 					Name: "embed-test",
 					Flags: []cli.Flag{
@@ -98,6 +111,105 @@ var _ = Describe("documentation and Cli runtime", func() {
 			configure: func(app *plumber.Plumber, output string) {
 				app.SetDocumentationOptions(plumber.DocumentationOptions{
 					EmbeddedMarkdownOutputFile: output,
+				})
+			},
+			contains:    []string{"before", "after", "--enabled"},
+			notContains: []string{"old"},
+			logs:        []string{`"MARKDOWN_EMBED" is deprecated`, `use "docs embed" instead`},
+		}),
+		Entry("docs markdown command", documentationCase{
+			args: []string{"docs-test", "docs", "markdown"},
+			command: func(app *plumber.Plumber) *cli.Command {
+				return &cli.Command{
+					Name:        "docs-test",
+					Description: "Documentation test.",
+					Commands: []*cli.Command{
+						plumber.DocsCommand(app),
+						{
+							Name:        "visible",
+							Description: "Visible command.",
+						},
+					},
+				}
+			},
+			configure: func(app *plumber.Plumber, output string) {
+				app.SetDocumentationOptions(plumber.DocumentationOptions{
+					MarkdownOutputFile: output,
+				})
+			},
+			contains:    []string{"docs-test", "visible"},
+			notContains: []string{"docs markdown"},
+		}),
+		Entry("docs embed command", documentationCase{
+			args: []string{"embed-test", "docs", "embed"},
+			prepare: func(output string) {
+				Expect(os.WriteFile(
+					output,
+					[]byte("before\n<!-- clidocs -->\nold\n<!-- clidocsstop -->\nafter\n"),
+					0600,
+				)).To(Succeed())
+			},
+			command: func(app *plumber.Plumber) *cli.Command {
+				return &cli.Command{
+					Name:     "embed-test",
+					Commands: []*cli.Command{plumber.DocsCommand(app)},
+					Flags: []cli.Flag{
+						&cli.BoolFlag{
+							Name:  "enabled",
+							Usage: "Enable the thing.",
+						},
+					},
+				}
+			},
+			configure: func(app *plumber.Plumber, output string) {
+				app.SetDocumentationOptions(plumber.DocumentationOptions{
+					EmbeddedMarkdownOutputFile: output,
+				})
+			},
+			contains:    []string{"before", "after", "--enabled"},
+			notContains: []string{"old"},
+		}),
+		Entry("docs markdown command with an output override", documentationCase{
+			args:       []string{"docs-test", "docs", "markdown"},
+			outputFlag: true,
+			command: func(app *plumber.Plumber) *cli.Command {
+				return &cli.Command{
+					Name:     "docs-test",
+					Commands: []*cli.Command{plumber.DocsCommand(app)},
+				}
+			},
+			configure: func(app *plumber.Plumber, output string) {
+				app.SetDocumentationOptions(plumber.DocumentationOptions{
+					MarkdownOutputFile: output + ".configured",
+				})
+			},
+			contains: []string{"docs-test"},
+		}),
+		Entry("docs embed command with an output override", documentationCase{
+			args:       []string{"embed-test", "docs", "embed"},
+			outputFlag: true,
+			prepare: func(output string) {
+				Expect(os.WriteFile(
+					output,
+					[]byte("before\n<!-- clidocs -->\nold\n<!-- clidocsstop -->\nafter\n"),
+					0600,
+				)).To(Succeed())
+			},
+			command: func(app *plumber.Plumber) *cli.Command {
+				return &cli.Command{
+					Name:     "embed-test",
+					Commands: []*cli.Command{plumber.DocsCommand(app)},
+					Flags: []cli.Flag{
+						&cli.BoolFlag{
+							Name:  "enabled",
+							Usage: "Enable the thing.",
+						},
+					},
+				}
+			},
+			configure: func(app *plumber.Plumber, output string) {
+				app.SetDocumentationOptions(plumber.DocumentationOptions{
+					EmbeddedMarkdownOutputFile: output + ".configured",
 				})
 			},
 			contains:    []string{"before", "after", "--enabled"},
