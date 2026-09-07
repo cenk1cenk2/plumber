@@ -4,8 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"sync"
-
-	"github.com/cenk1cenk2/plumber/v7"
 )
 
 // LogRecord is a single message that a capture logger has recorded.
@@ -27,10 +25,10 @@ Creates a logger that records the messages that are logged through it.
 The logger is detached from the application on purpose, since it is handed over to the primitives
 that take a logger of their own to report what they swallow.
 */
-func NewCaptureLogger() (*plumber.Logger, *LogCapture) {
+func NewCaptureLogger() (*slog.Logger, *LogCapture) {
 	capture := &LogCapture{}
 
-	return plumber.NewLogger(&captureHandler{capture: capture}), capture
+	return slog.New(&captureHandler{capture: capture}), capture
 }
 
 // Returns the records that have been logged so far.

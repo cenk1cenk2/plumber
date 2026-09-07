@@ -2,6 +2,8 @@ package tests_test
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/cenk1cenk2/plumber/v7"
@@ -19,8 +21,18 @@ var _ = Describe("test helpers", func() {
 		fixture.Plumber.Log.Info("hello")
 
 		Expect(fixture.Plumber.Cli.Name).To(Equal("plumber-test"))
-		Expect(fixture.Plumber.Log.GetOutput()).To(Equal(GinkgoWriter))
-		Expect(fixture.Plumber.Log.GetLevel()).To(Equal(plumber.LOG_LEVEL_TRACE))
+		Expect(fixture.Plumber.GetLoggerOutput()).To(Equal(GinkgoWriter))
+		Expect(fixture.Plumber.GetLoggerLevel()).To(Equal(plumber.LOG_LEVEL_TRACE))
+	})
+
+	It("should create a capture logger that records the messages that are logged through it", func(_ SpecContext) {
+		log, capture := plumbertests.NewCaptureLogger()
+
+		log.Warn(fmt.Sprintf("%s has failed", "job"))
+
+		Expect(capture.Messages()).To(Equal([]string{"job has failed"}))
+		Expect(capture.Records()).To(HaveLen(1))
+		Expect(capture.Records()[0].Level).To(Equal(slog.LevelWarn))
 	})
 
 	It("should set process arguments for the current spec", func() {

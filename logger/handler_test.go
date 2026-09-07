@@ -117,6 +117,34 @@ var _ = Describe("Handler", func() {
 		Expect(output.String()).To(Equal("[I] [DISABLE] done\n"))
 	})
 
+	It("should carry the attributes of the loggers that are derived from it", func(_ SpecContext) {
+		handler := logger.NewHandler(logger.Options{
+			FieldsOrder: []string{"context", "status"},
+			HideKeys:    true,
+			NoColors:    true,
+		})
+		handler.SetOutput(output)
+
+		log := slog.New(handler)
+		derived := log.With(slog.String("context", "task")).With(slog.String("status", "RUN"))
+
+		derived.Info("done")
+		log.Info("root")
+
+		Expect(output.String()).To(Equal("[I] [task] [RUN] done\n[I] root\n"))
+	})
+
+	It("should report the caller of the message and never the logger itself", func(_ SpecContext) {
+		handler := logger.NewHandler(logger.Options{NoColors: true, CallerFirst: true})
+		handler.SetOutput(output)
+		handler.SetReportCaller(true)
+
+		slog.New(handler).Info("done")
+
+		Expect(output.String()).To(ContainSubstring("handler_test.go:"))
+		Expect(output.String()).ToNot(ContainSubstring("log/slog"))
+	})
+
 	It("should sort the fields that are not ordered alphabetically", func(_ SpecContext) {
 		handler := logger.NewHandler(logger.Options{
 			FieldsOrder: []string{"context"},
