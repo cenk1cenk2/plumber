@@ -101,9 +101,9 @@ type commandStreamWriter struct {
 }
 
 const (
-	stream_stdout       string        = "stdout"
-	stream_stderr       string        = "stderr"
-	COMMAND_RETRY_DELAY time.Duration = time.Second
+	streamStdout      string        = "stdout"
+	streamStderr      string        = "stderr"
+	CommandRetryDelay time.Duration = time.Second
 )
 
 // NewCommand Creates a new command to be run as a job.
@@ -122,7 +122,7 @@ func NewCommand(
 		sysProcAttr: &syscall.SysProcAttr{},
 	}
 
-	c.SetLogLevel(LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT)
+	c.SetLogLevel(LogLevelDefault, LogLevelDefault, LogLevelDefault)
 
 	return c
 }
@@ -240,20 +240,20 @@ func (c *Command) SetLogLevel(
 	stderr LogLevel,
 	lifetime LogLevel,
 ) *Command {
-	if stdout == LOG_LEVEL_DEFAULT {
-		c.stdoutLevel = LOG_LEVEL_INFO
+	if stdout == LogLevelDefault {
+		c.stdoutLevel = LogLevelInfo
 	} else {
 		c.stdoutLevel = stdout
 	}
 
-	if stderr == LOG_LEVEL_DEFAULT {
-		c.stderrLevel = LOG_LEVEL_WARN
+	if stderr == LogLevelDefault {
+		c.stderrLevel = LogLevelWarn
 	} else {
 		c.stderrLevel = stderr
 	}
 
-	if lifetime == LOG_LEVEL_DEFAULT {
-		c.lifetimeLevel = LOG_LEVEL_INFO
+	if lifetime == LogLevelDefault {
+		c.lifetimeLevel = LogLevelInfo
 	} else {
 		c.lifetimeLevel = lifetime
 	}
@@ -433,7 +433,7 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 		c.environment = append(c.environment, os.Environ()...)
 	}
 
-	c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_run)).
+	c.Log.With(slog.String(LogFieldStatus, logStatusRun)).
 		Log(ctx, c.lifetimeLevel.slog(), c.GetFormattedCommand())
 
 	if c.shouldRunBeforeFn != nil {
@@ -443,7 +443,7 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 	}
 
 	if err := c.pipe(ctx, runtime); err != nil {
-		c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_fail)).
+		c.Log.With(slog.String(LogFieldStatus, logStatusFail)).
 			Error(fmt.Sprintf("%s > %s", c.GetFormattedCommand(), err.Error()))
 
 		return err
@@ -455,7 +455,7 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 		}
 	}
 
-	c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_end)).
+	c.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
 		Log(
 			ctx,
 			c.lifetimeLevel.slog(),
@@ -516,8 +516,8 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 	c.resetStreams()
 
 	result, err := c.resolveCommandRunner(runtime).Run(ctx, invocation, CommandRuntime{
-		Stdout: c.newStreamWriter(stream_stdout, c.stdoutLevel),
-		Stderr: c.newStreamWriter(stream_stderr, c.stderrLevel),
+		Stdout: c.newStreamWriter(streamStdout, c.stdoutLevel),
+		Stderr: c.newStreamWriter(streamStderr, c.stderrLevel),
 	})
 	c.status.result = result
 	c.status.resultSet = result.Started || result.ProcessState != nil
@@ -527,7 +527,7 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 		if result.Started {
 			if exiterr, ok := errors.AsType[*exec.ExitError](err); ok {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_exit)).
+					c.Log.With(slog.String(LogFieldStatus, logStatusExit)).
 						Debug(fmt.Sprintf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus()))
 				}
 			}
@@ -535,7 +535,7 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 			return c.retry(ctx, err, runtime)
 		}
 
-		c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_fail)).
+		c.Log.With(slog.String(LogFieldStatus, logStatusFail)).
 			Debug(fmt.Sprintf("%s > Can not start command!", c.GetFormattedCommand()))
 
 		return err
@@ -546,7 +546,7 @@ func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 			command:  c.GetFormattedCommand(),
 			exitCode: result.ExitCode,
 		}
-		c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_exit)).
+		c.Log.With(slog.String(LogFieldStatus, logStatusExit)).
 			Debug(fmt.Sprintf("%s > Exit Code: %v", c.GetFormattedCommand(), result.ExitCode))
 
 		return c.retry(ctx, err, runtime)
@@ -576,11 +576,11 @@ func (c *Command) retry(ctx context.Context, err error, runtime Runtime) error {
 		return c.handleError(err)
 	}
 
-	log := c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_retry))
+	log := c.Log.With(slog.String(LogFieldStatus, logStatusRetry))
 
 	delay := c.options.retry.Delay
 	if delay == 0 {
-		delay = COMMAND_RETRY_DELAY
+		delay = CommandRetryDelay
 	}
 
 	if c.options.retry.Always {
@@ -787,9 +787,9 @@ func (c *Command) handleStreamLine(stream string, level LogLevel, line string) {
 		c.combinedStream = append(c.combinedStream, line)
 
 		switch stream {
-		case stream_stdout:
+		case streamStdout:
 			c.stdoutStream = append(c.stdoutStream, line)
-		case stream_stderr:
+		case streamStderr:
 			c.stderrStream = append(c.stderrStream, line)
 		}
 		c.lockStream.Unlock()
@@ -805,7 +805,7 @@ func (c *Command) handleStopCases() bool {
 	c.status.stopCases.handled = true
 
 	if result := c.IsDisabled(); result {
-		c.Log.With(slog.String(LOG_FIELD_CONTEXT, log_context_disable)).
+		c.Log.With(slog.String(LogFieldContext, logContextDisable)).
 			Debug(c.T.Name)
 
 		c.status.stopCases.result = true
@@ -850,7 +850,7 @@ func (c *Command) templateScript(script *CommandScript, tmpl string) (io.Reader,
 	}
 
 	for t := range strings.SplitSeq(tpl, "\n") {
-		c.Log.With(slog.String(LOG_FIELD_STATUS, log_status_script)).Info(t)
+		c.Log.With(slog.String(LogFieldStatus, logStatusScript)).Info(t)
 	}
 
 	return strings.NewReader(tpl), nil

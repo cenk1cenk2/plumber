@@ -105,9 +105,9 @@ type (
 )
 
 const (
-	log_status_plumber_terminator  string = "terminate"
-	log_status_plumber_environment string = "env"
-	log_status_plumber_setup       string = "setup"
+	logStatusPlumberTerminator  string = "terminate"
+	logStatusPlumberEnvironment string = "env"
+	logStatusPlumberSetup       string = "setup"
 )
 
 // Creates a new Plumber instance and initiates it.
@@ -142,7 +142,7 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 
 	// presetup logger to not have it nil in edge cases
 	p.Log = slog.New(logger.NewHandler(&p.secrets))
-	p.SetLoggerLevel(LOG_LEVEL_INFO)
+	p.SetLoggerLevel(LogLevelInfo)
 
 	p.registerInterruptHandler()
 
@@ -226,8 +226,8 @@ func (p *Plumber) EnableTerminator() *Plumber {
 	}
 
 	p.Log.With(
-		slog.String(LOG_FIELD_CONTEXT, p.Cli.Name),
-		slog.String(LOG_FIELD_STATUS, log_status_plumber_terminator),
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusPlumberTerminator),
 	).Log(context.Background(), logger.LevelTrace, "Terminator enabled.")
 
 	return p
@@ -267,7 +267,7 @@ func (p *Plumber) GetLoggerLevel() LogLevel {
 	handler := p.handler()
 
 	if handler == nil {
-		return LOG_LEVEL_INFO
+		return LogLevelInfo
 	}
 
 	return logLevelFromSlog(handler.Level())
@@ -341,8 +341,8 @@ func (p *Plumber) SendFatal(log *slog.Logger, err error) *Plumber {
 // Sends exit code to terminate the application.
 func (p *Plumber) SendExit(code int) *Plumber {
 	p.Log.With(
-		slog.String(LOG_FIELD_CONTEXT, p.Cli.Name),
-		slog.String(LOG_FIELD_STATUS, log_status_exit),
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusExit),
 	).Log(context.Background(), logger.LevelTrace, fmt.Sprint(code))
 
 	p.exit(fmt.Sprintf("Will exit with code: %d", code), code)
@@ -354,8 +354,8 @@ func (p *Plumber) SendExit(code int) *Plumber {
 func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 	if p.Terminator.Enabled {
 		log := p.Log.With(
-			slog.String(LOG_FIELD_CONTEXT, p.Cli.Name),
-			slog.String(LOG_FIELD_STATUS, log_status_plumber_terminator),
+			slog.String(LogFieldContext, p.Cli.Name),
+			slog.String(LogFieldStatus, logStatusPlumberTerminator),
 		)
 
 		if p.Terminator.state.isInitiated() {
@@ -476,8 +476,8 @@ func (p *Plumber) drainTerminator(hooks []terminatorHookFn) {
 	}
 
 	log := p.Log.With(
-		slog.String(LOG_FIELD_CONTEXT, p.Cli.Name),
-		slog.String(LOG_FIELD_STATUS, log_status_plumber_terminator),
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusPlumberTerminator),
 	)
 
 	for _, hook := range hooks {
@@ -757,7 +757,7 @@ func (p *Plumber) Run() {
 	// The documentation of the application is generated without the flags of it ever being parsed,
 	// since the application is never actually set up for a run while its documentation is written.
 	if len(args) > 1 && slices.Contains(
-		[]string{docs_command},
+		[]string{docsCommand},
 		args[1],
 	) {
 		p.Cli.SkipFlagParsing = true
@@ -796,8 +796,8 @@ func (p *Plumber) loadEnvironment() error {
 
 		// no need to long since we do this too early before logger level is properly set
 		// p.Log.With(
-		// 	slog.String(LOG_FIELD_CONTEXT, p.Cli.Name),
-		// 	slog.String(LOG_FIELD_STATUS, log_status_plumber_environment),
+		// 	slog.String(LogFieldContext, p.Cli.Name),
+		// 	slog.String(LogFieldStatus, logStatusPlumberEnvironment),
 		// ).Log(context.Background(), logger.LevelTrace, fmt.Sprintf("Environment files are loaded: %v", env))
 	}
 
@@ -807,7 +807,7 @@ func (p *Plumber) loadEnvironment() error {
 // Before function for the CLI that gets executed setup the action.
 func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	return func(ctx context.Context, command *cli.Command) (context.Context, error) {
-		if command.Bool("debug") || p.GetLoggerLevel() == LOG_LEVEL_DEBUG || p.GetLoggerLevel() == LOG_LEVEL_TRACE {
+		if command.Bool("debug") || p.GetLoggerLevel() == LogLevelDebug || p.GetLoggerLevel() == LogLevelTrace {
 			p.Environment.Debug = true
 		}
 
@@ -816,8 +816,8 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 		}
 
 		log := p.Log.With(
-			slog.String(LOG_FIELD_CONTEXT, command.Name),
-			slog.String(LOG_FIELD_STATUS, log_status_plumber_setup),
+			slog.String(LogFieldContext, command.Name),
+			slog.String(LogFieldStatus, logStatusPlumberSetup),
 		)
 
 		if command.Bool("ci") {
@@ -843,11 +843,11 @@ func (p *Plumber) setupLogger(ctx context.Context, command *cli.Command) error {
 	level, err := ParseLogLevel(command.String("log-level"))
 
 	if err != nil {
-		level = LOG_LEVEL_INFO
+		level = LogLevelInfo
 	}
 
 	if command.Bool("debug") {
-		level = LOG_LEVEL_DEBUG
+		level = LogLevelDebug
 	}
 
 	p.SetLoggerLevel(level)
@@ -857,8 +857,8 @@ func (p *Plumber) setupLogger(ctx context.Context, command *cli.Command) error {
 	}
 
 	log := p.Log.With(
-		slog.String(LOG_FIELD_CONTEXT, p.Cli.Name),
-		slog.String(LOG_FIELD_STATUS, log_status_plumber_setup),
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusPlumberSetup),
 	)
 
 	log.Log(
@@ -884,8 +884,8 @@ func (p *Plumber) registerInterruptHandler() {
 		sig := <-interrupt
 
 		p.Log.With(
-			slog.String(LOG_FIELD_CONTEXT, p.Cli.Name),
-			slog.String(LOG_FIELD_STATUS, log_status_plumber_terminator),
+			slog.String(LogFieldContext, p.Cli.Name),
+			slog.String(LogFieldStatus, logStatusPlumberTerminator),
 		).Error(
 			fmt.Sprintf("Terminating the application with signal: %s", sig),
 		)
@@ -894,8 +894,8 @@ func (p *Plumber) registerInterruptHandler() {
 	}()
 
 	p.Log.With(
-		slog.String(LOG_FIELD_CONTEXT, p.Cli.Name),
-		slog.String(LOG_FIELD_STATUS, log_status_plumber_setup),
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusPlumberSetup),
 	).Log(context.Background(), logger.LevelTrace, "Registered handlers.")
 }
 

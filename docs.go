@@ -45,7 +45,7 @@ type markdownTemplateInput struct {
 //go:embed templates
 var templates embed.FS
 
-const docs_command string = "docs"
+const docsCommand string = "docs"
 
 /*
 Creates the command that generates the documentation of the application.
@@ -55,7 +55,7 @@ maintains the application, therefore it is opted in to through the commands of t
 */
 func DocsCommand(p *Plumber) *cli.Command {
 	return &cli.Command{
-		Name:            docs_command,
+		Name:            docsCommand,
 		Usage:           "Generates the documentation of the application.",
 		Hidden:          true,
 		SkipFlagParsing: true,

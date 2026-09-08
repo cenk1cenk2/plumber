@@ -66,7 +66,7 @@ func NewTask(tl *TaskList, name ...string) *Task {
 		taskLock: &sync.RWMutex{},
 	}
 
-	t.Log = tl.Log.With(slog.String(LOG_FIELD_CONTEXT, t.Name))
+	t.Log = tl.Log.With(slog.String(LogFieldContext, t.Name))
 
 	t.subtask = CreateEmptyJob()
 
@@ -172,7 +172,7 @@ func (t *Task) Run(ctx context.Context) error {
 	}
 
 	started := time.Now()
-	t.Log.With(slog.String(LOG_FIELD_STATUS, log_status_run)).Log(ctx, logger.LevelTrace, t.Name)
+	t.Log.With(slog.String(LogFieldStatus, logStatusRun)).Log(ctx, logger.LevelTrace, t.Name)
 
 	if t.shouldRunBeforeFn != nil {
 		if err := t.shouldRunBeforeFn(ctx, t); err != nil {
@@ -198,7 +198,7 @@ func (t *Task) Run(ctx context.Context) error {
 		}
 	}
 
-	t.Log.With(slog.String(LOG_FIELD_STATUS, log_status_end)).
+	t.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
 		Log(
 			ctx,
 			logger.LevelTrace,
@@ -278,13 +278,13 @@ func (t *Task) handleStopCases() bool {
 	t.status.stopCases.handled = true
 
 	if result := t.IsDisabled(); result {
-		t.Log.With(slog.String(LOG_FIELD_CONTEXT, log_context_disable)).
+		t.Log.With(slog.String(LogFieldContext, logContextDisable)).
 			Debug(t.Name)
 
 		t.status.stopCases.result = true
 		return t.status.stopCases.result
 	} else if result := t.IsSkipped(); result {
-		t.Log.With(slog.String(LOG_FIELD_CONTEXT, log_context_skipped)).
+		t.Log.With(slog.String(LogFieldContext, logContextSkipped)).
 			Warn(t.Name)
 
 		t.status.stopCases.result = true
