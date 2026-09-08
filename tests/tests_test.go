@@ -22,7 +22,7 @@ var _ = Describe("test helpers", func() {
 		fixture.Plumber.Log.Info("hello")
 
 		Expect(fixture.Plumber.Cli.Name).To(Equal("plumber-test"))
-		Expect(fixture.Plumber.GetLoggerLevel()).To(Equal(plumber.LOG_LEVEL_TRACE))
+		Expect(fixture.Plumber.GetLoggerLevel()).To(Equal(plumber.LogLevelTrace))
 		Expect(fixture.Plumber.Log.Enabled(ctx, logger.LevelTrace)).To(BeTrue())
 	})
 

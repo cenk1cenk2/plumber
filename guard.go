@@ -11,9 +11,9 @@ import (
 // GuardHandlerFn is the callback of the guards that hand over the control to the caller.
 type GuardHandlerFn func()
 
-// DEFAULT_GRACE_TIMEOUT is the duration GuardAlways gives to a job when no other grace period is
+// DefaultGraceTimeout is the duration GuardAlways gives to a job when no other grace period is
 // set.
-const DEFAULT_GRACE_TIMEOUT = time.Second * 5
+const DefaultGraceTimeout = time.Second * 5
 
 // GuardTimeout protects the job from taking too much time on execution. The job is run in its own
 // goroutine while the current goroutine waits until the job is finished or the time is out. The
@@ -110,7 +110,7 @@ func GuardResume(job Job, log ...*slog.Logger) Job {
 // the cancellation of the flow and giving it a grace period instead. Errors that are caused by the
 // grace period running out are swallowed, while every other error still surfaces.
 func GuardAlways(job Job, grace ...time.Duration) Job {
-	timeout := DEFAULT_GRACE_TIMEOUT
+	timeout := DefaultGraceTimeout
 
 	if len(grace) > 0 {
 		timeout = grace[0]

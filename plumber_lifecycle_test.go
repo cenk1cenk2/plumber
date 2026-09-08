@@ -78,7 +78,7 @@ var _ = Describe("plumber lifecycle", func() {
 
 			Expect(debug).To(BeTrue())
 			Expect(ci).To(BeTrue())
-			Expect(level).To(Equal(plumber.LOG_LEVEL_DEBUG))
+			Expect(level).To(Equal(plumber.LogLevelDebug))
 		})
 
 		It("should run the wrapped Cli Before hook before actions", func(ctx SpecContext) {

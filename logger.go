@@ -19,46 +19,46 @@ shares its value with the level of a panic that is never used as an output level
 type LogLevel int
 
 const (
-	LOG_LEVEL_DEFAULT LogLevel = 0
-	LOG_LEVEL_PANIC   LogLevel = 0
-	LOG_LEVEL_FATAL   LogLevel = 1
-	LOG_LEVEL_ERROR   LogLevel = 2
-	LOG_LEVEL_WARN    LogLevel = 3
-	LOG_LEVEL_INFO    LogLevel = 4
-	LOG_LEVEL_DEBUG   LogLevel = 5
-	LOG_LEVEL_TRACE   LogLevel = 6
-	LOG_FIELD_CONTEXT string   = "context"
-	LOG_FIELD_STATUS  string   = "status"
+	LogLevelDefault LogLevel = 0
+	LogLevelPanic   LogLevel = 0
+	LogLevelFatal   LogLevel = 1
+	LogLevelError   LogLevel = 2
+	LogLevelWarn    LogLevel = 3
+	LogLevelInfo    LogLevel = 4
+	LogLevelDebug   LogLevel = 5
+	LogLevelTrace   LogLevel = 6
+	LogFieldContext string   = "context"
+	LogFieldStatus  string   = "status"
 )
 
 const (
-	log_context_disable string = "DISABLE"
-	log_context_skipped string = "SKIPPED"
+	logContextDisable string = "DISABLE"
+	logContextSkipped string = "SKIPPED"
 
-	log_status_fail   string = "FAIL"
-	log_status_exit   string = "EXIT"
-	log_status_run    string = "RUN"
-	log_status_end    string = "END"
-	log_status_script string = "SCRIPT"
-	log_status_retry  string = "RETRY"
+	logStatusFail   string = "FAIL"
+	logStatusExit   string = "EXIT"
+	logStatusRun    string = "RUN"
+	logStatusEnd    string = "END"
+	logStatusScript string = "SCRIPT"
+	logStatusRetry  string = "RETRY"
 )
 
 // Returns the name of the level.
 func (l LogLevel) String() string {
 	switch l {
-	case LOG_LEVEL_PANIC:
+	case LogLevelPanic:
 		return "panic"
-	case LOG_LEVEL_FATAL:
+	case LogLevelFatal:
 		return "fatal"
-	case LOG_LEVEL_ERROR:
+	case LogLevelError:
 		return "error"
-	case LOG_LEVEL_WARN:
+	case LogLevelWarn:
 		return "warning"
-	case LOG_LEVEL_INFO:
+	case LogLevelInfo:
 		return "info"
-	case LOG_LEVEL_DEBUG:
+	case LogLevelDebug:
 		return "debug"
-	case LOG_LEVEL_TRACE:
+	case LogLevelTrace:
 		return "trace"
 	}
 
@@ -70,37 +70,37 @@ func (l LogLevel) String() string {
 func ParseLogLevel(level string) (LogLevel, error) {
 	switch strings.ToLower(level) {
 	case "panic":
-		return LOG_LEVEL_PANIC, nil
+		return LogLevelPanic, nil
 	case "fatal":
-		return LOG_LEVEL_FATAL, nil
+		return LogLevelFatal, nil
 	case "error":
-		return LOG_LEVEL_ERROR, nil
+		return LogLevelError, nil
 	case "warn", "warning":
-		return LOG_LEVEL_WARN, nil
+		return LogLevelWarn, nil
 	case "info":
-		return LOG_LEVEL_INFO, nil
+		return LogLevelInfo, nil
 	case "debug":
-		return LOG_LEVEL_DEBUG, nil
+		return LogLevelDebug, nil
 	case "trace":
-		return LOG_LEVEL_TRACE, nil
+		return LogLevelTrace, nil
 	}
 
-	return LOG_LEVEL_DEFAULT, fmt.Errorf("Not a valid log level: %s", level)
+	return LogLevelDefault, fmt.Errorf("Not a valid log level: %s", level)
 }
 
 // Maps the level to the level of the handler, where the levels that end the application share the
 // level of an error since they are never used as an output level.
 func (l LogLevel) slog() slog.Level {
 	switch l {
-	case LOG_LEVEL_TRACE:
+	case LogLevelTrace:
 		return logger.LevelTrace
-	case LOG_LEVEL_DEBUG:
+	case LogLevelDebug:
 		return slog.LevelDebug
-	case LOG_LEVEL_INFO:
+	case LogLevelInfo:
 		return slog.LevelInfo
-	case LOG_LEVEL_WARN:
+	case LogLevelWarn:
 		return slog.LevelWarn
-	case LOG_LEVEL_ERROR, LOG_LEVEL_FATAL, LOG_LEVEL_PANIC:
+	case LogLevelError, LogLevelFatal, LogLevelPanic:
 		return slog.LevelError
 	}
 
@@ -111,14 +111,14 @@ func (l LogLevel) slog() slog.Level {
 func logLevelFromSlog(level slog.Level) LogLevel {
 	switch {
 	case level <= logger.LevelTrace:
-		return LOG_LEVEL_TRACE
+		return LogLevelTrace
 	case level <= slog.LevelDebug:
-		return LOG_LEVEL_DEBUG
+		return LogLevelDebug
 	case level <= slog.LevelInfo:
-		return LOG_LEVEL_INFO
+		return LogLevelInfo
 	case level <= slog.LevelWarn:
-		return LOG_LEVEL_WARN
+		return LogLevelWarn
 	}
 
-	return LOG_LEVEL_ERROR
+	return LogLevelError
 }

@@ -20,19 +20,19 @@ var _ = Describe("logger", func() {
 				Expect(int(level)).To(Equal(value))
 				Expect(level.String()).To(Equal(name))
 			},
-			Entry("panic", plumber.LOG_LEVEL_PANIC, 0, "panic"),
-			Entry("fatal", plumber.LOG_LEVEL_FATAL, 1, "fatal"),
-			Entry("error", plumber.LOG_LEVEL_ERROR, 2, "error"),
-			Entry("warn", plumber.LOG_LEVEL_WARN, 3, "warning"),
-			Entry("info", plumber.LOG_LEVEL_INFO, 4, "info"),
-			Entry("debug", plumber.LOG_LEVEL_DEBUG, 5, "debug"),
-			Entry("trace", plumber.LOG_LEVEL_TRACE, 6, "trace"),
+			Entry("panic", plumber.LogLevelPanic, 0, "panic"),
+			Entry("fatal", plumber.LogLevelFatal, 1, "fatal"),
+			Entry("error", plumber.LogLevelError, 2, "error"),
+			Entry("warn", plumber.LogLevelWarn, 3, "warning"),
+			Entry("info", plumber.LogLevelInfo, 4, "info"),
+			Entry("debug", plumber.LogLevelDebug, 5, "debug"),
+			Entry("trace", plumber.LogLevelTrace, 6, "trace"),
 		)
 
 		It("should keep the default as the sentinel it is", func(_ SpecContext) {
-			Expect(plumber.LOG_LEVEL_DEFAULT).To(Equal(plumber.LOG_LEVEL_PANIC))
-			Expect(plumber.LOG_LEVEL_ERROR < plumber.LOG_LEVEL_WARN).To(BeTrue())
-			Expect(plumber.LOG_LEVEL_WARN <= plumber.LOG_LEVEL_ERROR).To(BeFalse())
+			Expect(plumber.LogLevelDefault).To(Equal(plumber.LogLevelPanic))
+			Expect(plumber.LogLevelError < plumber.LogLevelWarn).To(BeTrue())
+			Expect(plumber.LogLevelWarn <= plumber.LogLevelError).To(BeFalse())
 		})
 
 		DescribeTable(
@@ -43,14 +43,14 @@ var _ = Describe("logger", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(level).To(Equal(expected))
 			},
-			Entry("panic", "panic", plumber.LOG_LEVEL_PANIC),
-			Entry("fatal", "fatal", plumber.LOG_LEVEL_FATAL),
-			Entry("error", "error", plumber.LOG_LEVEL_ERROR),
-			Entry("warn", "warn", plumber.LOG_LEVEL_WARN),
-			Entry("warning", "warning", plumber.LOG_LEVEL_WARN),
-			Entry("info", "info", plumber.LOG_LEVEL_INFO),
-			Entry("debug", "DEBUG", plumber.LOG_LEVEL_DEBUG),
-			Entry("trace", "trace", plumber.LOG_LEVEL_TRACE),
+			Entry("panic", "panic", plumber.LogLevelPanic),
+			Entry("fatal", "fatal", plumber.LogLevelFatal),
+			Entry("error", "error", plumber.LogLevelError),
+			Entry("warn", "warn", plumber.LogLevelWarn),
+			Entry("warning", "warning", plumber.LogLevelWarn),
+			Entry("info", "info", plumber.LogLevelInfo),
+			Entry("debug", "DEBUG", plumber.LogLevelDebug),
+			Entry("trace", "trace", plumber.LogLevelTrace),
 		)
 
 		It("should fail on a level that does not exist", func(_ SpecContext) {
@@ -71,11 +71,11 @@ var _ = Describe("logger", func() {
 				Expect(app.Log.Enabled(ctx, expected)).To(BeTrue())
 				Expect(app.Log.Enabled(ctx, expected-1)).To(BeFalse())
 			},
-			Entry("trace", plumber.LOG_LEVEL_TRACE, logger.LevelTrace),
-			Entry("debug", plumber.LOG_LEVEL_DEBUG, slog.LevelDebug),
-			Entry("info", plumber.LOG_LEVEL_INFO, slog.LevelInfo),
-			Entry("warn", plumber.LOG_LEVEL_WARN, slog.LevelWarn),
-			Entry("error", plumber.LOG_LEVEL_ERROR, slog.LevelError),
+			Entry("trace", plumber.LogLevelTrace, logger.LevelTrace),
+			Entry("debug", plumber.LogLevelDebug, slog.LevelDebug),
+			Entry("info", plumber.LogLevelInfo, slog.LevelInfo),
+			Entry("warn", plumber.LogLevelWarn, slog.LevelWarn),
+			Entry("error", plumber.LogLevelError, slog.LevelError),
 		)
 
 		It("should hand over the writer and the caller reporting of the application", func(_ SpecContext) {

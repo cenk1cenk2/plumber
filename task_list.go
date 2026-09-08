@@ -147,7 +147,7 @@ func (p *TaskList) RunBefore(ctx context.Context) error {
 
 	started := time.Now()
 
-	p.Log.With(slog.String(LOG_FIELD_STATUS, log_status_run)).
+	p.Log.With(slog.String(LogFieldStatus, logStatusRun)).
 		Log(ctx, logger.LevelTrace, fmt.Sprintf("ShouldRunBefore: %s", p.Name))
 
 	if p.shouldRunBeforeFn != nil {
@@ -156,7 +156,7 @@ func (p *TaskList) RunBefore(ctx context.Context) error {
 		}
 	}
 
-	p.Log.With(slog.String(LOG_FIELD_STATUS, log_status_end)).
+	p.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
 		Log(
 			ctx,
 			logger.LevelTrace,
@@ -174,14 +174,14 @@ func (p *TaskList) Run(ctx context.Context) error {
 
 	started := time.Now()
 
-	p.Log.With(slog.String(LOG_FIELD_STATUS, log_status_run)).
+	p.Log.With(slog.String(LogFieldStatus, logStatusRun)).
 		Log(ctx, logger.LevelTrace, fmt.Sprintf("Run: %s", p.Name))
 
 	if err := p.Plumber.runJobs(ctx, p.fn(p)); err != nil {
 		return err
 	}
 
-	p.Log.With(slog.String(LOG_FIELD_STATUS, log_status_end)).
+	p.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
 		Log(
 			ctx,
 			logger.LevelTrace,
@@ -206,7 +206,7 @@ func (p *TaskList) RunAfter(ctx context.Context) error {
 
 	started := time.Now()
 
-	p.Log.With(slog.String(LOG_FIELD_STATUS, log_status_run)).
+	p.Log.With(slog.String(LogFieldStatus, logStatusRun)).
 		Log(ctx, logger.LevelTrace, fmt.Sprintf("ShouldRunAfter: %s", p.Name))
 
 	if p.shouldRunAfterFn != nil {
@@ -215,7 +215,7 @@ func (p *TaskList) RunAfter(ctx context.Context) error {
 		}
 	}
 
-	p.Log.With(slog.String(LOG_FIELD_STATUS, log_status_end)).
+	p.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
 		Log(
 			ctx,
 			logger.LevelTrace,
@@ -247,12 +247,12 @@ func (p *TaskList) JobAfter() Job {
 // Handles the cases where the task list should not be executed.
 func (p *TaskList) handleStopCases() bool {
 	if result := p.IsDisabled(); result {
-		p.Log.With(slog.String(LOG_FIELD_CONTEXT, log_context_disable)).
+		p.Log.With(slog.String(LogFieldContext, logContextDisable)).
 			Debug(p.Name)
 
 		return true
 	} else if result := p.IsSkipped(); result {
-		p.Log.With(slog.String(LOG_FIELD_CONTEXT, log_context_skipped)).
+		p.Log.With(slog.String(LogFieldContext, logContextSkipped)).
 			Warn(p.Name)
 
 		return true
@@ -270,9 +270,9 @@ func (p *TaskList) setupLogger() {
 
 		p.Name = strings.Join(f[len(f)-p.options.runtimeDepth:], "/")
 
-		p.Log = p.Plumber.Log.With(slog.String(LOG_FIELD_CONTEXT, p.Name))
+		p.Log = p.Plumber.Log.With(slog.String(LogFieldContext, p.Name))
 	} else {
-		p.Log = p.Plumber.Log.With(slog.String(LOG_FIELD_CONTEXT, "TL"))
+		p.Log = p.Plumber.Log.With(slog.String(LogFieldContext, "TL"))
 		p.Log.Log(
 			context.Background(),
 			logger.LevelTrace,
