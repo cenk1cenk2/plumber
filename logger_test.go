@@ -99,6 +99,23 @@ var _ = Describe("logger", func() {
 		})
 	})
 
+	Describe("slog level", func() {
+		DescribeTable(
+			"should map to the equivalent level of the handler",
+			func(_ SpecContext, level plumber.LogLevel, expected slog.Level) {
+				Expect(level.SlogLevel()).To(Equal(expected))
+			},
+			Entry("default", plumber.LogLevelDefault, slog.LevelError),
+			Entry("panic (same value as default)", plumber.LogLevelPanic, slog.LevelError),
+			Entry("fatal", plumber.LogLevelFatal, slog.LevelError),
+			Entry("error", plumber.LogLevelError, slog.LevelError),
+			Entry("warn", plumber.LogLevelWarn, slog.LevelWarn),
+			Entry("info", plumber.LogLevelInfo, slog.LevelInfo),
+			Entry("debug", plumber.LogLevelDebug, slog.LevelDebug),
+			Entry("trace", plumber.LogLevelTrace, logger.LevelTrace),
+		)
+	})
+
 	Describe("controls", func() {
 		DescribeTable(
 			"should gate the messages of the application with the level that is set",
