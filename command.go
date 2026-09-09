@@ -37,6 +37,7 @@ type Command struct {
 
 	shouldRunBeforeFn CommandFn
 	fn                CommandFn
+	captureFns        []CommandFn
 	shouldRunAfterFn  CommandFn
 	onTerminatorFn    CommandFn
 	jobWrapperFn      CommandJobWrapperFn
@@ -317,6 +318,55 @@ func (c *Command) EnableStreamRecording() *Command {
 	return c
 }
 
+// Captures the combined stdout/stderr stream into the given destination, newline-joined and trimmed,
+// once the command has run successfully. Implicitly enables stream recording. Runs before the
+// shouldRunAfterFn, so that callback can rely on the destination already being populated; multiple
+// captures on the same command are all run.
+func (c *Command) CaptureOutput(dst *string) *Command {
+	return c.captureStream(dst, (*Command).GetCombinedStream)
+}
+
+// Captures the stdout stream into the given destination, newline-joined and trimmed, once the command
+// has run successfully. Implicitly enables stream recording.
+func (c *Command) CaptureStdout(dst *string) *Command {
+	return c.captureStream(dst, (*Command).GetStdoutStream)
+}
+
+// Captures the stderr stream into the given destination, newline-joined and trimmed, once the command
+// has run successfully. Implicitly enables stream recording.
+func (c *Command) CaptureStderr(dst *string) *Command {
+	return c.captureStream(dst, (*Command).GetStderrStream)
+}
+
+// Registers a capture hook that reads the given recorded stream and writes it, trimmed, to dst.
+func (c *Command) captureStream(dst *string, stream func(*Command) []string) *Command {
+	if dst == nil {
+		panic(fmt.Errorf("Capture destination can not be nil."))
+	}
+
+	c.EnableStreamRecording()
+
+	c.captureFns = append(c.captureFns, func(_ context.Context, cmd *Command) error {
+		*dst = strings.TrimSpace(strings.Join(stream(cmd), "\n"))
+
+		return nil
+	})
+
+	return c
+}
+
+// Runs the registered capture hooks against the command that actually ran, which matters for the
+// RunWith scoped clone, before the shouldRunAfterFn observes the captured destinations.
+func (c *Command) runCaptures(ctx context.Context) error {
+	for _, fn := range c.captureFns {
+		if err := fn(ctx, c); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Sets the option where it will raise an error if the underlying command stops.
 func (c *Command) EnsureIsAlive() *Command {
 	c.options.ensureIsAlive = true
@@ -446,6 +496,10 @@ func (c *Command) run(ctx context.Context, runtime Runtime) error {
 		c.Log.With(slog.String(LogFieldStatus, logStatusFail)).
 			Error(fmt.Sprintf("%s > %s", c.GetFormattedCommand(), err.Error()))
 
+		return err
+	}
+
+	if err := c.runCaptures(ctx); err != nil {
 		return err
 	}
 

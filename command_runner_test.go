@@ -394,4 +394,82 @@ var _ = Describe("command runners", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(stdin).To(Equal("hello file\n"))
 	})
+
+	Context("output capturing", func() {
+		It("should capture the combined stream trimmed", func(ctx SpecContext) {
+			var captured string
+			runner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Stdout: "output\n", Stderr: "problem\n"})
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock").
+				CaptureOutput(&captured)
+
+			Expect(command.RunWith(ctx, plumber.Runtime{CommandRunner: runner.Runner()})).To(Succeed())
+			Expect(captured).To(Equal("output\n\nproblem"))
+		})
+
+		It("should keep stdout and stderr captures on the same command separate", func(ctx SpecContext) {
+			var stdout, stderr string
+			runner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Stdout: "out\n", Stderr: "err\n"})
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock").
+				CaptureStdout(&stdout).
+				CaptureStderr(&stderr)
+
+			Expect(command.RunWith(ctx, plumber.Runtime{CommandRunner: runner.Runner()})).To(Succeed())
+			Expect(stdout).To(Equal("out"))
+			Expect(stderr).To(Equal("err"))
+		})
+
+		It("should run captures before shouldRunAfterFn so it observes the captured value", func(ctx SpecContext) {
+			var captured, observed string
+			runner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Stdout: "output\n"})
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock").
+				CaptureOutput(&captured).
+				ShouldRunAfter(func(_ context.Context, c *plumber.Command) error {
+					observed = captured
+
+					return nil
+				})
+
+			Expect(command.RunWith(ctx, plumber.Runtime{CommandRunner: runner.Runner()})).To(Succeed())
+			Expect(observed).To(Equal("output"))
+		})
+
+		It("should leave the destination untouched when the command fails without ignoring the error", func(ctx SpecContext) {
+			captured := "unchanged"
+			failure := plumbertests.TestingCommandFailure(1)
+			runner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Stdout: "output\n", Result: &failure})
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock").
+				CaptureOutput(&captured)
+
+			Expect(command.RunWith(ctx, plumber.Runtime{CommandRunner: runner.Runner()})).To(HaveOccurred())
+			Expect(captured).To(Equal("unchanged"))
+		})
+
+		It("should still capture output for a failing command with SetIgnoreError", func(ctx SpecContext) {
+			var captured string
+			failure := plumbertests.TestingCommandFailure(1)
+			runner := plumbertests.NewTestingCommandRunner().
+				Add(plumbertests.TestingCommandResponse{Stdout: "output\n", Result: &failure})
+			command := fixture.NewTaskList("list").CreateTask("task").
+				CreateCommand("mock").
+				SetIgnoreError().
+				CaptureOutput(&captured)
+
+			Expect(command.RunWith(ctx, plumber.Runtime{CommandRunner: runner.Runner()})).To(Succeed())
+			Expect(captured).To(Equal("output"))
+		})
+
+		It("should panic when the capture destination is nil", func() {
+			command := fixture.NewTaskList("list").CreateTask("task").CreateCommand("mock")
+
+			Expect(func() { command.CaptureOutput(nil) }).To(Panic())
+		})
+	})
 })
