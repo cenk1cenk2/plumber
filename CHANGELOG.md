@@ -1,3 +1,10 @@
+# [7.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v7.1.0...v7.2.0) (2026-09-09)
+
+
+### Features
+
+* expose slog level mapping on LogLevel (K-1283) ([5f817b5](https://gitlab.kilic.dev/libraries/plumber/commit/5f817b50cbe394e3ee3f25b35dfd42273a225963))
+
 # [7.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v7.0.0...v7.1.0) (2026-09-09)
 
 
