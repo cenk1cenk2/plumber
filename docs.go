@@ -192,6 +192,38 @@ func markdownStyleFlag(value MarkdownStyle) cli.Flag {
 	}
 }
 
+/*
+Demotes the required flags of the application to local flags.
+
+A flag is persistent unless it is marked as local, which applies the flags of the application to
+its subcommands as well, and a required flag is enforced for the whole lineage of the command that
+runs. The documentation is written without the application ever being set up for a run, therefore
+none of the required flags of it can be satisfied while it is generated.
+*/
+func demoteRequiredFlags(flags []cli.Flag) {
+	for _, f := range flags {
+		required, ok := f.(cli.RequiredFlag)
+
+		if !ok || !required.IsRequired() {
+			continue
+		}
+
+		value := reflect.Indirect(reflect.ValueOf(f))
+
+		if value.Kind() != reflect.Struct {
+			continue
+		}
+
+		field := value.FieldByName("Local")
+
+		if !field.IsValid() || !field.CanSet() || field.Kind() != reflect.Bool {
+			continue
+		}
+
+		field.SetBool(true)
+	}
+}
+
 func (p *Plumber) generateMarkdownDocumentation(style MarkdownStyle) error {
 	if p.options.documentation.MarkdownOutputFile == "" {
 		p.options.documentation.MarkdownOutputFile = "README.md"
