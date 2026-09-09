@@ -756,6 +756,8 @@ func (p *Plumber) Run() {
 		args[1],
 	) {
 		p.Cli.SkipFlagParsing = true
+
+		demoteRequiredFlags(p.Cli.Flags)
 	}
 
 	if p.options.greeter != nil {
