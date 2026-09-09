@@ -204,6 +204,34 @@ var _ = Describe("plumber lifecycle", func() {
 			Eventually(fixture.ExitCodes).Should(Equal([]int{1}))
 		}, SpecTimeout(time.Second*10))
 
+		It("should exit with a failure code when a command of a task can not start", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+			runner := plumbertests.NewTestingCommandRunner()
+			runner.Add(plumbertests.TestingCommandResponse{
+				Name:   "kustomize",
+				Result: &plumber.CommandResult{},
+				Err:    errors.New(`exec: "kustomize": executable file not found in $PATH`),
+			})
+
+			tl := fixture.NewTaskList("version").
+				SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()}).
+				Set(func(tl *plumber.TaskList) plumber.Job {
+					return tl.CreateTask("version").
+						Set(func(_ context.Context, t *plumber.Task) error {
+							t.CreateCommand("kustomize", "version").AddSelfToTheTask()
+
+							return nil
+						}).
+						ShouldRunAfter(func(ctx context.Context, t *plumber.Task) error {
+							return t.RunCommandJobAsJobSequence(ctx)
+						}).
+						Job()
+				})
+
+			Expect(fixture.Plumber.RunJobs(plumber.CombineTaskLists(tl))).To(Succeed())
+			Expect(fixture.ExitCodes()).To(Equal([]int{1}))
+		}, SpecTimeout(time.Second*10))
+
 		It("should yield nil from RunJobs when the terminator shuts the application down", func(_ SpecContext) {
 			fixture := plumbertests.NewPlumber()
 			fixture.Plumber.EnableTerminator()
