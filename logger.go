@@ -88,6 +88,28 @@ func ParseLogLevel(level string) (LogLevel, error) {
 	return LogLevelDefault, fmt.Errorf("Not a valid log level: %s", level)
 }
 
+// Marshals the level into the name it is known by, for use in text based encodings.
+func (l LogLevel) MarshalText() ([]byte, error) {
+	return []byte(l.String()), nil
+}
+
+/*
+Unmarshals the name of a level into it, for use in text based encodings.
+
+An empty value fails to parse the same way it does for the level of logrus that this type used to
+be an alias of, rather than silently falling back to the default.
+*/
+func (l *LogLevel) UnmarshalText(text []byte) error {
+	level, err := ParseLogLevel(string(text))
+	if err != nil {
+		return err
+	}
+
+	*l = level
+
+	return nil
+}
+
 // Maps the level to the level of the handler, where the levels that end the application share the
 // level of an error since they are never used as an output level.
 func (l LogLevel) slog() slog.Level {
