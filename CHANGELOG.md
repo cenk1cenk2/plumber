@@ -1,3 +1,46 @@
+# [7.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.5.3...v7.0.0) (2026-09-09)
+
+
+### Code Refactoring
+
+* **core:** make identifier casing go idiomatic ([2c87228](https://gitlab.kilic.dev/libraries/plumber/commit/2c87228c315577c70fd0f9fd9e29f4fd5482ca10))
+
+
+### Features
+
+* **command:** capture recorded streams into typed destinations ([7371eec](https://gitlab.kilic.dev/libraries/plumber/commit/7371eec1673943e05865626853d6eb675514f8e5))
+* **docs:** add docs command and deprecate markdown sentinels ([2bef0de](https://gitlab.kilic.dev/libraries/plumber/commit/2bef0de1ccbaabc1931f3ef89dedae1c8cddb643))
+* **docs:** redesign markdown templates with richer cli metadata ([63dc727](https://gitlab.kilic.dev/libraries/plumber/commit/63dc727232ad987778c43aa35fb585cad95e6eca))
+* **flow:** add stdlib job orchestration primitives ([81b1238](https://gitlab.kilic.dev/libraries/plumber/commit/81b1238ff831a17854234cebc0537044bc2b9d5f))
+* **logger:** style records with lipgloss on a forced ansi profile ([e766e3a](https://gitlab.kilic.dev/libraries/plumber/commit/e766e3a3e17325c8213d06d0cdc442a0cafffeac))
+
+
+### Performance Improvements
+
+* release the stdlib-native orchestration core as v7 ([2782c78](https://gitlab.kilic.dev/libraries/plumber/commit/2782c780de4f203f169e8b4ad97a035c9600598e))
+
+
+### BREAKING CHANGES
+
+* **core:** the exported constants LOG_LEVEL_DEFAULT, LOG_LEVEL_PANIC,
+LOG_LEVEL_FATAL, LOG_LEVEL_ERROR, LOG_LEVEL_WARN, LOG_LEVEL_INFO,
+LOG_LEVEL_DEBUG, LOG_LEVEL_TRACE, LOG_FIELD_CONTEXT, LOG_FIELD_STATUS,
+COMMAND_RETRY_DELAY and CLI_FLAGS_CATEGORY are renamed to LogLevelDefault,
+LogLevelPanic, LogLevelFatal, LogLevelError, LogLevelWarn, LogLevelInfo,
+LogLevelDebug, LogLevelTrace, LogFieldContext, LogFieldStatus,
+CommandRetryDelay and CliFlagsCategory.
+* the module path moves to github.com/cenk1cenk2/plumber/v7.
+Jobs and all Task/TaskList/Command callbacks take a context.Context first
+argument; Run/RunWith/RunSubtasks/RunCommandJob* take ctx. Removed:
+go-floc types and result masks, CreateBasicJob, CreateJobWithContext,
+JobThen, JobElse, Capture/Result, AppChannel, PlumberError, SendError,
+Terminator.Lock/ShouldTerminate/Terminated, SetFormatter, the broadcaster
+package, and logrus-typed loggers. GuardResume drops its mask
+(GuardIgnoreCancel covers cancellation-only resume); background job errors
+are logged and dropped; task errors propagate to a single exit translation;
+terminator hooks run under a detached shutdown context. See the README
+section "Migration to v7".
+
 ## [6.5.3](https://gitlab.kilic.dev/libraries/plumber/compare/v6.5.2...v6.5.3) (2026-09-09)
 
 
