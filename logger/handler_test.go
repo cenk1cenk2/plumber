@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"runtime"
@@ -13,22 +14,67 @@ import (
 
 	"github.com/cenk1cenk2/plumber/v7/logger"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 /*
-The badges of the levels as the forced ansi profile renders them, where the bold attribute comes
-first, the faint attribute of the levels that are dimmed as a whole comes second and the color of
-the level comes last.
+The renderer that the styles of this file are composed with, forced onto the same profile the
+handler forces its own renderer to, so that the rendered bytes are deterministic regardless of the
+terminal the suite runs in.
+
+The styles below express the theme the handler is expected to render, declared independently of the
+handler's own style table, so that a regression in the source styling fails a spec here instead of
+both sides drifting together.
 */
-const (
-	badgeTrace = "\x1b[1;2;35m[T]\x1b[0m "
-	badgeDebug = "\x1b[1;2;37m[D]\x1b[0m "
-	badgeInfo  = "\x1b[1;36m[I]\x1b[0m "
-	badgeWarn  = "\x1b[1;33m[W]\x1b[0m "
-	badgeError = "\x1b[1;31m[E]\x1b[0m "
-)
+var stylesRenderer = func() *lipgloss.Renderer {
+	renderer := lipgloss.NewRenderer(io.Discard)
+	renderer.SetColorProfile(termenv.ANSI)
+
+	return renderer
+}()
+
+// The style that every element of a record of the given level is expected to inherit from, dimmed
+// as a whole for the levels that are only noise.
+func styleBase(level slog.Level) lipgloss.Style {
+	return stylesRenderer.NewStyle().TabWidth(lipgloss.NoTabConversion).Faint(level <= slog.LevelDebug)
+}
+
+// The style of the badge that is expected to name the level of a record.
+func styleBadge(level slog.Level) lipgloss.Style {
+	return styleBase(level).Bold(true).Foreground(styleLevelColor(level))
+}
+
+// The color a badge is expected to carry for the given level.
+func styleLevelColor(level slog.Level) lipgloss.ANSIColor {
+	switch {
+	case level <= logger.LevelTrace:
+		return lipgloss.ANSIColor(5) // magenta
+	case level <= slog.LevelDebug:
+		return lipgloss.ANSIColor(7) // gray
+	case level <= slog.LevelInfo:
+		return lipgloss.ANSIColor(6) // cyan
+	case level <= slog.LevelWarn:
+		return lipgloss.ANSIColor(3) // yellow
+	default:
+		return lipgloss.ANSIColor(1) // red
+	}
+}
+
+// The style a field with the given key is expected to carry at the given level.
+func styleField(level slog.Level, key string) lipgloss.Style {
+	switch key {
+	case "context":
+		return styleBase(level).Foreground(lipgloss.ANSIColor(4)) // blue
+	case "status":
+		return styleBase(level).Foreground(lipgloss.ANSIColor(2)) // green
+	default:
+		return styleBase(level).Faint(true)
+	}
+}
 
 func handle(handler *logger.Handler, record slog.Record) {
 	GinkgoHelper()
@@ -40,17 +86,37 @@ func record(level slog.Level, message string) slog.Record {
 	return slog.NewRecord(time.Unix(0, 0), level, message, 0)
 }
 
-// The fields as the forced ansi profile renders them for a record that is not dimmed as a whole.
+// The badge of a level as it is expected to be rendered, composed from the style declared above
+// instead of a hand-written escape sequence.
+func badge(level slog.Level, initial string) string {
+	return styleBadge(level).Render("["+initial+"]") + " "
+}
+
+var (
+	badgeTrace = badge(logger.LevelTrace, "T")
+	badgeDebug = badge(slog.LevelDebug, "D")
+	badgeInfo  = badge(slog.LevelInfo, "I")
+	badgeWarn  = badge(slog.LevelWarn, "W")
+	badgeError = badge(slog.LevelError, "E")
+)
+
+// The fields as they are expected to be rendered for a record at the info level, which is not
+// dimmed as a whole.
 func contextField(value string) string {
-	return "\x1b[34m[" + value + "]\x1b[0m "
+	return styleField(slog.LevelInfo, "context").Render("["+value+"]") + " "
 }
 
 func statusField(value string) string {
-	return "\x1b[32m[" + value + "]\x1b[0m "
+	return styleField(slog.LevelInfo, "status").Render("["+value+"]") + " "
 }
 
 func field(value string) string {
-	return "\x1b[2m[" + value + "]\x1b[0m "
+	return styleField(slog.LevelInfo, "other").Render("["+value+"]") + " "
+}
+
+// The message as it is expected to be rendered for a record at the given level.
+func message(level slog.Level, value string) string {
+	return styleBase(level).Render(value)
 }
 
 var _ = Describe("Handler", func() {
@@ -301,17 +367,17 @@ var _ = Describe("Handler", func() {
 		Expect(with.Handle(context.Background(), record(slog.LevelWarn, "done"))).To(Succeed())
 
 		Expect(output.String()).To(Equal(
-			"\x1b[1;33m[W]\x1b[0m " +
-				"\x1b[34m[task]\x1b[0m " +
-				"\x1b[32m[RUN]\x1b[0m " +
-				"\x1b[2m[value]\x1b[0m " +
+			badge(slog.LevelWarn, "W") +
+				styleField(slog.LevelWarn, "context").Render("[task]") + " " +
+				styleField(slog.LevelWarn, "status").Render("[RUN]") + " " +
+				styleField(slog.LevelWarn, "other").Render("[value]") + " " +
 				"done\n",
 		))
 	})
 
 	DescribeTable(
 		"should dim the levels that are only noise as a whole",
-		func(_ SpecContext, level slog.Level, expected string) {
+		func(_ SpecContext, level slog.Level, expectedBadge string) {
 			handler := logger.NewHandler()
 			handler.SetOutput(output)
 			handler.SetLevel(logger.LevelTrace)
@@ -324,18 +390,16 @@ var _ = Describe("Handler", func() {
 
 			Expect(with.Handle(context.Background(), record(level, "done"))).To(Succeed())
 
-			Expect(output.String()).To(Equal(expected))
+			Expect(output.String()).To(Equal(
+				expectedBadge +
+					styleField(level, "context").Render("[task]") + " " +
+					styleField(level, "status").Render("[RUN]") + " " +
+					styleField(level, "other").Render("[value]") + " " +
+					message(level, "done") + "\n",
+			))
 		},
-		Entry(
-			"trace",
-			logger.LevelTrace,
-			"\x1b[1;2;35m[T]\x1b[0m \x1b[2;34m[task]\x1b[0m \x1b[2;32m[RUN]\x1b[0m \x1b[2m[value]\x1b[0m \x1b[2mdone\x1b[0m\n",
-		),
-		Entry(
-			"debug",
-			slog.LevelDebug,
-			"\x1b[1;2;37m[D]\x1b[0m \x1b[2;34m[task]\x1b[0m \x1b[2;32m[RUN]\x1b[0m \x1b[2m[value]\x1b[0m \x1b[2mdone\x1b[0m\n",
-		),
+		Entry("trace", logger.LevelTrace, badgeTrace),
+		Entry("debug", slog.LevelDebug, badgeDebug),
 	)
 
 	It("should redact a secret that is wrapped in the styling of a field", func(_ SpecContext) {
@@ -349,7 +413,7 @@ var _ = Describe("Handler", func() {
 		Expect(with.Handle(context.Background(), record(slog.LevelDebug, "done"))).To(Succeed())
 
 		Expect(output.String()).To(Equal(
-			"\x1b[1;2;37m[D]\x1b[0m \x1b[2;32m[[REDACTED]]\x1b[0m \x1b[2mdone\x1b[0m\n",
+			badgeDebug + styleField(slog.LevelDebug, "status").Render("[[REDACTED]]") + " " + message(slog.LevelDebug, "done") + "\n",
 		))
 	})
 
@@ -404,19 +468,19 @@ var _ = Describe("Handler", func() {
 
 	DescribeTable(
 		"should color the badge depending on the level",
-		func(_ SpecContext, level slog.Level, expected string) {
+		func(_ SpecContext, level slog.Level, expectedBadge string) {
 			handler := logger.NewHandler()
 			handler.SetOutput(output)
 
 			handle(handler, record(level, "done"))
 
-			Expect(output.String()).To(Equal(expected))
+			Expect(output.String()).To(Equal(expectedBadge + message(level, "done") + "\n"))
 		},
-		Entry("trace", logger.LevelTrace, badgeTrace+"\x1b[2mdone\x1b[0m\n"),
-		Entry("debug", slog.LevelDebug, badgeDebug+"\x1b[2mdone\x1b[0m\n"),
-		Entry("info", slog.LevelInfo, badgeInfo+"done\n"),
-		Entry("warn", slog.LevelWarn, badgeWarn+"done\n"),
-		Entry("error", slog.LevelError, badgeError+"done\n"),
+		Entry("trace", logger.LevelTrace, badgeTrace),
+		Entry("debug", slog.LevelDebug, badgeDebug),
+		Entry("info", slog.LevelInfo, badgeInfo),
+		Entry("warn", slog.LevelWarn, badgeWarn),
+		Entry("error", slog.LevelError, badgeError),
 	)
 
 	It("should gate the records with the level that is set", func(_ SpecContext) {
@@ -441,7 +505,9 @@ var _ = Describe("Handler", func() {
 		Expect(with.Enabled(context.Background(), logger.LevelTrace)).To(BeTrue())
 		Expect(with.Handle(context.Background(), record(logger.LevelTrace, "done"))).To(Succeed())
 
-		Expect(output.String()).To(Equal(badgeTrace + "\x1b[2;34m[task]\x1b[0m " + "\x1b[2mdone\x1b[0m\n"))
+		Expect(output.String()).To(Equal(
+			badgeTrace + styleField(logger.LevelTrace, "context").Render("[task]") + " " + message(logger.LevelTrace, "done") + "\n",
+		))
 	})
 
 	It("should not report the caller unless it is asked for", func(_ SpecContext) {
@@ -461,5 +527,67 @@ var _ = Describe("Handler", func() {
 		handle(handler, slog.NewRecord(time.Unix(0, 0), slog.LevelInfo, "done", pcs[0]))
 
 		Expect(output.String()).To(ContainSubstring("handler_test.go:"))
+	})
+
+	// This spec pins the real rendered bytes independently of both the source and the test style
+	// declarations above, so a genuine escape-sequence regression is still caught even if the two
+	// were to drift together.
+	DescribeTable(
+		"should keep the exact bytes of the styled output",
+		func(_ SpecContext, attrs []slog.Attr, rec slog.Record, expected string) {
+			handler := logger.NewHandler()
+			handler.SetOutput(output)
+
+			var h slog.Handler = handler
+			if len(attrs) > 0 {
+				h = handler.WithAttrs(attrs)
+			}
+
+			Expect(h.Handle(context.Background(), rec)).To(Succeed())
+
+			Expect(output.String()).To(Equal(expected))
+		},
+		Entry("the trace badge", []slog.Attr(nil), record(logger.LevelTrace, "done"), "\x1b[1;2;35m[T]\x1b[0m \x1b[2mdone\x1b[0m\n"),
+		Entry("the debug badge", []slog.Attr(nil), record(slog.LevelDebug, "done"), "\x1b[1;2;37m[D]\x1b[0m \x1b[2mdone\x1b[0m\n"),
+		Entry("the info badge", []slog.Attr(nil), record(slog.LevelInfo, "done"), "\x1b[1;36m[I]\x1b[0m done\n"),
+		Entry("the warn badge", []slog.Attr(nil), record(slog.LevelWarn, "done"), "\x1b[1;33m[W]\x1b[0m done\n"),
+		Entry("the error badge", []slog.Attr(nil), record(slog.LevelError, "done"), "\x1b[1;31m[E]\x1b[0m done\n"),
+		Entry(
+			"a context field",
+			[]slog.Attr{slog.String("context", "task")},
+			record(slog.LevelInfo, "done"),
+			"\x1b[1;36m[I]\x1b[0m \x1b[34m[task]\x1b[0m done\n",
+		),
+		Entry(
+			"a status field",
+			[]slog.Attr{slog.String("status", "RUN")},
+			record(slog.LevelInfo, "done"),
+			"\x1b[1;36m[I]\x1b[0m \x1b[32m[RUN]\x1b[0m done\n",
+		),
+		Entry(
+			"a consumer field",
+			[]slog.Attr{slog.String("other", "value")},
+			record(slog.LevelInfo, "done"),
+			"\x1b[1;36m[I]\x1b[0m \x1b[2m[value]\x1b[0m done\n",
+		),
+		Entry(
+			"a whole-line-faint trace record with a field",
+			[]slog.Attr{slog.String("context", "task")},
+			record(logger.LevelTrace, "done"),
+			"\x1b[1;2;35m[T]\x1b[0m \x1b[2;34m[task]\x1b[0m \x1b[2mdone\x1b[0m\n",
+		),
+	)
+
+	// This spec pins the zero-escape byte contract when colors are turned off, which is the other
+	// end of the styled-output contract above.
+	It("should keep the exact zero-escape bytes when colors are turned off", func(_ SpecContext) {
+		GinkgoT().Setenv("NO_COLOR", "1")
+
+		handler := logger.NewHandler()
+		handler.SetOutput(output)
+
+		handle(handler, record(slog.LevelInfo, "done"))
+
+		Expect(output.String()).To(Equal("[I] done\n"))
 	})
 })
