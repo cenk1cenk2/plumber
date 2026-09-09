@@ -1,21 +1,21 @@
 package plumber
 
 import (
-	"os"
+	"context"
+	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/workanator/go-floc/v3"
+	"github.com/cenk1cenk2/plumber/v7/logger"
 )
 
 type Task struct {
 	Plumber *Plumber
 	TL      *TaskList
-	Log     *logrus.Entry
-	Channel *AppChannel
+	Log     *slog.Logger
 	Name    string
 
 	Lock     *sync.RWMutex
@@ -32,12 +32,12 @@ type Task struct {
 	jobWrapperFn      TaskJobWrapperFn
 	runtime           Runtime
 	status            TaskStatus
-	flocContext       floc.Context
 }
 
 type TaskOptions struct {
 	skipPredicateFn    TaskPredicateFn
 	disablePredicateFn TaskPredicateFn
+	terminator         bool
 }
 
 type TaskStatus struct {
@@ -45,7 +45,7 @@ type TaskStatus struct {
 }
 
 type (
-	TaskFn           func(t *Task) error
+	TaskFn           func(ctx context.Context, t *Task) error
 	TaskPredicateFn  func(t *Task) bool
 	TaskJobWrapperFn func(job Job, t *Task) Job
 	TaskJobParserFn  func(t *Task) Job
@@ -64,10 +64,9 @@ func NewTask(tl *TaskList, name ...string) *Task {
 		Plumber:  tl.Plumber,
 		Lock:     tl.Lock,
 		taskLock: &sync.RWMutex{},
-		Channel:  tl.Channel,
 	}
 
-	t.Log = tl.Log.WithField(LOG_FIELD_CONTEXT, t.Name)
+	t.Log = tl.Log.With(slog.String(LogFieldContext, t.Name))
 
 	t.subtask = CreateEmptyJob()
 
@@ -127,12 +126,16 @@ func (t *Task) IsSkipped() bool {
 	return t.options.skipPredicateFn(t)
 }
 
-// Enables global plumber terminator on this task.
+// Enables global plumber terminator on this task, which registers the task to the terminator for as
+// long as it is running.
 func (t *Task) EnableTerminator() *Task {
-	t.Log.Tracef("Registered terminator.")
-	t.Plumber.RegisterTerminator()
+	if !t.Plumber.ensureTerminator() {
+		return t
+	}
 
-	go t.handleTerminator()
+	t.Log.Log(context.Background(), logger.LevelTrace, "Enabled terminator.")
+
+	t.options.terminator = true
 
 	return t
 }
@@ -158,44 +161,48 @@ func (t *Task) SetRuntime(runtime Runtime) *Task {
 }
 
 // Runs the current task.
-func (t *Task) Run() error {
+func (t *Task) Run(ctx context.Context) error {
 	if stop := t.handleStopCases(); stop {
 		return nil
 	}
 
+	if t.options.terminator {
+		release := t.Plumber.registerTerminatorHook(t.handleTerminator)
+		defer release()
+	}
+
 	started := time.Now()
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_run).Traceln(t.Name)
+	t.Log.With(slog.String(LogFieldStatus, logStatusRun)).Log(ctx, logger.LevelTrace, t.Name)
 
 	if t.shouldRunBeforeFn != nil {
-		if err := t.shouldRunBeforeFn(t); err != nil {
-			t.Log.Errorln(err)
-
+		if err := t.shouldRunBeforeFn(ctx, t); err != nil {
 			return t.handleErrors(err)
 		}
 	}
 
 	if t.fn != nil {
-		if err := t.fn(t); err != nil {
-			t.Log.Errorln(err)
-
+		if err := t.fn(ctx, t); err != nil {
 			return t.handleErrors(err)
 		}
 	}
 
 	if t.shouldRunAfterFn != nil {
-		if err := t.shouldRunAfterFn(t); err != nil {
-			t.Log.Errorln(err)
-
+		if err := t.shouldRunAfterFn(ctx, t); err != nil {
 			return t.handleErrors(err)
 		}
 	}
 
-	t.Log.WithField(LOG_FIELD_STATUS, log_status_end).Tracef("%s -> %s", t.Name, time.Since(started).Round(time.Millisecond).String())
+	t.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
+		Log(
+			ctx,
+			logger.LevelTrace,
+			fmt.Sprintf("%s -> %s", t.Name, time.Since(started).Round(time.Millisecond).String()),
+		)
 
 	return nil
 }
 
-func (t *Task) RunWith(runtime Runtime) error {
+func (t *Task) RunWith(ctx context.Context, runtime Runtime) error {
 	scoped := *t
 	scoped.runtime = runtime.inherit(t.runtime)
 	scoped.taskLock = &sync.RWMutex{}
@@ -209,7 +216,7 @@ func (t *Task) RunWith(runtime Runtime) error {
 		scoped.commands = append(scoped.commands, &scopedCommand)
 	}
 
-	return scoped.Run()
+	return scoped.Run(ctx)
 }
 
 // Runs the current task as a job.
@@ -218,38 +225,21 @@ func (t *Task) Job() Job {
 		Predicate(func() bool {
 			return t.handleStopCases()
 		}),
-		func(ctx floc.Context, _ floc.Control) error {
-			// The context only belongs to the flow that is running right now, therefore it is
-			// dropped again as soon as the flow is over instead of being left behind dead for
-			// whoever runs the task next.
-			if t.jobWrapperFn != nil {
-				return t.Plumber.runJobs(ctx, t.jobWrapperFn(
-					func(nested floc.Context, _ floc.Control) error {
-						t.flocContext = nested
-						defer func() { t.flocContext = nil }()
-
-						return t.Run()
-					},
-					t,
-				))
+		func(ctx context.Context) error {
+			run := func(ctx context.Context) error {
+				return t.Run(ctx)
 			}
 
-			t.flocContext = ctx
-			defer func() { t.flocContext = nil }()
+			if t.jobWrapperFn != nil {
+				return t.jobWrapperFn(run, t)(ctx)
+			}
 
-			return t.Run()
+			return run(ctx)
 		},
 		CreateJob(func() error {
 			return nil
 		}),
 	)
-}
-
-// Send the error message to plumber while running inside a routine.
-func (t *Task) SendError(err error) *Task {
-	t.Plumber.SendError(t.Log, err)
-
-	return t
 }
 
 // Send the fatal error message to plumber while running inside a routine.
@@ -275,14 +265,14 @@ func (t *Task) handleStopCases() bool {
 	t.status.stopCases.handled = true
 
 	if result := t.IsDisabled(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
-			Debugf("%s", t.Name)
+		t.Log.With(slog.String(LogFieldContext, logContextDisable)).
+			Debug(t.Name)
 
 		t.status.stopCases.result = true
 		return t.status.stopCases.result
 	} else if result := t.IsSkipped(); result {
-		t.Log.WithField(LOG_FIELD_CONTEXT, log_context_skipped).
-			Warnf("%s", t.Name)
+		t.Log.With(slog.String(LogFieldContext, logContextSkipped)).
+			Warn(t.Name)
 
 		t.status.stopCases.result = true
 		return t.status.stopCases.result
@@ -292,35 +282,33 @@ func (t *Task) handleStopCases() bool {
 	return t.status.stopCases.result
 }
 
-// Handles the errors from the current task.
+/*
+Handles the errors from the current task.
+
+The error is only reported and handed back to the flow that runs the task, therefore whoever runs
+the flow decides what happens with it instead of the task itself ending the application.
+*/
 func (t *Task) handleErrors(err error) error {
-	t.SendFatal(err)
+	if err == nil {
+		return nil
+	}
+
+	t.Log.Error(err.Error())
 
 	return err
 }
 
-// Handles the plumber terminator when terminator is triggered.
-func (t *Task) handleTerminator() {
-	if t.IsDisabled() || t.IsSkipped() {
-		t.Log.Traceln("Sending terminated directly because the task is already not available.")
-
-		t.Plumber.DeregisterTerminator()
-
+// Handles the plumber terminator when terminator is triggered while the task is running.
+func (t *Task) handleTerminator(ctx context.Context) {
+	if t.onTerminatorFn == nil {
 		return
 	}
 
-	ch := make(chan os.Signal, 1)
+	t.Log.Log(ctx, logger.LevelTrace, "Forwarding terminator to the task.")
 
-	t.Plumber.Terminator.ShouldTerminate.Register(ch)
-
-	sig := <-ch
-
-	t.Log.Tracef("Forwarding signal to task: %s", sig)
-
-	if t.onTerminatorFn != nil {
-		t.SendError(t.onTerminatorFn(t))
+	if err := t.onTerminatorFn(ctx, t); err != nil {
+		t.Log.Error(err.Error())
 	}
 
-	t.Log.Tracef("Registered as terminated.")
-	t.Plumber.RegisterTerminated()
+	t.Log.Log(ctx, logger.LevelTrace, "Registered as terminated.")
 }

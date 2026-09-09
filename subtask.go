@@ -1,6 +1,7 @@
 package plumber
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -118,8 +119,8 @@ func (t *Task) SetSubtask(job Job) *Task {
 }
 
 // Runs the subtasks of the current task.
-func (t *Task) RunSubtasks() error {
-	err := t.Plumber.runJobs(t.flocContext, t.subtask)
+func (t *Task) RunSubtasks(ctx context.Context) error {
+	err := t.Plumber.runJobs(ctx, t.subtask)
 
 	if err == nil {
 		t.SetSubtask(nil)

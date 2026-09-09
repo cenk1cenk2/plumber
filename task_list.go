@@ -1,36 +1,33 @@
 package plumber
 
 import (
-	"os"
+	"context"
+	"fmt"
+	"log/slog"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/workanator/go-floc/v3"
-
-	"fmt"
+	"github.com/cenk1cenk2/plumber/v7/logger"
 )
 
 type TaskList struct {
 	Plumber *Plumber
-	Channel *AppChannel
 
 	Name    string
 	options TaskListOptions
 	Lock    *sync.RWMutex
-	Log     *logrus.Entry
+	Log     *slog.Logger
 
 	shouldRunBeforeFn TaskListFn
 	fn                TaskListJobFn
 	shouldRunAfterFn  TaskListFn
 	runtime           Runtime
-	flocContext       floc.Context
 }
 
 type (
-	TaskListFn          func(tl *TaskList) error
+	TaskListFn          func(ctx context.Context, tl *TaskList) error
 	TaskListJobFn       func(tl *TaskList) Job
 	TaskListPredicateFn func(tl *TaskList) bool
 )
@@ -52,12 +49,9 @@ func NewTaskList(p *Plumber) *TaskList {
 func (tl *TaskList) New(p *Plumber) *TaskList {
 	tl.Lock = &sync.RWMutex{}
 	tl.Plumber = p
-	tl.Channel = &p.Channel
 	tl.options.runtimeDepth = 1
 
 	tl.setupLogger()
-
-	go tl.registerTerminateHandler()
 
 	return tl
 }
@@ -146,142 +140,125 @@ func (p *TaskList) SetRuntimeDepth(depth int) *TaskList {
 	return p
 }
 
-func (p *TaskList) RunBefore() error {
+func (p *TaskList) RunBefore(ctx context.Context) error {
 	if stop := p.handleStopCases(); stop {
 		return nil
 	}
 
 	started := time.Now()
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunBefore: %s", p.Name)
+	p.Log.With(slog.String(LogFieldStatus, logStatusRun)).
+		Log(ctx, logger.LevelTrace, fmt.Sprintf("ShouldRunBefore: %s", p.Name))
 
 	if p.shouldRunBeforeFn != nil {
-		if err := p.shouldRunBeforeFn(p); err != nil {
+		if err := p.shouldRunBeforeFn(ctx, p); err != nil {
 			return err
 		}
 	}
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_end).
-		Tracef("ShouldRunBefore: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
+	p.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
+		Log(
+			ctx,
+			logger.LevelTrace,
+			fmt.Sprintf("ShouldRunBefore: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String()),
+		)
 
 	return nil
 }
 
 // Runs the current task list.
-func (p *TaskList) Run() error {
+func (p *TaskList) Run(ctx context.Context) error {
 	if stop := p.handleStopCases(); stop {
 		return nil
 	}
 
 	started := time.Now()
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("Run: %s", p.Name)
+	p.Log.With(slog.String(LogFieldStatus, logStatusRun)).
+		Log(ctx, logger.LevelTrace, fmt.Sprintf("Run: %s", p.Name))
 
-	result, data, err := p.Plumber.runFloc(p.flocContext, p.fn(p))
-
-	if err != nil {
+	if err := p.Plumber.runJobs(ctx, p.fn(p)); err != nil {
 		return err
 	}
 
-	if err := p.Plumber.handleFloc(result, data); err != nil {
-		return err
-	}
-
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_end).
-		Tracef("Run: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
+	p.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
+		Log(
+			ctx,
+			logger.LevelTrace,
+			fmt.Sprintf("Run: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String()),
+		)
 
 	return nil
 }
 
-func (p *TaskList) RunWith(runtime Runtime) error {
+func (p *TaskList) RunWith(ctx context.Context, runtime Runtime) error {
 	scoped := *p
 	scoped.Lock = &sync.RWMutex{}
 	scoped.runtime = runtime.inherit(p.runtime)
 
-	return scoped.Run()
+	return scoped.Run(ctx)
 }
 
-func (p *TaskList) RunAfter() error {
+func (p *TaskList) RunAfter(ctx context.Context) error {
 	if stop := p.handleStopCases(); stop {
 		return nil
 	}
 
 	started := time.Now()
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_run).Tracef("ShouldRunAfter: %s", p.Name)
+	p.Log.With(slog.String(LogFieldStatus, logStatusRun)).
+		Log(ctx, logger.LevelTrace, fmt.Sprintf("ShouldRunAfter: %s", p.Name))
 
 	if p.shouldRunAfterFn != nil {
-		if err := p.shouldRunAfterFn(p); err != nil {
+		if err := p.shouldRunAfterFn(ctx, p); err != nil {
 			return err
 		}
 	}
 
-	p.Log.WithField(LOG_FIELD_STATUS, log_status_end).
-		Tracef("ShouldRunAfter: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String())
+	p.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
+		Log(
+			ctx,
+			logger.LevelTrace,
+			fmt.Sprintf("ShouldRunAfter: %s -> %s", p.Name, time.Since(started).Round(time.Millisecond).String()),
+		)
 
 	return nil
 }
 
 func (p *TaskList) JobBefore() Job {
-	return func(ctx floc.Context, _ floc.Control) error {
-		p.flocContext = ctx
-		defer func() { p.flocContext = nil }()
-
-		return p.RunBefore()
+	return func(ctx context.Context) error {
+		return p.RunBefore(ctx)
 	}
 }
 
 // Returns this task list as a job.
-//
-// The context of the flow is only kept around while the flow is running, so a task list that is
-// combined with others or reused later never holds on to the context of a flow that is over.
 func (p *TaskList) Job() Job {
-	return func(ctx floc.Context, _ floc.Control) error {
-		p.flocContext = ctx
-		defer func() { p.flocContext = nil }()
-
-		return p.Run()
+	return func(ctx context.Context) error {
+		return p.Run(ctx)
 	}
 }
 
 func (p *TaskList) JobAfter() Job {
-	return func(ctx floc.Context, _ floc.Control) error {
-		p.flocContext = ctx
-		defer func() { p.flocContext = nil }()
-
-		return p.RunAfter()
+	return func(ctx context.Context) error {
+		return p.RunAfter(ctx)
 	}
 }
 
 // Handles the cases where the task list should not be executed.
 func (p *TaskList) handleStopCases() bool {
 	if result := p.IsDisabled(); result {
-		p.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
-			Debugf("%s", p.Name)
+		p.Log.With(slog.String(LogFieldContext, logContextDisable)).
+			Debug(p.Name)
 
 		return true
 	} else if result := p.IsSkipped(); result {
-		p.Log.WithField(LOG_FIELD_CONTEXT, log_context_skipped).
-			Warnf("%s", p.Name)
+		p.Log.With(slog.String(LogFieldContext, logContextSkipped)).
+			Warn(p.Name)
 
 		return true
 	}
 
 	return false
-}
-
-// Registers the termitor to the current task list.
-func (p *TaskList) registerTerminateHandler() {
-	if p.Plumber.Enabled {
-		ch := make(chan os.Signal, 1)
-
-		p.Plumber.Terminator.ShouldTerminate.Register(ch)
-		defer p.Plumber.Terminator.ShouldTerminate.Unregister(ch)
-
-		<-ch
-
-		p.Plumber.cancelFloc(fmt.Errorf("Trying to terminate..."))
-	}
 }
 
 // Sets up logger depending on the depth of the code.
@@ -293,22 +270,26 @@ func (p *TaskList) setupLogger() {
 
 		p.Name = strings.Join(f[len(f)-p.options.runtimeDepth:], "/")
 
-		p.Log = p.Plumber.Log.WithField(LOG_FIELD_CONTEXT, p.Name)
+		p.Log = p.Plumber.Log.With(slog.String(LogFieldContext, p.Name))
 	} else {
-		p.Log = p.Plumber.Log.WithField(LOG_FIELD_CONTEXT, "TL")
-		p.Log.Tracef("Runtime caller has failed using default: %s", file)
+		p.Log = p.Plumber.Log.With(slog.String(LogFieldContext, "TL"))
+		p.Log.Log(
+			context.Background(),
+			logger.LevelTrace,
+			fmt.Sprintf("Runtime caller has failed using default: %s", file),
+		)
 	}
 }
 
-func CombineTaskLists(tls ...*TaskList) Job {
+func CombineTaskLists(tls ...TaskLister) Job {
 	before := []Job{}
 	job := []Job{}
 	after := []Job{}
 
 	for _, tl := range tls {
-		before = append(before, GuardResume(tl.JobBefore(), TASK_CANCELLED))
+		before = append(before, GuardIgnoreCancel(tl.JobBefore()))
 		job = append(job, tl.Job())
-		after = append(after, GuardResume(tl.JobAfter(), TASK_CANCELLED))
+		after = append(after, GuardIgnoreCancel(tl.JobAfter()))
 	}
 
 	return JobSequence(

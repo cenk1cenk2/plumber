@@ -18,14 +18,6 @@ func TemplateFuncMap() template.FuncMap {
 	return sprig.FuncMap()
 }
 
-func EditCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply func(f Flag) Flag) []cli.Flag {
-	clone := slices.Clone(flags)
-
-	OverwriteCliFlag(clone, fn, apply)
-
-	return clone
-}
-
 func OverwriteCliFlag[Flag any](flags []cli.Flag, fn func(f Flag) bool, apply func(f Flag) Flag) {
 	index := slices.IndexFunc(flags, func(flag cli.Flag) bool {
 		converted, ok := flag.(Flag)

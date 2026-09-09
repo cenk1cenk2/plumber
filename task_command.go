@@ -1,5 +1,9 @@
 package plumber
 
+import (
+	"context"
+)
+
 // Creates a NewCommand attached to the current task.
 func (t *Task) CreateCommand(command string, args ...string) *Command {
 	return NewCommand(t, command, args...)
@@ -52,16 +56,16 @@ func (t *Task) AddCommands(commands ...*Command) *Task {
 }
 
 // Runs the commands that are attached to this task as sequence.
-func (t *Task) RunCommandJobAsJobSequence() error {
-	return t.Plumber.runJobs(t.flocContext, t.GetCommandJobAsJobSequence())
+func (t *Task) RunCommandJobAsJobSequence(ctx context.Context) error {
+	return t.Plumber.runJobs(ctx, t.GetCommandJobAsJobSequence())
 }
 
 // Runs the commands that are attached to this task as parallel.
-func (t *Task) RunCommandJobAsJobParallel() error {
-	return t.Plumber.runJobs(t.flocContext, t.GetCommandJobAsJobParallel())
+func (t *Task) RunCommandJobAsJobParallel(ctx context.Context) error {
+	return t.Plumber.runJobs(ctx, t.GetCommandJobAsJobParallel())
 }
 
 // Runs the commands that are attached to this task as parallel with the given wrapper.
-func (t *Task) RunCommandJob(fn TaskJobParserFn) error {
-	return t.Plumber.runJobs(t.flocContext, fn(t))
+func (t *Task) RunCommandJob(ctx context.Context, fn TaskJobParserFn) error {
+	return t.Plumber.runJobs(ctx, fn(t))
 }

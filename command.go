@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"slices"
@@ -14,24 +15,29 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/workanator/go-floc/v3"
+	"github.com/cenk1cenk2/plumber/v7/logger"
 )
 
 type Command struct {
 	Plumber *Plumber
 	T       *Task
 	TL      *TaskList
-	Log     *logrus.Entry
+	Log     *slog.Logger
 
-	Command     *exec.Cmd
-	scriptFn    CommandScriptFn
-	options     CommandOptions
-	runtime     Runtime
-	flocContext floc.Context
+	// the command itself and the arguments it is invoked with, where the first entry is the command
+	args        []string
+	dir         string
+	path        string
+	environment []string
+	sysProcAttr *syscall.SysProcAttr
+
+	scriptFn CommandScriptFn
+	options  CommandOptions
+	runtime  Runtime
 
 	shouldRunBeforeFn CommandFn
 	fn                CommandFn
+	captureFns        []CommandFn
 	shouldRunAfterFn  CommandFn
 	onTerminatorFn    CommandFn
 	jobWrapperFn      CommandJobWrapperFn
@@ -56,13 +62,15 @@ type CommandOptions struct {
 	recordStream       bool
 	ensureIsAlive      bool
 	maskOsEnvironment  bool
+	terminator         bool
 	retry              *CommandRetry
 }
 
 type CommandStatus struct {
-	stopCases StatusStopCases
-	result    CommandResult
-	resultSet bool
+	stopCases    StatusStopCases
+	result       CommandResult
+	resultSet    bool
+	processState *os.ProcessState
 }
 
 type CommandScript struct {
@@ -79,7 +87,7 @@ type CommandRetry struct {
 }
 
 type (
-	CommandFn           func(*Command) error
+	CommandFn           func(ctx context.Context, c *Command) error
 	CommandJobWrapperFn func(job Job, c *Command) Job
 	CommandStdinFn      func(c *Command) io.Reader
 	CommandScriptFn     func(c *Command) *CommandScript
@@ -94,9 +102,9 @@ type commandStreamWriter struct {
 }
 
 const (
-	stream_stdout       string        = "stdout"
-	stream_stderr       string        = "stderr"
-	COMMAND_RETRY_DELAY time.Duration = time.Second
+	streamStdout      string        = "stdout"
+	streamStderr      string        = "stderr"
+	CommandRetryDelay time.Duration = time.Second
 )
 
 // NewCommand Creates a new command to be run as a job.
@@ -106,16 +114,16 @@ func NewCommand(
 	args ...string,
 ) *Command {
 	c := &Command{
-		Command: exec.Command(command, args...),
 		Plumber: task.Plumber,
 		T:       task,
 		TL:      task.TL,
 		Log:     task.Log,
+
+		args:        append([]string{command}, args...),
+		sysProcAttr: &syscall.SysProcAttr{},
 	}
 
-	c.Command.SysProcAttr = &syscall.SysProcAttr{}
-
-	c.SetLogLevel(LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT, LOG_LEVEL_DEFAULT)
+	c.SetLogLevel(LogLevelDefault, LogLevelDefault, LogLevelDefault)
 
 	return c
 }
@@ -157,12 +165,21 @@ func (c *Command) ShouldDisable(fn TaskPredicateFn) *Command {
 	return c
 }
 
-// Enables global plumber terminator on this command to terminate the current command when the application is terminated.
+// Enables global plumber terminator on this command to terminate the current command when the
+// application is terminated, which registers the command to the terminator for as long as it is
+// running.
 func (c *Command) EnableTerminator() *Command {
-	c.Log.Tracef("Registered terminator: %s", c.GetFormattedCommand())
-	c.Plumber.RegisterTerminator()
+	if !c.Plumber.ensureTerminator() {
+		return c
+	}
 
-	go c.handleTerminator()
+	c.Log.Log(
+		context.Background(),
+		logger.LevelTrace,
+		fmt.Sprintf("Enabled terminator: %s", c.GetFormattedCommand()),
+	)
+
+	c.options.terminator = true
 
 	return c
 }
@@ -194,8 +211,8 @@ func (c *Command) SetStdin(fn CommandStdinFn) *Command {
 
 // Appends arguments to the command.
 func (c *Command) AppendArgs(args ...string) *Command {
-	c.Command.Args = append(
-		c.Command.Args,
+	c.args = append(
+		c.args,
 		args...,
 	)
 
@@ -213,7 +230,7 @@ func (c *Command) AppendEnvironment(environment map[string]string) *Command {
 
 // Appends environment variables to command directly.
 func (c *Command) AppendDirectEnvironment(environment ...string) *Command {
-	c.Command.Env = append(c.Command.Env, environment...)
+	c.environment = append(c.environment, environment...)
 
 	return c
 }
@@ -224,20 +241,20 @@ func (c *Command) SetLogLevel(
 	stderr LogLevel,
 	lifetime LogLevel,
 ) *Command {
-	if stdout == 0 {
-		c.stdoutLevel = logrus.InfoLevel
+	if stdout == LogLevelDefault {
+		c.stdoutLevel = LogLevelInfo
 	} else {
 		c.stdoutLevel = stdout
 	}
 
-	if stderr == 0 {
-		c.stderrLevel = logrus.WarnLevel
+	if stderr == LogLevelDefault {
+		c.stderrLevel = LogLevelWarn
 	} else {
 		c.stderrLevel = stderr
 	}
 
-	if lifetime == 0 {
-		c.lifetimeLevel = logrus.InfoLevel
+	if lifetime == LogLevelDefault {
+		c.lifetimeLevel = LogLevelInfo
 	} else {
 		c.lifetimeLevel = lifetime
 	}
@@ -247,14 +264,14 @@ func (c *Command) SetLogLevel(
 
 // Sets the current directory where the command will be executed.
 func (c *Command) SetDir(dir string) *Command {
-	c.Command.Dir = dir
+	c.dir = dir
 
 	return c
 }
 
 // Sets the current directory where the command will be executed.
 func (c *Command) SetPath(dir string) *Command {
-	c.Command.Path = dir
+	c.path = dir
 
 	return c
 }
@@ -299,6 +316,55 @@ func (c *Command) EnableStreamRecording() *Command {
 	c.lockStream = &sync.RWMutex{}
 
 	return c
+}
+
+// Captures the combined stdout/stderr stream into the given destination, newline-joined and trimmed,
+// once the command has run successfully. Implicitly enables stream recording. Runs before the
+// shouldRunAfterFn, so that callback can rely on the destination already being populated; multiple
+// captures on the same command are all run.
+func (c *Command) CaptureOutput(dst *string) *Command {
+	return c.captureStream(dst, (*Command).GetCombinedStream)
+}
+
+// Captures the stdout stream into the given destination, newline-joined and trimmed, once the command
+// has run successfully. Implicitly enables stream recording.
+func (c *Command) CaptureStdout(dst *string) *Command {
+	return c.captureStream(dst, (*Command).GetStdoutStream)
+}
+
+// Captures the stderr stream into the given destination, newline-joined and trimmed, once the command
+// has run successfully. Implicitly enables stream recording.
+func (c *Command) CaptureStderr(dst *string) *Command {
+	return c.captureStream(dst, (*Command).GetStderrStream)
+}
+
+// Registers a capture hook that reads the given recorded stream and writes it, trimmed, to dst.
+func (c *Command) captureStream(dst *string, stream func(*Command) []string) *Command {
+	if dst == nil {
+		panic(fmt.Errorf("Capture destination can not be nil."))
+	}
+
+	c.EnableStreamRecording()
+
+	c.captureFns = append(c.captureFns, func(_ context.Context, cmd *Command) error {
+		*dst = strings.TrimSpace(strings.Join(stream(cmd), "\n"))
+
+		return nil
+	})
+
+	return c
+}
+
+// Runs the registered capture hooks against the command that actually ran, which matters for the
+// RunWith scoped clone, before the shouldRunAfterFn observes the captured destinations.
+func (c *Command) runCaptures(ctx context.Context) error {
+	for _, fn := range c.captureFns {
+		if err := fn(ctx, c); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Sets the option where it will raise an error if the underlying command stops.
@@ -362,11 +428,11 @@ func (c *Command) HasFailed() bool {
 		return !c.status.result.Success
 	}
 
-	if c.Command.ProcessState == nil {
+	if c.status.processState == nil {
 		return false
 	}
 
-	return !c.Command.ProcessState.Success()
+	return !c.status.processState.Success()
 }
 
 // Returns whether the command has exited properly or not.
@@ -375,101 +441,104 @@ func (c *Command) HasExited() bool {
 		return !c.status.result.Exited
 	}
 
-	if c.Command.ProcessState == nil {
+	if c.status.processState == nil {
 		return false
 	}
 
-	return !c.Command.ProcessState.Exited()
+	return !c.status.processState.Exited()
 }
 
 // Fetches the name of this command, that is formatted for the logger.
 func (c *Command) GetFormattedCommand() string {
-	return fmt.Sprintf("$ %s", strings.Join(c.Command.Args, " "))
+	return fmt.Sprintf("$ %s", strings.Join(c.args, " "))
 }
 
 // Run the command as defined.
-func (c *Command) Run() error {
-	return c.run(Runtime{})
+func (c *Command) Run(ctx context.Context) error {
+	return c.run(ctx, Runtime{})
 }
 
-func (c *Command) run(runtime Runtime) error {
+func (c *Command) run(ctx context.Context, runtime Runtime) error {
 	if stop := c.handleStopCases(); stop {
 		return nil
 	}
 
+	if c.options.terminator {
+		release := c.Plumber.registerTerminatorHook(c.handleTerminator)
+		defer release()
+	}
+
 	started := time.Now()
 	if c.fn != nil {
-		if err := c.fn(c); err != nil {
+		if err := c.fn(ctx, c); err != nil {
 			return err
 		}
 	}
 
-	c.Command.Args = slices.DeleteFunc(c.Command.Args, func(arg string) bool {
+	c.args = slices.DeleteFunc(c.args, func(arg string) bool {
 		return arg == ""
 	})
 
 	if !c.options.maskOsEnvironment {
-		c.Command.Env = append(c.Command.Env, os.Environ()...)
+		c.environment = append(c.environment, os.Environ()...)
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, log_status_run).
-		Log(c.lifetimeLevel, c.GetFormattedCommand())
+	c.Log.With(slog.String(LogFieldStatus, logStatusRun)).
+		Log(ctx, c.lifetimeLevel.slog(), c.GetFormattedCommand())
 
 	if c.shouldRunBeforeFn != nil {
-		if err := c.shouldRunBeforeFn(c); err != nil {
+		if err := c.shouldRunBeforeFn(ctx, c); err != nil {
 			return err
 		}
 	}
 
-	if err := c.pipe(runtime); err != nil {
-		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
-			Errorf("%s > %s", c.GetFormattedCommand(), err.Error())
+	if err := c.pipe(ctx, runtime); err != nil {
+		c.Log.With(slog.String(LogFieldStatus, logStatusFail)).
+			Error(fmt.Sprintf("%s > %s", c.GetFormattedCommand(), err.Error()))
 
 		return err
 	}
 
+	if err := c.runCaptures(ctx); err != nil {
+		return err
+	}
+
 	if c.shouldRunAfterFn != nil {
-		if err := c.shouldRunAfterFn(c); err != nil {
+		if err := c.shouldRunAfterFn(ctx, c); err != nil {
 			return err
 		}
 	}
 
-	c.Log.WithField(LOG_FIELD_STATUS, log_status_end).
-		Logf(c.lifetimeLevel, "%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String())
+	c.Log.With(slog.String(LogFieldStatus, logStatusEnd)).
+		Log(
+			ctx,
+			c.lifetimeLevel.slog(),
+			fmt.Sprintf("%s -> %s", c.GetFormattedCommand(), time.Since(started).Round(time.Millisecond).String()),
+		)
 
 	return nil
 }
 
-func (c *Command) RunWith(runtime Runtime) error {
-	return c.run(runtime)
+func (c *Command) RunWith(ctx context.Context, runtime Runtime) error {
+	return c.run(ctx, runtime)
 }
 
-// Convert Command.Run to a floc job.
+// Convert Command.Run to a job.
 func (c *Command) Job() Job {
 	return JobIfNot(
 		Predicate(func() bool {
 			return c.handleStopCases()
 		}),
-		func(ctx floc.Context, _ floc.Control) error {
-			// The context only belongs to the flow that is running right now, therefore it is
-			// dropped again as soon as the flow is over instead of being left behind dead for
-			// whoever runs the command next.
-			if c.jobWrapperFn != nil {
-				return c.Plumber.runJobs(ctx, c.jobWrapperFn(
-					func(nested floc.Context, _ floc.Control) error {
-						c.flocContext = nested
-						defer func() { c.flocContext = nil }()
-
-						return c.Run()
-					},
-					c,
-				))
+		func(ctx context.Context) error {
+			run := func(ctx context.Context) error {
+				return c.Run(ctx)
 			}
 
-			c.flocContext = ctx
-			defer func() { c.flocContext = nil }()
+			if c.jobWrapperFn != nil {
+				return c.jobWrapperFn(run, c)(ctx)
+			}
 
-			return c.Run()
+			return run(ctx)
 		},
 		CreateJob(func() error {
 			return nil
@@ -492,7 +561,7 @@ func (c *Command) AddSelfToTheParentTask(pt *Task) *Command {
 }
 
 // Executes the command and pipes the output through the logger.
-func (c *Command) pipe(runtime Runtime) error {
+func (c *Command) pipe(ctx context.Context, runtime Runtime) error {
 	invocation, err := c.createInvocation()
 	if err != nil {
 		return err
@@ -500,32 +569,28 @@ func (c *Command) pipe(runtime Runtime) error {
 
 	c.resetStreams()
 
-	result, err := c.resolveCommandRunner(runtime).Run(c.resolveFlocContext(), invocation, CommandRuntime{
-		Stdout: c.newStreamWriter(stream_stdout, c.stdoutLevel),
-		Stderr: c.newStreamWriter(stream_stderr, c.stderrLevel),
-		SetProcess: func(process *os.Process) {
-			c.Command.Process = process
-		},
+	result, err := c.resolveCommandRunner(runtime).Run(ctx, invocation, CommandRuntime{
+		Stdout: c.newStreamWriter(streamStdout, c.stdoutLevel),
+		Stderr: c.newStreamWriter(streamStderr, c.stderrLevel),
 	})
-	c.Command.Process = nil
 	c.status.result = result
 	c.status.resultSet = result.Started || result.ProcessState != nil
-	c.Command.ProcessState = result.ProcessState
+	c.status.processState = result.ProcessState
 
 	if err != nil {
 		if result.Started {
 			if exiterr, ok := errors.AsType[*exec.ExitError](err); ok {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					c.Log.WithField(LOG_FIELD_STATUS, log_status_exit).
-						Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus())
+					c.Log.With(slog.String(LogFieldStatus, logStatusExit)).
+						Debug(fmt.Sprintf("%s > Exit Code: %v", c.GetFormattedCommand(), status.ExitStatus()))
 				}
 			}
 
-			return c.retry(err, runtime)
+			return c.retry(ctx, err, runtime)
 		}
 
-		c.Log.WithField(LOG_FIELD_STATUS, log_status_fail).
-			Debugf("%s > Can not start command!", c.GetFormattedCommand())
+		c.Log.With(slog.String(LogFieldStatus, logStatusFail)).
+			Debug(fmt.Sprintf("%s > Can not start command!", c.GetFormattedCommand()))
 
 		return err
 	}
@@ -535,10 +600,10 @@ func (c *Command) pipe(runtime Runtime) error {
 			command:  c.GetFormattedCommand(),
 			exitCode: result.ExitCode,
 		}
-		c.Log.WithField(LOG_FIELD_STATUS, log_status_exit).
-			Debugf("%s > Exit Code: %v", c.GetFormattedCommand(), result.ExitCode)
+		c.Log.With(slog.String(LogFieldStatus, logStatusExit)).
+			Debug(fmt.Sprintf("%s > Exit Code: %v", c.GetFormattedCommand(), result.ExitCode))
 
-		return c.retry(err, runtime)
+		return c.retry(ctx, err, runtime)
 	}
 
 	if c.options.ensureIsAlive {
@@ -551,7 +616,7 @@ func (c *Command) pipe(runtime Runtime) error {
 // Handles the error depending on the options.
 func (c *Command) handleError(err error) error {
 	if c.options.ignoreError {
-		c.Log.Debugf("%s -> Error ignored: %s", c.GetFormattedCommand(), err.Error())
+		c.Log.Debug(fmt.Sprintf("%s -> Error ignored: %s", c.GetFormattedCommand(), err.Error()))
 
 		return nil
 	}
@@ -560,58 +625,50 @@ func (c *Command) handleError(err error) error {
 }
 
 // Retries the task with the given options.
-func (c *Command) retry(err error, runtime Runtime) error {
+func (c *Command) retry(ctx context.Context, err error, runtime Runtime) error {
 	if c.options.retry == nil || !c.options.retry.Always && c.options.retry.Tries <= 0 {
 		return c.handleError(err)
 	}
 
-	log := c.Log.WithField(LOG_FIELD_STATUS, log_status_retry)
+	log := c.Log.With(slog.String(LogFieldStatus, logStatusRetry))
 
 	delay := c.options.retry.Delay
 	if delay == 0 {
-		delay = COMMAND_RETRY_DELAY
+		delay = CommandRetryDelay
 	}
 
 	if c.options.retry.Always {
-		log.Warnf(
-			"%s -> has failed, will retry to run in %s: %s",
-			c.GetFormattedCommand(),
-			delay.String(),
-			err,
+		log.Warn(
+			fmt.Sprintf(
+				"%s -> has failed, will retry to run in %s: %s",
+				c.GetFormattedCommand(),
+				delay.String(),
+				err,
+			),
 		)
 	} else {
-		log.Warnf("%s -> has failed, will retry to run for %d more times in %s: %s", c.GetFormattedCommand(), c.options.retry.Tries, delay.String(), err)
+		log.Warn(
+			fmt.Sprintf(
+				"%s -> has failed, will retry to run for %d more times in %s: %s",
+				c.GetFormattedCommand(),
+				c.options.retry.Tries,
+				delay.String(),
+				err,
+			),
+		)
 
 		c.options.retry.Tries--
 	}
 
-	// Abort the retry loop if the floc flow context is cancelled, otherwise an
+	// Abort the retry loop if the context of the flow is cancelled, otherwise an
 	// unbounded retry.Always would keep sleeping and re-piping against a dead flow.
 	select {
-	case <-c.resolveFlocContext().Done():
+	case <-ctx.Done():
 		return c.handleError(fmt.Errorf("Retry aborted, context cancelled: %s", c.GetFormattedCommand()))
 	case <-time.After(delay):
 	}
 
-	return c.pipe(runtime)
-}
-
-// Resolves the context of the flow the command is running in, so that the command dies
-// together with the flow it belongs to and never with an unrelated one.
-func (c *Command) resolveFlocContext() context.Context {
-	if c.flocContext != nil {
-		return c.flocContext.Ctx()
-	}
-
-	if c.T != nil && c.T.flocContext != nil {
-		return c.T.flocContext.Ctx()
-	}
-
-	if c.TL != nil && c.TL.flocContext != nil {
-		return c.TL.flocContext.Ctx()
-	}
-
-	return c.Plumber.flocContext.Ctx()
+	return c.pipe(ctx, runtime)
 }
 
 func (c *Command) resolveCommandRunner(runtime Runtime) CommandRunner {
@@ -645,34 +702,33 @@ func (c *Command) createInvocation() (CommandInvocation, error) {
 	}
 
 	if c.credentialFn != nil {
-		if c.Command.SysProcAttr == nil {
-			c.Command.SysProcAttr = &syscall.SysProcAttr{}
+		if c.sysProcAttr == nil {
+			c.sysProcAttr = &syscall.SysProcAttr{}
 		}
 
-		if c.Command.SysProcAttr.Credential == nil {
-			c.Command.SysProcAttr.Credential = &syscall.Credential{}
+		if c.sysProcAttr.Credential == nil {
+			c.sysProcAttr.Credential = &syscall.Credential{}
 		}
 
-		c.Command.SysProcAttr.Credential = c.credentialFn(c, c.Command.SysProcAttr.Credential)
+		c.sysProcAttr.Credential = c.credentialFn(c, c.sysProcAttr.Credential)
 	}
 
 	name := ""
 	args := []string{}
-	if len(c.Command.Args) > 0 {
-		name = c.Command.Args[0]
-		args = append(args, c.Command.Args[1:]...)
+	if len(c.args) > 0 {
+		name = c.args[0]
+		args = append(args, c.args[1:]...)
 	}
 
 	return CommandInvocation{
 		Name:          name,
 		Args:          args,
 		Formatted:     c.GetFormattedCommand(),
-		Dir:           c.Command.Dir,
-		Path:          c.Command.Path,
-		Env:           append([]string{}, c.Command.Env...),
+		Dir:           c.dir,
+		Path:          c.path,
+		Env:           append([]string{}, c.environment...),
 		Stdin:         stdin,
-		ExtraFiles:    c.Command.ExtraFiles,
-		SysProcAttr:   c.Command.SysProcAttr,
+		SysProcAttr:   c.sysProcAttr,
 		EnsureIsAlive: c.options.ensureIsAlive,
 		TaskName:      c.T.Name,
 		TaskListName:  c.TL.Name,
@@ -684,7 +740,7 @@ func (c *Command) createStdin() (io.Reader, error) {
 	if c.scriptFn != nil {
 		script := c.scriptFn(c)
 		if script == nil {
-			return c.Command.Stdin, nil
+			return nil, nil
 		}
 
 		if script.File != "" {
@@ -698,7 +754,11 @@ func (c *Command) createStdin() (io.Reader, error) {
 				return nil, err
 			}
 
-			c.Log.Tracef("Templated file for command script: %s -> with context %+v", script.File, script.Ctx)
+			c.Log.Log(
+				context.Background(),
+				logger.LevelTrace,
+				fmt.Sprintf("Templated file for command script: %s -> with context %+v", script.File, script.Ctx),
+			)
 
 			return stdin, nil
 		}
@@ -709,7 +769,11 @@ func (c *Command) createStdin() (io.Reader, error) {
 				return nil, err
 			}
 
-			c.Log.Tracef("Templated inline for command script: inline -> with context %+v", script.Ctx)
+			c.Log.Log(
+				context.Background(),
+				logger.LevelTrace,
+				fmt.Sprintf("Templated inline for command script: inline -> with context %+v", script.Ctx),
+			)
 
 			return stdin, nil
 		}
@@ -721,7 +785,7 @@ func (c *Command) createStdin() (io.Reader, error) {
 		return c.stdinFn(c), nil
 	}
 
-	return c.Command.Stdin, nil
+	return nil, nil
 }
 
 func (c *Command) resetStreams() {
@@ -736,7 +800,11 @@ func (c *Command) resetStreams() {
 		c.stderrStream = []string{}
 		c.lockStream.Unlock()
 
-		c.Log.Tracef("Resetting output streams: %s", c.GetFormattedCommand())
+		c.Log.Log(
+			context.Background(),
+			logger.LevelTrace,
+			fmt.Sprintf("Resetting output streams: %s", c.GetFormattedCommand()),
+		)
 	}
 }
 
@@ -766,18 +834,16 @@ func (w *commandStreamWriter) Write(p []byte) (int, error) {
 }
 
 func (c *Command) handleStreamLine(stream string, level LogLevel, line string) {
-	log := c.Log.WithFields(logrus.Fields{})
-
-	log.Logln(level, line)
+	c.Log.Log(context.Background(), level.slog(), line)
 
 	if c.options.recordStream {
 		c.lockStream.Lock()
 		c.combinedStream = append(c.combinedStream, line)
 
 		switch stream {
-		case stream_stdout:
+		case streamStdout:
 			c.stdoutStream = append(c.stdoutStream, line)
-		case stream_stderr:
+		case streamStderr:
 			c.stderrStream = append(c.stderrStream, line)
 		}
 		c.lockStream.Unlock()
@@ -793,8 +859,8 @@ func (c *Command) handleStopCases() bool {
 	c.status.stopCases.handled = true
 
 	if result := c.IsDisabled(); result {
-		c.Log.WithField(LOG_FIELD_CONTEXT, log_context_disable).
-			Debugf("%s", c.T.Name)
+		c.Log.With(slog.String(LogFieldContext, logContextDisable)).
+			Debug(c.T.Name)
 
 		c.status.stopCases.result = true
 		return c.status.stopCases.result
@@ -804,45 +870,32 @@ func (c *Command) handleStopCases() bool {
 	return c.status.stopCases.result
 }
 
-// Handles the global plumber terminator to stop execution of the command and forwards the terminate signal if running.
-func (c *Command) handleTerminator() {
-	if c.IsDisabled() {
-		c.Log.Tracef(
-			"Deregister terminator directly because the command is already not available: %s",
-			c.GetFormattedCommand(),
-		)
+/*
+Handles the global plumber terminator when the terminator is triggered while the command is running.
 
-		c.Plumber.DeregisterTerminator()
-
+The process of the command itself is stopped through the cancellation of the flow it runs in, so the
+hook only has to run the action that is set for the termination of the command.
+*/
+func (c *Command) handleTerminator(ctx context.Context) {
+	if c.onTerminatorFn == nil {
 		return
 	}
 
-	ch := make(chan os.Signal, 1)
-	c.Plumber.Terminator.ShouldTerminate.Register(ch)
-	defer c.Plumber.Terminator.ShouldTerminate.Unregister(ch)
+	c.Log.Log(
+		ctx,
+		logger.LevelTrace,
+		fmt.Sprintf("Forwarding terminator to the command: %s", c.GetFormattedCommand()),
+	)
 
-	sig := <-ch
-
-	if c.Command.Process == nil {
-		c.Log.Tracef("Already finished running, registered as terminated: %s", c.GetFormattedCommand())
-		c.Plumber.RegisterTerminated()
-
-		return
+	if err := c.onTerminatorFn(ctx, c); err != nil {
+		c.Log.Error(err.Error())
 	}
 
-	c.Log.Tracef("Forwarding signal to process: %s", sig)
-
-	if err := c.Command.Process.Signal(sig); err != nil {
-		c.Log.Tracef("Termination error: %s > %s", c.GetFormattedCommand(), err.Error())
-	}
-
-	if c.onTerminatorFn != nil {
-		c.T.SendError(c.onTerminatorFn(c))
-	}
-
-	c.Log.Tracef("Registered as terminated: %s", c.GetFormattedCommand())
-
-	c.Plumber.RegisterTerminated()
+	c.Log.Log(
+		ctx,
+		logger.LevelTrace,
+		fmt.Sprintf("Registered as terminated: %s", c.GetFormattedCommand()),
+	)
 }
 
 func (c *Command) templateScript(script *CommandScript, tmpl string) (io.Reader, error) {
@@ -853,7 +906,7 @@ func (c *Command) templateScript(script *CommandScript, tmpl string) (io.Reader,
 	}
 
 	for t := range strings.SplitSeq(tpl, "\n") {
-		c.Log.WithField(LOG_FIELD_STATUS, log_status_script).Infoln(t)
+		c.Log.With(slog.String(LogFieldStatus, logStatusScript)).Info(t)
 	}
 
 	return strings.NewReader(tpl), nil

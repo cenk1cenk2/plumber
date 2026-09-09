@@ -2,26 +2,38 @@ package tests_test
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"os"
 
-	"github.com/cenk1cenk2/plumber/v6"
-	plumbertests "github.com/cenk1cenk2/plumber/v6/tests"
+	"github.com/cenk1cenk2/plumber/v7"
+	"github.com/cenk1cenk2/plumber/v7/logger"
+	plumbertests "github.com/cenk1cenk2/plumber/v7/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
 	"github.com/urfave/cli/v3"
 )
 
 var _ = Describe("test helpers", func() {
-	It("should create a plumber fixture with ginkgo trace logging", func() {
+	It("should create a plumber fixture with ginkgo trace logging", func(ctx SpecContext) {
 		fixture := plumbertests.NewPlumber()
 
 		fixture.Plumber.Log.Info("hello")
 
 		Expect(fixture.Plumber.Cli.Name).To(Equal("plumber-test"))
-		Expect(fixture.Plumber.Log.Out).To(Equal(GinkgoWriter))
-		Expect(fixture.Plumber.Log.GetLevel()).To(Equal(logrus.TraceLevel))
+		Expect(fixture.Plumber.GetLoggerLevel()).To(Equal(plumber.LogLevelTrace))
+		Expect(fixture.Plumber.Log.Enabled(ctx, logger.LevelTrace)).To(BeTrue())
+	})
+
+	It("should create a capture logger that records the messages that are logged through it", func(_ SpecContext) {
+		log, capture := plumbertests.NewCaptureLogger()
+
+		log.Warn(fmt.Sprintf("%s has failed", "job"))
+
+		Expect(capture.Messages()).To(Equal([]string{"job has failed"}))
+		Expect(capture.Records()).To(HaveLen(1))
+		Expect(capture.Records()[0].Level).To(Equal(slog.LevelWarn))
 	})
 
 	It("should set process arguments for the current spec", func() {
@@ -30,7 +42,7 @@ var _ = Describe("test helpers", func() {
 		Expect(os.Args).To(Equal([]string{"plumber", "test"}))
 	})
 
-	It("should create strict mockery command runners for the current spec", func() {
+	It("should create strict mockery command runners for the current spec", func(ctx SpecContext) {
 		runner := plumbertests.NewMockCommandRunner()
 		result := plumbertests.TestingCommandSuccess()
 		runner.EXPECT().
@@ -45,7 +57,7 @@ var _ = Describe("test helpers", func() {
 			Once()
 
 		actual, err := runner.Run(
-			context.Background(),
+			ctx,
 			plumber.CommandInvocation{Name: "mock"},
 			plumber.CommandRuntime{},
 		)
@@ -106,7 +118,7 @@ var _ = Describe("test helpers", func() {
 		Expect(currentDir).ToNot(Equal(previousDir))
 	})
 
-	It("should run urfave Cli semantics with explicit argv and destinations", func() {
+	It("should run urfave Cli semantics with explicit argv and destinations", func(ctx SpecContext) {
 		type helperConfig struct {
 			Enabled      bool
 			Root         string
@@ -175,24 +187,24 @@ var _ = Describe("test helpers", func() {
 						}).
 						Set(func(tl *plumber.TaskList) plumber.Job {
 							return tl.CreateTask("repositories").
-								Set(func(parent *plumber.Task) error {
+								Set(func(ctx context.Context, parent *plumber.Task) error {
 									for _, repository := range config.Repositories {
 										parent.CreateSubtask(repository).
-											Set(func(task *plumber.Task) error {
+											Set(func(ctx context.Context, task *plumber.Task) error {
 												task.CreateCommand("build", repository).
 													AppendArgs(config.Args...).
 													SetDir(config.Root).
 													AddSelfToTheTask()
 
-												return task.RunCommandJobAsJobSequence()
+												return task.RunCommandJobAsJobSequence(ctx)
 											}).
 											AddSelfToTheParentAsParallel()
 									}
 
 									return nil
 								}).
-								ShouldRunAfter(func(task *plumber.Task) error {
-									return task.RunSubtasks()
+								ShouldRunAfter(func(ctx context.Context, task *plumber.Task) error {
+									return task.RunSubtasks(ctx)
 								}).
 								Job()
 						})
@@ -219,7 +231,7 @@ var _ = Describe("test helpers", func() {
 		}
 	})
 
-	It("should expose task-list conditions driven by env-sourced Cli config", func() {
+	It("should expose task-list conditions driven by env-sourced Cli config", func(ctx SpecContext) {
 		type helperConfig struct {
 			Enabled      bool
 			Repositories []string
@@ -256,10 +268,10 @@ var _ = Describe("test helpers", func() {
 						}).
 						Set(func(tl *plumber.TaskList) plumber.Job {
 							return tl.CreateTask("should-not-run").
-								Set(func(task *plumber.Task) error {
+								Set(func(ctx context.Context, task *plumber.Task) error {
 									task.CreateCommand("mock").AddSelfToTheTask()
 
-									return task.RunCommandJobAsJobSequence()
+									return task.RunCommandJobAsJobSequence(ctx)
 								}).
 								Job()
 						})

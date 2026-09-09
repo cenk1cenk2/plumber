@@ -2,7 +2,10 @@ package plumber
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"slices"
@@ -11,54 +14,40 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cenk1cenk2/plumber/v6/broadcaster"
-	"github.com/cenk1cenk2/plumber/v6/logger"
+	"github.com/cenk1cenk2/plumber/v7/logger"
 	"github.com/creasty/defaults"
 	validator "github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
-	"github.com/workanator/go-floc/v3"
 )
 
 type Plumber struct {
 	Cli         *cli.Command
-	Log         *logrus.Logger
+	Log         *slog.Logger
 	Environment AppEnvironment
-	Channel     AppChannel
 	Terminator
 	Validator *validator.Validate
 
-	context         context.Context
-	cancel          context.CancelFunc
-	flocContext     floc.Context
-	flocRootControl floc.Control
-	flocFlows       *flocFlows
+	context context.Context
+	cancel  context.CancelCauseFunc
 
-	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
+	exitFn        PlumberExitFn
+	exitOnce      *sync.Once
 	options       PlumberOptions
 	runtime       Runtime
 }
 
-// The flows that are running at the moment, shared between the scoped copies of plumber.
-type flocFlows struct {
-	lock  sync.RWMutex
-	flows []*flocFlow
-}
-
-// A single flow with the context and the control that belong only to it.
-type flocFlow struct {
-	ctx     floc.Context
-	control floc.Control
-}
+// ErrShutdown is the cause the root context of the application is cancelled with whenever plumber
+// shuts itself down, therefore a flow that is interrupted by the shutdown can be told apart from a
+// flow that is cancelled by whoever runs it.
+var ErrShutdown = errors.New("Application is shutting down.")
 
 type PlumberOptions struct {
-	delimiter          string
-	documentation      DocumentationOptions
-	deprecationNotices []DeprecationNotice
-	timeout            time.Duration
-	greeter            PlumberFn
+	delimiter     string
+	documentation DocumentationOptions
+	timeout       time.Duration
+	greeter       PlumberFn
 }
 
 type AppEnvironment struct {
@@ -66,31 +55,35 @@ type AppEnvironment struct {
 	CI    bool
 }
 
-type PlumberError struct {
-	Log *logrus.Entry
-	Err error
-}
-
 type Terminator struct {
-	Enabled         bool
-	ShouldTerminate *broadcaster.Broadcaster[os.Signal]
-	Terminated      *broadcaster.Broadcaster[bool]
-	Lock            *sync.RWMutex
-	terminated      uint
-	registered      uint
-	initiated       bool
+	Enabled bool
+
+	state *terminatorState
 }
 
-type AppChannel struct {
-	// to communicate the errors while not blocking
-	Err chan PlumberError
-	// to communicate the errors while not blocking
-	Fatal chan PlumberError
-	// terminate channel
-	Interrupt chan os.Signal
-	// exit channel
-	Exit *broadcaster.Broadcaster[int]
+/*
+Holds the components that are registered to the terminator of the application.
+
+While the application is running the components register themselves as they start running and
+release themselves again as they are done, and while the application is terminating the hooks of the
+components that are still running are drained, which is what the termination of the application
+waits for.
+*/
+type terminatorState struct {
+	lock sync.Mutex
+	// components that are registered with a hook, by the handle they are registered with
+	hooks map[int]terminatorHookFn
+	// components that are registered through the public API without a hook
+	anonymous int
+	// hooks that are currently running while the application is terminating
+	draining  int
+	handle    int
+	initiated bool
+	drained   chan struct{}
+	closed    bool
 }
+
+type terminatorHookFn func(ctx context.Context)
 
 type DocumentationOptions struct {
 	MarkdownOutputFile          string
@@ -102,46 +95,30 @@ type DocumentationOptions struct {
 	IncludeDefaultFlags         bool
 }
 
-type DeprecationNotice struct {
-	Message     string
-	Environment []string
-	Flag        []string
-	Level       LogLevel
-}
-
 type (
 	PlumberOnTerminateFn func() error
 	PlumberNewFn         func(p *Plumber) *cli.Command
 	PlumberFn            func(p *Plumber) error
 	PlumberPredicate     func(p *Plumber) bool
+	PlumberExitFn        func(code int)
 )
 
 const (
-	log_status_plumber_terminator  string = "terminate"
-	log_status_plumber_parser      string = "parse"
-	log_status_plumber_environment string = "env"
-	log_status_plumber_setup       string = "setup"
+	logStatusPlumberTerminator  string = "terminate"
+	logStatusPlumberEnvironment string = "env"
+	logStatusPlumberSetup       string = "setup"
 )
 
 // Creates a new Plumber instance and initiates it.
 func NewPlumber(fn PlumberNewFn) *Plumber {
 	p := &Plumber{}
 
-	p.context, p.cancel = context.WithCancel(context.Background())
-
-	p.flocFlows = &flocFlows{}
-	p.flocContext = floc.NewContext()
-	p.flocRootControl = floc.NewControl(p.flocContext)
+	p.context, p.cancel = context.WithCancelCause(context.Background())
 
 	p.Cli = fn(p)
 
-	// create error channels
-	p.Channel = AppChannel{
-		Err:       make(chan PlumberError),
-		Fatal:     make(chan PlumberError),
-		Interrupt: make(chan os.Signal),
-		Exit:      broadcaster.NewBroadcaster[int](1),
-	}
+	p.exitFn = os.Exit
+	p.exitOnce = &sync.Once{}
 
 	p.Terminator = Terminator{
 		Enabled: false,
@@ -163,24 +140,10 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 	p.Environment = AppEnvironment{}
 
 	// presetup logger to not have it nil in edge cases
-	p.Log = logger.InitiateLogger(logrus.InfoLevel)
-	formatter := &logger.Formatter{
-		FieldsOrder:      []string{LOG_FIELD_CONTEXT, LOG_FIELD_STATUS},
-		TimestampFormat:  "",
-		HideKeys:         true,
-		NoColors:         false,
-		NoFieldsColors:   false,
-		NoFieldsSpace:    false,
-		NoEmptyFields:    true,
-		ShowFullLevel:    false,
-		NoUppercaseLevel: false,
-		TrimMessages:     true,
-		CallerFirst:      true,
-		Secrets:          &p.secrets,
-	}
-	p.SetFormatter(formatter)
+	p.Log = slog.New(logger.NewHandler())
+	p.SetLoggerLevel(LogLevelInfo)
 
-	p.registerHandlers()
+	p.registerInterruptHandler()
 
 	return p
 }
@@ -211,15 +174,6 @@ func (p *Plumber) SetDelimiter(delimiter string) *Plumber {
 // Sets timeout for terminator of the application.
 func (p *Plumber) SetTerminatorTimeout(timeout time.Duration) *Plumber {
 	p.options.timeout = timeout
-
-	return p
-}
-
-// Sets the deprecation notices for the application.
-func (p *Plumber) SetDeprecationNotices(notices ...[]DeprecationNotice) *Plumber {
-	for _, notice := range notices {
-		p.options.deprecationNotices = append(p.options.deprecationNotices, notice...)
-	}
 
 	return p
 }
@@ -263,16 +217,17 @@ The terminate information will be propagated through the channels to the subcomp
 */
 func (p *Plumber) EnableTerminator() *Plumber {
 	p.Terminator = Terminator{
-		Enabled:         true,
-		Lock:            &sync.RWMutex{},
-		ShouldTerminate: broadcaster.NewBroadcaster[os.Signal](1),
-		Terminated:      broadcaster.NewBroadcaster[bool](1),
+		Enabled: true,
+		state: &terminatorState{
+			hooks:   map[int]terminatorHookFn{},
+			drained: make(chan struct{}),
+		},
 	}
 
-	p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: p.Cli.Name,
-		LOG_FIELD_STATUS:  log_status_plumber_terminator,
-	}).Traceln("Terminator enabled.")
+	p.Log.With(
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusPlumberTerminator),
+	).Log(context.Background(), logger.LevelTrace, "Terminator enabled.")
 
 	return p
 }
@@ -284,66 +239,105 @@ func (p *Plumber) SetOnTerminate(fn PlumberOnTerminateFn) *Plumber {
 	return p
 }
 
-// sets formatter for the plumber.
-func (p *Plumber) SetFormatter(formatter *logger.Formatter) *Plumber {
-	p.Log.SetFormatter(formatter)
+// Sets the function that ends the process whenever the application exits, which is os.Exit itself
+// unless it is overwritten.
+func (p *Plumber) SetExitFunc(fn PlumberExitFn) *Plumber {
+	if fn == nil {
+		fn = os.Exit
+	}
+
+	p.exitFn = fn
 
 	return p
+}
+
+// Sets the level of the application, which every logger that is derived from the root of it is
+// gated with.
+func (p *Plumber) SetLoggerLevel(level LogLevel) *Plumber {
+	if handler := p.handler(); handler != nil {
+		handler.SetLevel(level.slog())
+	}
+
+	return p
+}
+
+// Returns the level of the application.
+func (p *Plumber) GetLoggerLevel() LogLevel {
+	handler := p.handler()
+
+	if handler == nil {
+		return LogLevelInfo
+	}
+
+	return logLevelFromSlog(handler.Level())
+}
+
+// Sets the writer that the application logs to.
+func (p *Plumber) SetLoggerOutput(out io.Writer) *Plumber {
+	if handler := p.handler(); handler != nil {
+		handler.SetOutput(out)
+	}
+
+	return p
+}
+
+// Sets whether the caller of a message should be reported with it.
+func (p *Plumber) SetLoggerReportCaller(report bool) *Plumber {
+	if handler := p.handler(); handler != nil {
+		handler.SetReportCaller(report)
+	}
+
+	return p
+}
+
+// Returns the handler of the application whenever it still writes through a handler of plumber,
+// which is what the controls of the root logger are applied on.
+func (p *Plumber) handler() *logger.Handler {
+	if p == nil || p.Log == nil {
+		return nil
+	}
+
+	handler, ok := p.Log.Handler().(*logger.Handler)
+
+	if !ok {
+		return nil
+	}
+
+	return handler
 }
 
 // Adds sensitive information so that the logger will not log out the given secrets.
 func (p *Plumber) AppendSecrets(secrets ...string) *Plumber {
-	p.secrets = append(p.secrets, secrets...)
+	if handler := p.handler(); handler != nil {
+		handler.AddSecrets(secrets...)
+	}
 
 	return p
 }
 
-// Sends an error with its custom instance of logger through the channel.
-func (p *Plumber) SendError(log *logrus.Entry, err error) *Plumber {
-	e := PlumberError{
-		Err: err,
-		Log: log,
+// Logs a fatal error with its custom instance of logger and exits the application with code 1.
+func (p *Plumber) SendFatal(log *slog.Logger, err error) *Plumber {
+	if err != nil {
+		if log == nil {
+			log = p.Log
+		}
+
+		log.Error(err.Error())
 	}
 
-	if e.Log == nil {
-		e.Log = p.Log.WithFields(logrus.Fields{})
-	}
-
-	p.Channel.Err <- e
-
-	return p
-}
-
-// Sends an fatal error with its custom instance of logger through the channel.
-func (p *Plumber) SendFatal(log *logrus.Entry, err error) *Plumber {
-	p.cancelFloc(err)
-
-	e := PlumberError{
-		Err: err,
-		Log: log,
-	}
-
-	if e.Log == nil {
-		e.Log = p.Log.WithFields(logrus.Fields{})
-	}
-
-	p.Channel.Fatal <- e
+	p.exit(fmt.Sprintf("Fatal error has been received: %v", err), 1)
 
 	return p
 }
 
 // Sends exit code to terminate the application.
 func (p *Plumber) SendExit(code int) *Plumber {
-	p.cancelFloc(fmt.Sprintf("Will exit with code: %d", code))
+	p.Log.With(
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusExit),
+	).Log(context.Background(), logger.LevelTrace, fmt.Sprint(code))
 
-	p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: p.Cli.Name,
-		LOG_FIELD_STATUS:  log_status_exit,
-	}).Traceln(code)
-
-	p.Channel.Exit.Submit(code)
-
-	p.cancel()
+	p.exit(fmt.Sprintf("Will exit with code: %d", code), code)
 
 	return p
 }
@@ -351,24 +345,26 @@ func (p *Plumber) SendExit(code int) *Plumber {
 // Sends a terminate request to the application via interruption signal.
 func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 	if p.Terminator.Enabled {
-		log := p.Log.WithFields(logrus.Fields{
-			LOG_FIELD_CONTEXT: p.Cli.Name,
-			LOG_FIELD_STATUS:  log_status_plumber_terminator,
-		})
+		log := p.Log.With(
+			slog.String(LogFieldContext, p.Cli.Name),
+			slog.String(LogFieldStatus, logStatusPlumberTerminator),
+		)
 
-		if p.Terminator.initiated {
-			log.Tracef("Termination process already started, ignoring: %s", sig)
+		if p.Terminator.state.isInitiated() {
+			log.Log(
+				context.Background(),
+				logger.LevelTrace,
+				fmt.Sprintf("Termination process already started, ignoring: %s", sig),
+			)
 
 			return
 		}
 
-		log.Tracef("Sending should terminate through terminator: %s", sig)
-
-		p.Terminator.ShouldTerminate.Submit(sig)
-
-		p.Terminator.Lock.Lock()
-		p.Terminator.initiated = true
-		p.Terminator.Lock.Unlock()
+		log.Log(
+			context.Background(),
+			logger.LevelTrace,
+			fmt.Sprintf("Sending should terminate through terminator: %s", sig),
+		)
 	}
 
 	p.Terminate(code)
@@ -380,112 +376,242 @@ Sends a terminate request through the application.
 This will gracefully try to stop the application components that are registered and listening for the terminator.
 */
 func (p *Plumber) Terminate(code int) {
-	//nolint:nestif
-	if p.Terminator.Enabled {
-		if p.Terminator.registered > 0 {
-			log := p.Log.WithFields(logrus.Fields{
-				LOG_FIELD_CONTEXT: p.Cli.Name,
-				LOG_FIELD_STATUS:  log_status_plumber_terminator,
-			})
-
-			if !p.Terminator.initiated {
-				p.SendTerminate(syscall.SIGSTOP, 1)
-
-				return
-			}
-
-			log.Tracef("Waiting for result through terminator: %d", p.Terminator.registered)
-
-			ch := make(chan bool, 1)
-
-			p.Terminator.Terminated.Register(ch)
-			defer p.Terminator.Terminated.Unregister(ch)
-
-			go func() {
-				time.Sleep(p.options.timeout)
-
-				log.Warnf("Forcefully terminated since hooks did not finish in time: %d of %d", p.Terminator.terminated, p.Terminator.registered)
-
-				if p.onTerminateFn != nil {
-					p.SendError(nil, p.onTerminateFn())
-					p.onTerminateFn = nil
-				}
-
-				p.SendExit(code)
-			}()
-
-			<-ch
-
-			log.Traceln("Gracefully terminated through terminator.")
-		}
-	}
-
-	if p.onTerminateFn != nil {
-		p.SendError(nil, p.onTerminateFn())
-		p.onTerminateFn = nil
-	}
-
-	p.SendExit(code)
+	p.exit(fmt.Sprintf("Terminating with code: %d", code), code)
 }
 
 // Registers a new component that should be handled by the terminator.
 func (p *Plumber) RegisterTerminator() *Plumber {
-	if !p.Terminator.Enabled {
-		p.SendFatal(nil, fmt.Errorf("Plumber does not have the Terminator enabled."))
-
+	if !p.ensureTerminator() {
 		return p
 	}
 
-	p.Terminator.Lock.Lock()
-	p.Terminator.registered++
-	p.Terminator.Lock.Unlock()
+	p.Terminator.state.register(nil)
 
 	return p
 }
 
 func (p *Plumber) DeregisterTerminator() *Plumber {
-	if !p.Terminator.Enabled {
-		p.SendFatal(nil, fmt.Errorf("Plumber does not have the Terminator enabled."))
-
+	if !p.ensureTerminator() {
 		return p
 	}
 
-	p.Terminator.Lock.Lock()
-	p.Terminator.registered--
-	p.Terminator.Lock.Unlock()
+	p.Terminator.state.release(0)
 
 	return p
 }
 
 // Register a component as successfully terminated.
 func (p *Plumber) RegisterTerminated() *Plumber {
-	if !p.Terminator.Enabled {
-		p.SendFatal(nil, fmt.Errorf("Plumber does not have the Terminator enabled."))
-
+	if !p.ensureTerminator() {
 		return p
 	}
 
-	if p.Terminator.registered > 0 {
-		log := p.Log.WithFields(logrus.Fields{
-			LOG_FIELD_CONTEXT: p.Cli.Name,
-			LOG_FIELD_STATUS:  log_status_plumber_terminator,
-		})
-
-		p.Terminator.Lock.Lock()
-		p.Terminator.terminated++
-		p.Terminator.Lock.Unlock()
-		log.Tracef("Received new terminated signal: %d out of %d", p.Terminator.terminated, p.Terminator.registered)
-
-		if p.Terminator.terminated < p.Terminator.registered {
-			return p
-		}
-
-		log.Tracef("Enough votes received for termination.")
-	}
-
-	p.Terminator.Terminated.Submit(true)
+	p.Terminator.state.release(0)
 
 	return p
+}
+
+// Returns the channel that is closed as soon as the hooks of the terminator are drained while the
+// application is terminating.
+func (t *Terminator) drainedChannel() <-chan struct{} {
+	if t.state == nil {
+		return nil
+	}
+
+	return t.state.drained
+}
+
+// Checks whether the terminator is available and fails the application if it is not.
+func (p *Plumber) ensureTerminator() bool {
+	if !p.Terminator.Enabled {
+		p.SendFatal(nil, fmt.Errorf("Plumber does not have the Terminator enabled."))
+
+		return false
+	}
+
+	return true
+}
+
+/*
+Registers a component that is running to the terminator with the hook that should fire whenever the
+application is terminating.
+
+The returned function releases the component again as soon as it is done running, therefore only the
+components that are still running while the application is terminating have their hooks fired.
+*/
+func (p *Plumber) registerTerminatorHook(fn terminatorHookFn) func() {
+	if !p.Terminator.Enabled {
+		return func() {}
+	}
+
+	handle := p.Terminator.state.register(fn)
+
+	if handle == 0 {
+		return func() {}
+	}
+
+	return func() {
+		p.Terminator.state.release(handle)
+	}
+}
+
+/*
+Runs the hooks of the components that are registered to the terminator and waits until all of them
+are done or until the timeout of the terminator is over.
+
+Every hook runs inside its own routine under the context of the shutdown, so a hook that hangs can
+never hold the termination of the application longer than the timeout allows.
+*/
+func (p *Plumber) drainTerminator(hooks []terminatorHookFn) {
+	if !p.Terminator.Enabled {
+		return
+	}
+
+	log := p.Log.With(
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusPlumberTerminator),
+	)
+
+	for _, hook := range hooks {
+		go func() {
+			defer p.Terminator.state.done()
+
+			ctx, cancel := p.shutdownContext()
+			defer cancel()
+
+			hook(ctx)
+		}()
+	}
+
+	select {
+	case <-p.Terminator.state.drained:
+		log.Log(context.Background(), logger.LevelTrace, "Gracefully terminated through terminator.")
+	case <-time.After(p.options.timeout):
+		log.Warn(fmt.Sprintf("Forcefully terminated since hooks did not finish in time: %d", p.Terminator.state.count()))
+
+		p.Terminator.state.forceDrain()
+	}
+}
+
+// Registers a component to the terminator and hands out the handle it is registered with, which is
+// zero whenever the application is already terminating and no new component can be registered.
+func (t *terminatorState) register(fn terminatorHookFn) int {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	if t.initiated {
+		return 0
+	}
+
+	t.handle++
+
+	if fn == nil {
+		t.anonymous++
+	} else {
+		t.hooks[t.handle] = fn
+	}
+
+	return t.handle
+}
+
+// Releases a component that is registered to the terminator, which can be called more than once for
+// the same component and never counts below zero.
+func (t *terminatorState) release(handle int) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	if handle > 0 {
+		if _, ok := t.hooks[handle]; !ok {
+			return
+		}
+
+		delete(t.hooks, handle)
+	} else if t.anonymous > 0 {
+		t.anonymous--
+	}
+
+	t.checkDrained()
+}
+
+// Marks the terminator as initiated and hands over the hooks of the components that are still
+// running, which are the responsibility of the drain from this point on.
+func (t *terminatorState) initiate() []terminatorHookFn {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	if t.initiated {
+		return nil
+	}
+
+	t.initiated = true
+
+	hooks := make([]terminatorHookFn, 0, len(t.hooks))
+
+	for handle, fn := range t.hooks {
+		hooks = append(hooks, fn)
+
+		delete(t.hooks, handle)
+	}
+
+	t.draining = len(hooks)
+
+	t.checkDrained()
+
+	return hooks
+}
+
+// Marks a hook that is running while the application is terminating as done.
+func (t *terminatorState) done() {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	if t.draining > 0 {
+		t.draining--
+	}
+
+	t.checkDrained()
+}
+
+// Marks the terminator as drained even though the hooks did not finish in time.
+func (t *terminatorState) forceDrain() {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	t.close()
+}
+
+func (t *terminatorState) isInitiated() bool {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	return t.initiated
+}
+
+// Returns the amount of the components that the terminator is still waiting for.
+func (t *terminatorState) count() int {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	return len(t.hooks) + t.anonymous + t.draining
+}
+
+// Unblocks everything that is waiting for the terminator as soon as nothing is registered anymore.
+func (t *terminatorState) checkDrained() {
+	if !t.initiated || len(t.hooks)+t.anonymous+t.draining > 0 {
+		return
+	}
+
+	t.close()
+}
+
+func (t *terminatorState) close() {
+	if t.closed {
+		return
+	}
+
+	t.closed = true
+
+	close(t.drained)
 }
 
 // Validates the current pipe of the task list.
@@ -510,7 +636,7 @@ func (p *Plumber) Validate(data any) error {
 				e = fmt.Sprintf("%s > %s", e, param)
 			}
 
-			p.Log.Errorln(e)
+			p.Log.Error(e)
 		}
 
 		return fmt.Errorf("Validation failed.")
@@ -519,149 +645,118 @@ func (p *Plumber) Validate(data any) error {
 	return nil
 }
 
-// Runs a the provided job.
-func (p *Plumber) RunJobs(job Job) error {
-	return p.runJobs(nil, job)
-}
-
 /*
-Runs the provided job as a flow that belongs to the flow of the given context.
+Runs a the provided job.
 
-The context of the flow around it can be reached through CreateJobWithContext. A flow that is
-started through RunJobs instead never belongs to another flow, therefore only the shutdown of
-the application can cancel it.
+A flow that is started through RunJobs never belongs to another flow, since guessing a parent
+chains flows that have nothing to do with each other and lets the one that finishes first cancel
+the other one, therefore only the shutdown of the application can cancel it.
 */
-func (p *Plumber) RunJobsWith(parent JobContext, job Job) error {
-	return p.runJobs(parent, job)
+func (p *Plumber) RunJobs(job Job) error {
+	return p.runJobs(p.context, job)
 }
 
 // Runs the provided job as a flow that belongs to the flow of the given context.
-func (p *Plumber) runJobs(parent floc.Context, job Job) error {
-	if job == nil {
-		return nil
-	}
-
-	result, data, err := p.runFloc(parent, job)
-
-	if err != nil {
-		return err
-	}
-
-	return p.handleFloc(result, data)
+func (p *Plumber) RunJobsWith(parent context.Context, job Job) error {
+	return p.runJobs(parent, job)
 }
 
 /*
 Runs the given job as a flow of its own.
 
-Every flow gets a context and a control of its own that are derived from the flow it belongs
-to, therefore a flow that is over can only cancel itself and never the flow that comes after
-it or the flow that runs next to it. Cancelling a parent, through the terminator, a fatal
-error or a failing job, still cancels every flow that is derived from it.
+Every flow gets a context of its own that is derived from the flow it belongs to and that is
+cancelled again as soon as the job returns, therefore a flow that is over can only cancel itself
+and never the flow that comes after it or the flow that runs next to it, while the jobs it has
+left running in the background are stopped together with it. Cancelling a parent, through the
+terminator, a fatal error or a failing job, still cancels every flow that is derived from it.
 */
-func (p *Plumber) runFloc(parent floc.Context, job Job) (Result, any, error) {
-	ctx, control, finish := p.startFloc(parent)
-	defer finish()
-
-	return floc.RunWith(ctx, control, job)
-}
-
-// Creates the context and the control of a new flow and returns the function that ends the flow again.
-func (p *Plumber) startFloc(parent floc.Context) (floc.Context, floc.Control, func()) {
-	p.flocFlows.lock.Lock()
-
-	// floc derives a cancellable context from the given one and installs it on the context
-	// while creating the control, then cancels it again as soon as the result of the flow is
-	// set. Hand every flow a context of its own, so a flow can never overwrite or cancel the
-	// context of another flow that is running at the same time.
-	flow := &flocFlow{ctx: floc.BorrowContext(p.resolveFlocParent(parent))}
-	flow.control = floc.NewControl(flow.ctx)
-	p.flocFlows.flows = append(p.flocFlows.flows, flow)
-
-	p.flocFlows.lock.Unlock()
-
-	return flow.ctx, flow.control, func() {
-		p.flocFlows.lock.Lock()
-		defer p.flocFlows.lock.Unlock()
-
-		flow.control.Release()
-
-		p.flocFlows.flows = slices.DeleteFunc(p.flocFlows.flows, func(running *flocFlow) bool {
-			return running == flow
-		})
-	}
-}
-
-// Resolves the context a new flow should be derived from.
-func (p *Plumber) resolveFlocParent(parent floc.Context) context.Context {
-	if parent != nil {
-		return parent.Ctx()
+func (p *Plumber) runJobs(parent context.Context, job Job) error {
+	if job == nil {
+		return nil
 	}
 
-	// A flow that is started without knowing which flow it belongs to, through the public
-	// RunJobs, hangs itself on the root instead of on whichever flow happens to run at the
-	// moment, since guessing a parent chains flows that have nothing to do with each other and
-	// lets the one that finishes first cancel the other one. The root is cancelled through
-	// cancelFloc on shutdown, therefore such a flow still dies with the application.
-	return p.flocContext.Ctx()
-}
+	ctx, cancel := context.WithCancelCause(parent)
+	defer cancel(nil)
 
-// Cancels every flow that is running at the moment together with the root flow, so the
-// cancellation reaches every context that is derived from any of them.
-func (p *Plumber) cancelFloc(data any) {
-	p.flocFlows.lock.RLock()
-	flows := slices.Clone(p.flocFlows.flows)
-	p.flocFlows.lock.RUnlock()
+	err := job(ctx)
 
-	for _, flow := range flows {
-		flow.control.Cancel(data)
+	// Shutting down the application cancels every flow that is running at the moment, which is
+	// not a failure of the flow itself but the application ending on purpose, therefore such an
+	// error never reaches the caller and never turns into a second fatal error or exit code.
+	if causedByCancellation(ctx, err) && errors.Is(context.Cause(p.context), ErrShutdown) {
+		return nil
 	}
 
-	p.flocRootControl.Cancel(data)
+	return err
 }
 
-// Handles output coming from floc.
-func (p *Plumber) handleFloc(_ floc.Result, _ any) error {
-	return nil
+// Cancels the root context of the application with the given reason, so the cancellation reaches
+// every flow that is derived from it and every flow can tell that the application is going down.
+func (p *Plumber) shutdown(reason string) {
+	p.cancel(fmt.Errorf("%s: %w", reason, ErrShutdown))
+}
+
+/*
+Ends the application with the given exit code.
+
+The application can only go down once, therefore the first caller runs the whole sequence while
+every caller that comes after it is ignored: the root context is cancelled with the given reason,
+the hooks of the components that are registered to the terminator are drained, the action that is
+set for the termination of the application runs and the process finally exits.
+*/
+func (p *Plumber) exit(reason string, code int) {
+	p.exitOnce.Do(func() {
+		// The hooks are collected before the flows are cancelled, since a component that is running
+		// releases itself as soon as its flow is over and would never have its hook fired otherwise.
+		var hooks []terminatorHookFn
+
+		if p.Terminator.Enabled {
+			hooks = p.Terminator.state.initiate()
+		}
+
+		p.shutdown(reason)
+
+		p.drainTerminator(hooks)
+
+		if p.onTerminateFn != nil {
+			if err := p.onTerminateFn(); err != nil {
+				p.Log.Error(err.Error())
+			}
+
+			p.onTerminateFn = nil
+		}
+
+		p.exitFn(code)
+	})
+}
+
+/*
+Creates the context that the hooks which run while the application is terminating are bound to.
+
+The hooks are detached from the cancellation of the application on purpose, since a hook that is
+handed the context of a flow that is already cancelled can not even start a command anymore, and
+are bound to the timeout of the terminator instead so they can never hold the shutdown forever.
+*/
+func (p *Plumber) shutdownContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(p.context), p.options.timeout)
 }
 
 // Starts the application.
 func (p *Plumber) Run() {
-	ch := make(chan int, 1)
-	p.Channel.Exit.Register(ch)
-
 	if err := p.loadEnvironment(); err != nil {
 		p.SendFatal(nil, err)
 	}
 
-	if slices.Contains(os.Args, "MARKDOWN_DOC") ||
-		slices.Contains(os.Args, "MARKDOWN_EMBED") {
+	args := append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)
+
+	// The documentation of the application is generated without the flags of it ever being parsed,
+	// since the application is never actually set up for a run while its documentation is written.
+	if len(args) > 1 && slices.Contains(
+		[]string{docsCommand},
+		args[1],
+	) {
 		p.Cli.SkipFlagParsing = true
 	}
-
-	p.Cli.Commands = append(
-		p.Cli.Commands,
-		&cli.Command{
-			Name:            "MARKDOWN_DOC",
-			Hidden:          true,
-			SkipFlagParsing: true,
-			Action: func(_ context.Context, _ *cli.Command) error {
-				p.Log.Infoln("Only running the documentation generation without the CLI.")
-
-				return p.generateMarkdownDocumentation()
-			},
-		},
-
-		&cli.Command{
-			Name:            "MARKDOWN_EMBED",
-			Hidden:          true,
-			SkipFlagParsing: true,
-			Action: func(_ context.Context, _ *cli.Command) error {
-				p.Log.Infoln("Only running the documentation generation to embed to file without the CLI.")
-
-				return p.embedMarkdownDocumentation()
-			},
-		},
-	)
 
 	if p.options.greeter != nil {
 		if err := p.options.greeter(p); err != nil {
@@ -671,64 +766,9 @@ func (p *Plumber) Run() {
 		}
 	}
 
-	if err := p.Cli.Run(p.context, append(os.Args, strings.Split(os.Getenv("CLI_ARGS"), " ")...)); err != nil {
+	if err := p.Cli.Run(p.context, args); err != nil {
 		p.SendFatal(nil, err)
-
-		for {
-			<-ch
-		}
 	}
-}
-
-// Prints out DeprecationNotices.
-func (p *Plumber) deprecationNoticeHandler() error {
-	if len(p.options.deprecationNotices) == 0 {
-		return nil
-	}
-
-	exit := false
-	log := p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: p.Cli.Name,
-		LOG_FIELD_STATUS:  log_status_plumber_parser,
-	})
-
-	for _, notice := range p.options.deprecationNotices {
-		if notice.Level == LOG_LEVEL_DEFAULT {
-			notice.Level = LOG_LEVEL_WARN
-		}
-
-		if notice.Message == "" && notice.Level <= LOG_LEVEL_ERROR {
-			notice.Message = `"%s" is deprecated and is not valid anymore.`
-		} else if notice.Message == "" {
-			notice.Message = `"%s" is deprecated and will be removed in a later release.`
-		}
-
-		for _, environment := range notice.Environment {
-			if os.Getenv(environment) != "" {
-				log.Logf(notice.Level, notice.Message, fmt.Sprintf("$%s", environment))
-
-				if notice.Level <= LOG_LEVEL_ERROR {
-					exit = true
-				}
-			}
-		}
-
-		for _, flag := range notice.Flag {
-			if slices.Contains(os.Args, flag) {
-				log.Log(notice.Level, notice.Message, flag)
-
-				if notice.Level <= LOG_LEVEL_ERROR {
-					exit = true
-				}
-			}
-		}
-	}
-
-	if exit {
-		return fmt.Errorf("Quitting since deprecation notices can cause unintended behavior.")
-	}
-
-	return nil
 }
 
 // Appends the default CLI flags to the application.
@@ -750,11 +790,10 @@ func (p *Plumber) loadEnvironment() error {
 		}
 
 		// no need to long since we do this too early before logger level is properly set
-		// p.Log.WithFields(logrus.Fields{
-		// 	LOG_FIELD_CONTEXT: p.Cli.Name,
-		// 	LOG_FIELD_STATUS:  log_status_plumber_environment,
-		// }).
-		// 	Tracef("Environment files are loaded: %v", env)
+		// p.Log.With(
+		// 	slog.String(LogFieldContext, p.Cli.Name),
+		// 	slog.String(LogFieldStatus, logStatusPlumberEnvironment),
+		// ).Log(context.Background(), logger.LevelTrace, fmt.Sprintf("Environment files are loaded: %v", env))
 	}
 
 	return nil
@@ -763,21 +802,21 @@ func (p *Plumber) loadEnvironment() error {
 // Before function for the CLI that gets executed setup the action.
 func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 	return func(ctx context.Context, command *cli.Command) (context.Context, error) {
-		if command.Bool("debug") || p.Log.Level == LOG_LEVEL_DEBUG || p.Log.Level == LOG_LEVEL_TRACE {
+		if command.Bool("debug") || p.GetLoggerLevel() == LogLevelDebug || p.GetLoggerLevel() == LogLevelTrace {
 			p.Environment.Debug = true
 		}
 
-		if err := p.setupLogger(command); err != nil {
+		if err := p.setupLogger(ctx, command); err != nil {
 			return nil, err
 		}
 
-		log := p.Log.WithFields(logrus.Fields{
-			LOG_FIELD_CONTEXT: command.Name,
-			LOG_FIELD_STATUS:  log_status_plumber_setup,
-		})
+		log := p.Log.With(
+			slog.String(LogFieldContext, command.Name),
+			slog.String(LogFieldStatus, logStatusPlumberSetup),
+		)
 
 		if command.Bool("ci") {
-			log.Traceln("Running inside CI.")
+			log.Log(ctx, logger.LevelTrace, "Running inside CI.")
 
 			p.Environment.CI = true
 		}
@@ -788,10 +827,6 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 			}
 		}
 
-		if err := p.deprecationNoticeHandler(); err != nil {
-			return ctx, err
-		}
-
 		return ctx, nil
 	}
 }
@@ -799,130 +834,64 @@ func (p *Plumber) setup(before cli.BeforeFunc) cli.BeforeFunc {
 // Sets up logger for the application.
 //
 //nolint:unparam
-func (p *Plumber) setupLogger(command *cli.Command) error {
-	level, err := logrus.ParseLevel(command.String("log-level"))
+func (p *Plumber) setupLogger(ctx context.Context, command *cli.Command) error {
+	level, err := ParseLogLevel(command.String("log-level"))
 
 	if err != nil {
-		level = logrus.InfoLevel
+		level = LogLevelInfo
 	}
 
 	if command.Bool("debug") {
-		level = logrus.DebugLevel
+		level = LogLevelDebug
 	}
 
-	p.Log.SetLevel(level)
+	p.SetLoggerLevel(level)
 
 	if p.Environment.Debug {
-		p.Log.SetReportCaller(true)
+		p.SetLoggerReportCaller(true)
 	}
 
-	p.Log.ExitFunc = p.Terminate
+	log := p.Log.With(
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusPlumberSetup),
+	)
 
-	log := p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: p.Cli.Name,
-		LOG_FIELD_STATUS:  log_status_plumber_setup,
-	})
-
-	log.Tracef("Logger has been setup with level: %s", p.Log.GetLevel().String())
+	log.Log(
+		ctx,
+		logger.LevelTrace,
+		fmt.Sprintf("Logger has been setup with level: %s", p.GetLoggerLevel().String()),
+	)
 
 	if p.Environment.Debug {
-		log.Traceln("Running in debug mode.")
+		log.Log(ctx, logger.LevelTrace, "Running in debug mode.")
 	}
 
 	return nil
 }
 
 // Registers the os.Signal listener for the application.
-func (p *Plumber) registerInterruptHandler(registered chan string) {
-	registered <- "interrupt"
+func (p *Plumber) registerInterruptHandler() {
+	interrupt := make(chan os.Signal, 1)
 
-	signal.Notify(p.Channel.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	signal.Notify(interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
-	interrupt := <-p.Channel.Interrupt
-	p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: p.Cli.Name,
-		LOG_FIELD_STATUS:  log_status_plumber_terminator,
-	}).Errorf(
-		"Terminating the application with signal: %s",
-		interrupt,
-	)
+	go func() {
+		sig := <-interrupt
 
-	p.SendTerminate(interrupt, 127)
-}
+		p.Log.With(
+			slog.String(LogFieldContext, p.Cli.Name),
+			slog.String(LogFieldStatus, logStatusPlumberTerminator),
+		).Error(
+			fmt.Sprintf("Terminating the application with signal: %s", sig),
+		)
 
-//nolint:unparam
-func (p *Plumber) registerHandlers() {
-	registered := make(chan string, 3)
-	count := 0
+		p.SendTerminate(sig, 127)
+	}()
 
-	go p.registerErrorHandler(registered)
-	go p.registerInterruptHandler(registered)
-	go p.registerExitHandler(registered)
-
-	for {
-		<-registered
-		count++
-
-		if count >= 3 {
-			break
-		}
-	}
-
-	p.Log.WithFields(logrus.Fields{
-		LOG_FIELD_CONTEXT: p.Cli.Name,
-		LOG_FIELD_STATUS:  log_status_plumber_setup,
-	}).Traceln("Registered handlers.")
-
-	close(registered)
-}
-
-// Registers the error handlers for the runtime errors, this will not terminate application.
-func (p *Plumber) registerErrorHandler(registered chan string) {
-	registered <- "error"
-
-	for {
-		select {
-		case err := <-p.Channel.Err:
-			if err.Err == nil {
-				continue
-			}
-
-			err.Log.Errorln(err.Err)
-		case err := <-p.Channel.Fatal:
-			if err.Err == nil {
-				continue
-			}
-
-			err.Log.Fatalln(err.Err)
-		}
-	}
-}
-
-// Registers the exit handler that will stop the application with a exit code.
-func (p *Plumber) registerExitHandler(registered chan string) {
-	registered <- "exit"
-
-	ch := make(chan int, 1)
-
-	p.Channel.Exit.Register(ch)
-
-	code := <-ch
-
-	defer p.Channel.Exit.Unregister(ch)
-	defer p.Channel.Exit.Close()
-
-	if p.Terminator.Enabled {
-		//nolint:errcheck
-		p.Terminator.ShouldTerminate.Close()
-		//nolint:errcheck
-		p.Terminator.Terminated.Close()
-	}
-
-	close(p.Channel.Interrupt)
-	close(p.Channel.Err)
-	close(p.Channel.Fatal)
-
-	os.Exit(code)
+	p.Log.With(
+		slog.String(LogFieldContext, p.Cli.Name),
+		slog.String(LogFieldStatus, logStatusPlumberSetup),
+	).Log(context.Background(), logger.LevelTrace, "Registered handlers.")
 }
 
 // Greet the user with the application name and version.

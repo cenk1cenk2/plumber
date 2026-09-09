@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cenk1cenk2/plumber/v6"
+	"github.com/cenk1cenk2/plumber/v7"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/urfave/cli/v3"
 )
@@ -82,12 +82,14 @@ func NewTaskListCli(spec TaskListCli) *TaskListCliFixture {
 						}
 
 						result.TaskLists = make([]*plumber.TaskList, 0, len(spec.TaskLists))
+						combined := make([]plumber.TaskLister, 0, len(spec.TaskLists))
 						for _, factory := range spec.TaskLists {
 							tl := factory(app, command)
 							result.TaskLists = append(result.TaskLists, tl)
+							combined = append(combined, tl)
 						}
 
-						return app.RunJobs(plumber.CombineTaskLists(result.TaskLists...))
+						return app.RunJobs(plumber.CombineTaskLists(combined...))
 					},
 				},
 			},

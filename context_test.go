@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/cenk1cenk2/plumber/v6"
-	plumbertests "github.com/cenk1cenk2/plumber/v6/tests"
+	"github.com/cenk1cenk2/plumber/v7"
+	plumbertests "github.com/cenk1cenk2/plumber/v7/tests"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,9 +39,9 @@ type contextPropagationCase struct {
 	run func(*plumbertests.PlumberFixture, *plumber.Task) error
 }
 
-var _ = Describe("floc context isolation", func() {
+var _ = Describe("flow context isolation", func() {
 	DescribeTable("should not leak the cancellation of a flow to the flows around it",
-		func(tc contextIsolationCase) {
+		func(ctx SpecContext, tc contextIsolationCase) {
 			lock := &sync.Mutex{}
 			errored := []error{}
 			runner := &contextRunner{
@@ -67,25 +68,25 @@ var _ = Describe("floc context isolation", func() {
 			run: func(fixture *plumbertests.PlumberFixture) {
 				tl := fixture.NewTaskList("isolation")
 
-				Expect(fixture.Plumber.RunJobs(plumber.JobSequence(plumber.CreateBasicJob(func() error {
+				Expect(fixture.Plumber.RunJobs(plumber.JobSequence(plumber.CreateJob(func() error {
 					return errors.New("first flow failed")
 				})))).To(MatchError("first flow failed"))
 
-				Expect(tl.CreateTask("second").CreateCommand("second").Run()).To(Succeed())
+				Expect(fixture.Plumber.RunJobs(tl.CreateTask("second").CreateCommand("second").Job())).To(Succeed())
 			},
 			expected: []error{nil},
 		}),
 		Entry("the task lists that came before", contextIsolationCase{
 			run: func(fixture *plumbertests.PlumberFixture) {
-				lists := []*plumber.TaskList{}
+				lists := []plumber.TaskLister{}
 				for _, name := range []string{"first", "second", "third"} {
 					tl := fixture.NewTaskList(name)
 					tl.Set(func(tl *plumber.TaskList) plumber.Job {
 						return tl.CreateTask(name).
-							Set(func(t *plumber.Task) error {
+							Set(func(ctx context.Context, t *plumber.Task) error {
 								t.CreateCommand(name).AddSelfToTheTask()
 
-								return t.RunCommandJobAsJobSequence()
+								return t.RunCommandJobAsJobSequence(ctx)
 							}).
 							Job()
 					})
@@ -102,11 +103,11 @@ var _ = Describe("floc context isolation", func() {
 				t := fixture.NewTaskList("nested").CreateTask("nested")
 
 				Expect(fixture.Plumber.RunJobs(plumber.JobSequence(
-					plumber.CreateBasicJob(func() error {
-						return fixture.Plumber.RunJobs(plumber.JobSequence(
+					func(ctx context.Context) error {
+						return fixture.Plumber.RunJobsWith(ctx, plumber.JobSequence(
 							t.CreateCommand("nested").Job(),
 						))
-					}),
+					},
 					t.CreateCommand("outer").Job(),
 				))).To(Succeed())
 			},
@@ -149,20 +150,20 @@ var _ = Describe("floc context isolation", func() {
 
 		Expect(fixture.Plumber.RunJobs(plumber.JobSequence(
 			plumber.JobParallel(
-				plumber.CreateBasicJob(func() error {
+				func(ctx context.Context) error {
 					defer close(finished)
 
-					return fixture.Plumber.RunJobs(plumber.JobSequence(
+					return fixture.Plumber.RunJobsWith(ctx, plumber.JobSequence(
 						t.CreateCommand("first").Job(),
 					))
-				}),
-				plumber.CreateBasicJob(func() error {
+				},
+				func(ctx context.Context) error {
 					<-started
 
-					return fixture.Plumber.RunJobs(plumber.JobSequence(
+					return fixture.Plumber.RunJobsWith(ctx, plumber.JobSequence(
 						t.CreateCommand("second").Job(),
 					))
-				}),
+				},
 			),
 			t.CreateCommand("third").Job(),
 		))).To(Succeed())
@@ -280,11 +281,11 @@ var _ = Describe("floc context isolation", func() {
 		Entry("a nested flow", contextPropagationCase{
 			run: func(fixture *plumbertests.PlumberFixture, t *plumber.Task) error {
 				return fixture.Plumber.RunJobs(plumber.JobParallel(
-					plumber.CreateJobWithContext(func(ctx plumber.JobContext) error {
+					func(ctx context.Context) error {
 						return fixture.Plumber.RunJobsWith(ctx, plumber.JobSequence(
 							t.CreateCommand("survives").Job(),
 						))
-					}),
+					},
 					t.CreateCommand("dies").Job(),
 				))
 			},
@@ -298,4 +299,103 @@ var _ = Describe("floc context isolation", func() {
 			},
 		}, SpecTimeout(time.Second*10)),
 	)
+})
+
+var _ = Describe("daemon flows", func() {
+	It("should keep a background daemon loop ticking while the flow lives and stop it once the flow is over", func(spec SpecContext) {
+		fixture := plumbertests.NewPlumber()
+
+		var ticks atomic.Int32
+
+		ctx, cancel := context.WithCancel(spec)
+		defer cancel()
+
+		daemon := plumber.JobBackground(
+			plumber.GuardResume(
+				plumber.JobDelay(
+					plumber.JobLoopWithWaitAfter(plumber.CreateJob(func() error {
+						ticks.Add(1)
+
+						return nil
+					}), time.Millisecond),
+					time.Millisecond,
+				),
+				fixture.Plumber.Log,
+			),
+			fixture.Plumber.Log,
+		)
+
+		done := make(chan error, 1)
+
+		go func() {
+			defer GinkgoRecover()
+
+			done <- fixture.Plumber.RunJobsWith(ctx, plumber.JobSequence(
+				daemon,
+				func(ctx context.Context) error {
+					<-ctx.Done()
+
+					return ctx.Err()
+				},
+			))
+		}()
+
+		Eventually(func() int32 {
+			return ticks.Load()
+		}).Should(BeNumerically(">", 1))
+
+		cancel()
+
+		Eventually(done).Should(Receive(MatchError(context.Canceled)))
+
+		time.Sleep(10 * time.Millisecond)
+
+		settled := ticks.Load()
+
+		Consistently(func() int32 {
+			return ticks.Load()
+		}, 50*time.Millisecond).Should(Equal(settled))
+	}, SpecTimeout(time.Second*10))
+
+	It("should still run the commands of a terminator hook after the application is shut down", func(_ SpecContext) {
+		runner := plumbertests.NewTestingCommandRunner()
+		fixture := plumbertests.NewPlumber()
+		fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner.Runner()})
+		fixture.Plumber.EnableTerminator()
+
+		hooked := make(chan error, 1)
+		running := make(chan bool)
+
+		task := fixture.NewTaskList("daemon").CreateTask("daemon").
+			Set(func(ctx context.Context, _ *plumber.Task) error {
+				close(running)
+
+				<-ctx.Done()
+
+				return ctx.Err()
+			}).
+			SetOnTerminator(func(ctx context.Context, t *plumber.Task) error {
+				hooked <- t.CreateCommand("cleanup").Run(ctx)
+
+				return nil
+			}).
+			EnableTerminator()
+
+		done := make(chan error, 1)
+
+		go func() {
+			defer GinkgoRecover()
+
+			done <- fixture.Plumber.RunJobs(task.Job())
+		}()
+
+		<-running
+
+		fixture.Plumber.SendFatal(nil, errors.New("fatal error"))
+
+		Expect(<-hooked).To(Succeed())
+		Expect(runner.InvocationNames()).To(Equal([]string{"cleanup"}))
+		Eventually(done).Should(Receive(BeNil()))
+		Expect(fixture.ExitCodes()).To(Equal([]int{1}))
+	}, SpecTimeout(time.Second*10))
 })

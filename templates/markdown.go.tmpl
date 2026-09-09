@@ -1,70 +1,101 @@
-# {{ $.App.Name }}
+{{- if $.Headline }}
+{{ $.Prefix }}# {{ $.App.Name }}
+  {{- if $.App.Description }}
 
-{{ $.App.Description }}
-{{- if $.App.UsageText }}
+{{ $.App.Description | trim }}
+  {{- end }}
 
-`{{ $.App.UsageText }}`
-{{- else }}
-
-`{{ $.App.Name }}{{ if $.Commands }} [GLOBAL FLAGS] [COMMAND]{{ end }} [FLAGS]`
+`{{ $.UsageText }}`
 {{- end }}
 {{- if $.GlobalFlags }}
+
+{{ $.Prefix }}## {{ if $.Commands }}Global Flags{{ else }}Flags{{ end }}
+  {{- template "flags" $.GlobalFlags }}
+{{- end }}
 {{- if $.Commands }}
 
-## Global Flags
-{{- else }}
-
-## Flags
-{{- end }}
-  {{- range $category, $flags := $.GlobalFlags }}
-      {{- if eq $category "EMPTY" }}
-        {{- template "flags" $flags }}
-      {{- end }}
-  {{- end }}
-  {{- range $category, $flags := $.GlobalFlags }}
-    {{- if ne $category "EMPTY" }}
-
-**{{ $category }}**
-      {{- template "flags" $flags }}
+{{ $.Prefix }}## Commands
+{{- /* the newline opens the blank line that every entry of the list is then appended to */}}
+  {{- if $.Toc }}{{ "\n" }}
+    {{- range $c := $.Commands }}
+{{ repeat $c.Indent "  " }}- [`{{ $c.Name }}`](#{{ $c.Anchor }})
     {{- end }}
   {{- end }}
-{{- end }}
-{{- if $.Commands }}
+  {{- range $category := $.CommandCategories }}
+    {{- if $category.Name }}
 
-## Commands
-  {{- range $v := $.Commands }}
+{{ $.Prefix }}### {{ $category.Name }}
+    {{- end }}
+    {{- range $v := $category.Commands }}
 
-###{{ repeat $v.Level "#" }} `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
-    {{- if $v.Usage }}
+{{ $.Prefix }}###{{ repeat $v.Level "#" }} `{{ $v.Name }}`{{ range $a := $v.Aliases }}, `{{ $a }}`{{ end }}
+      {{- if $v.Usage }}
 
 {{ $v.Usage | trim }}
-    {{- end }}
-    {{- if $v.Description }}
+      {{- end }}
+      {{- if $v.Description }}
 
 {{ $v.Description | trim }}
-    {{- end }}
-    {{- if $v.Flags }}
+      {{- end }}
 
-####{{ repeat $v.Level "#" }} Flags
-      {{- range $category, $flags := $v.Flags }}
-        {{- if eq $category "EMPTY" }}
-          {{- template "flags" $flags }}
+`{{ $v.UsageText }}`
+      {{- if $v.Arguments }}
+
+{{ $.Prefix }}####{{ repeat $v.Level "#" }} Arguments
+
+| Argument | Usage | Type | Values |
+| --- | --- | --- | --- |
+        {{- range $a := $v.Arguments }}
+| {{ if $a.Required }}**{{ mdcode $a.Name }}**\*{{ else }}{{ mdcode $a.Name }}{{ end }} | {{ mdcode $a.Usage }} | {{ mdcode $a.Type }} | {{ mdcode $a.Values }} |
+        {{- end }}
+        {{- range $n := $v.ArgumentNotes }}
+
+{{ $n }}
         {{- end }}
       {{- end }}
-      {{- range $category, $flags := $v.Flags }}
-        {{- if ne $category "EMPTY" }}
+      {{- if $v.Flags }}
 
-**{{ $category }}**
-          {{- template "flags" $flags }}
-        {{- end }}
+{{ $.Prefix }}####{{ repeat $v.Level "#" }} Flags
+        {{- template "flags" $v.Flags }}
       {{- end }}
     {{- end }}
   {{- end }}
 {{- end }}
-{{- define "flags" }}
 
-| Flag / Environment |  Description   |  Type    | Required | Default |
-|---------------- | --------------- | --------------- |  --------------- |  --------------- |
-{{- range $f := . }}
-| {{ range $i, $name := $f.Name }}{{ if ne $i 0 }}<br />{{ end }}`{{ $name }}`{{ end }} | {{ regexReplaceAll `\n` ($f.Description | trim) "<br />" }} | `{{ $f.Type }}{{ if $f.Multiple }}[]{{ end }}`{{ if $f.Format }}<br/>`{{ $f.Format | trim }}`{{ end }} | `{{ $f.Required }}` | <code>{{ regexReplaceAll `\n` ($f.Default | trim) "<br />" }}</code> | {{- end }}
+{{- /* Renders every category of a set of flags as a table of its own. */ -}}
+{{- define "flags" }}
+  {{- range $category := . }}
+    {{- if $category.Name }}
+      {{- if $category.Collapsed }}
+
+<details>
+<summary>{{ $category.Name }}</summary>
+      {{- else }}
+
+**{{ $category.Name }}**
+      {{- end }}
+    {{- end }}
+
+| Flag / Environment | Description | Type | Default |
+| --- | --- | --- | --- |
+    {{- range $f := $category.Flags }}
+| {{ template "flag-name" $f }} | {{ mdcell $f.Description }} | {{ if $f.Multiple }}{{ mdcode (print $f.Type "[]") }}{{ else }}{{ mdcode $f.Type }}{{ end }}{{ if $f.Format }}<br/>{{ mdcode $f.Format }}{{ end }} | {{ mdcode $f.Default }} |
+    {{- end }}
+    {{- range $n := $category.Notes }}
+
+{{ $n }}
+    {{- end }}
+    {{- if and $category.Name $category.Collapsed }}
+
+</details>
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- /* Renders the names of a flag, where a required one is bold and carries a trailing marker. */ -}}
+{{- define "flag-name" -}}
+  {{- $f := . -}}
+  {{- range $i, $n := $f.Name }}{{ if $i }}<br/>{{ end }}{{ if $f.Required }}**{{ mdcode $n }}**{{ else }}{{ mdcode $n }}{{ end }}{{ end }}
+  {{- if $f.Required }}\*{{ end }}
+  {{- if $f.Group }} {{ $f.Group }}{{ end }}
 {{- end }}

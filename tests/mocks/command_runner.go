@@ -7,7 +7,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/cenk1cenk2/plumber/v6"
+	"github.com/cenk1cenk2/plumber/v7"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -73,7 +73,7 @@ type MockCommandRunner_Run_Call struct {
 //   - ctx context.Context
 //   - invocation plumber.CommandInvocation
 //   - runtime plumber.CommandRuntime
-func (_e *MockCommandRunner_Expecter) Run(ctx interface{}, invocation interface{}, runtime interface{}) *MockCommandRunner_Run_Call {
+func (_e *MockCommandRunner_Expecter) Run(ctx any, invocation any, runtime any) *MockCommandRunner_Run_Call {
 	return &MockCommandRunner_Run_Call{Call: _e.mock.On("Run", ctx, invocation, runtime)}
 }
 
