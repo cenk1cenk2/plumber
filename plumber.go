@@ -619,8 +619,18 @@ func (p *Plumber) cancelFloc(data any) {
 	p.flocRootControl.Cancel(data)
 }
 
-// Handles output coming from floc.
-func (p *Plumber) handleFloc(_ floc.Result, _ any) error {
+/*
+Handles output coming from floc.
+
+A fatal error cancels every flow that is running through cancelFloc before the job that raised it
+has returned, and go-floc keeps whichever call finished the control first, therefore the failure of
+such a flow is carried by the data of the cancellation while its error stays nil.
+*/
+func (p *Plumber) handleFloc(_ floc.Result, data any) error {
+	if err, ok := data.(error); ok {
+		return err
+	}
+
 	return nil
 }
 

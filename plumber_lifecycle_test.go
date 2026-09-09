@@ -214,5 +214,36 @@ var _ = Describe("plumber lifecycle", func() {
 				return errors.New("job failed")
 			}), errors.New("job failed")),
 		)
+
+		It("should return the error of a failing task through RunJobs", func() {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.Log.ExitFunc = func(int) {}
+
+			task := fixture.NewTaskList("tasks").
+				CreateTask("failing").
+				Set(func(_ *plumber.Task) error {
+					return errors.New("task failed")
+				})
+
+			Expect(fixture.Plumber.RunJobs(task.Job())).To(MatchError("task failed"))
+		})
+
+		It("should return the error of a failing task through a task list", func() {
+			fixture := plumbertests.NewPlumber()
+			fixture.Plumber.Log.ExitFunc = func(int) {}
+
+			tl := fixture.NewTaskList("tasks").
+				Set(func(tl *plumber.TaskList) plumber.Job {
+					return plumber.JobSequence(
+						tl.CreateTask("failing").
+							Set(func(_ *plumber.Task) error {
+								return errors.New("task failed")
+							}).
+							Job(),
+					)
+				})
+
+			Expect(fixture.Plumber.RunJobs(tl.Job())).To(MatchError("task failed"))
+		})
 	})
 })
