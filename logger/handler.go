@@ -14,8 +14,8 @@ import (
 	"sync/atomic"
 	"unicode"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 )
 
 // LevelTrace is the most verbose level of the handler, which slog itself does not know about.
@@ -47,8 +47,7 @@ type Handler struct {
 type handlerState struct {
 	// guards the output, which is also where the records are serialized against
 	lock         sync.Mutex
-	out          io.Writer
-	profile      termenv.Profile
+	out          *colorprofile.Writer
 	theme        theme
 	redactor     redactor
 	level        slog.LevelVar
@@ -59,12 +58,10 @@ type handlerState struct {
 func NewHandler() *Handler {
 	h := &Handler{
 		state: &handlerState{
-			out:     os.Stdout,
-			profile: colorProfile(),
+			out: &colorprofile.Writer{Forward: os.Stdout, Profile: colorProfile()},
 		},
 	}
 
-	h.state.theme = newTheme(h.state.out, h.state.profile)
 	h.state.level.Set(slog.LevelInfo)
 
 	return h
@@ -79,10 +76,9 @@ func (h *Handler) SetOutput(out io.Writer) {
 	h.state.lock.Lock()
 	defer h.state.lock.Unlock()
 
-	h.state.out = out
-	// the renderer of the theme is bound to the writer it was created for, so it is rebuilt for
-	// the writer that takes over while the profile that was resolved once stays the same
-	h.state.theme = newTheme(out, h.state.profile)
+	// only the writer behind the profile is swapped, so that the profile that was resolved once
+	// stays the same for the writer that takes over
+	h.state.out.Forward = out
 }
 
 // Sets the level that the records are gated with.
@@ -283,20 +279,11 @@ const (
 /*
 The styles of the elements of a record.
 
-The renderer is bound to the writer that the records are written to and its color profile is forced
-instead of detected, because plumber mostly runs in a ci where the log viewer renders the escape
-sequences although the output it is handed is never a terminal.
+The styles carry no state of their own, because lipgloss renders them at full fidelity and leaves
+the color profile to the writer they are handed to, which is where the profile of the handler is
+forced instead of detected.
 */
-type theme struct {
-	renderer *lipgloss.Renderer
-}
-
-func newTheme(out io.Writer, profile termenv.Profile) theme {
-	renderer := lipgloss.NewRenderer(out)
-	renderer.SetColorProfile(profile)
-
-	return theme{renderer: renderer}
-}
+type theme struct{}
 
 /*
 Returns the style that every element of a record of the given level inherits from.
@@ -307,7 +294,7 @@ whole, so that they recede behind the records that carry the progress of a pipel
 Tab conversion is turned off throughout, since the styling should never touch the content it wraps.
 */
 func (t theme) base(level slog.Level) lipgloss.Style {
-	return t.renderer.NewStyle().
+	return lipgloss.NewStyle().
 		TabWidth(lipgloss.NoTabConversion).
 		Faint(level <= slog.LevelDebug)
 }
@@ -337,16 +324,18 @@ ends up in a ci log viewer that renders the escape sequences while it is not a t
 what a detection would key off of. Only the environment gets a say over it, following the semantics
 that no-color.org lays out.
 */
-func colorProfile() termenv.Profile {
+func colorProfile() colorprofile.Profile {
 	if force := os.Getenv("CLICOLOR_FORCE"); force != "" && force != "0" {
-		return termenv.ANSI
+		return colorprofile.ANSI
 	}
 
 	if os.Getenv("NO_COLOR") != "" {
-		return termenv.Ascii
+		// the profile that strips every sequence rather than the one that is named after ascii,
+		// which still lets the attributes that carry no color through
+		return colorprofile.NoTTY
 	}
 
-	return termenv.ANSI
+	return colorprofile.ANSI
 }
 
 // Returns the initial of the name of the closest level that is not more severe than the given one.
