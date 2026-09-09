@@ -17,6 +17,19 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+/*
+The badges of the levels as the forced ansi profile renders them, where the bold attribute comes
+first, the faint attribute of the levels that are dimmed as a whole comes second and the color of
+the level comes last.
+*/
+const (
+	badgeTrace = "\x1b[1;2;35m[T]\x1b[0m "
+	badgeDebug = "\x1b[1;2;37m[D]\x1b[0m "
+	badgeInfo  = "\x1b[1;36m[I]\x1b[0m "
+	badgeWarn  = "\x1b[1;33m[W]\x1b[0m "
+	badgeError = "\x1b[1;31m[E]\x1b[0m "
+)
+
 func handle(handler *logger.Handler, record slog.Record) {
 	GinkgoHelper()
 
@@ -25,6 +38,19 @@ func handle(handler *logger.Handler, record slog.Record) {
 
 func record(level slog.Level, message string) slog.Record {
 	return slog.NewRecord(time.Unix(0, 0), level, message, 0)
+}
+
+// The fields as the forced ansi profile renders them for a record that is not dimmed as a whole.
+func contextField(value string) string {
+	return "\x1b[34m[" + value + "]\x1b[0m "
+}
+
+func statusField(value string) string {
+	return "\x1b[32m[" + value + "]\x1b[0m "
+}
+
+func field(value string) string {
+	return "\x1b[2m[" + value + "]\x1b[0m "
 }
 
 var _ = Describe("Handler", func() {
@@ -46,7 +72,7 @@ var _ = Describe("Handler", func() {
 
 		Expect(with.Handle(context.Background(), record(slog.LevelInfo, "done \n"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] [task] [RUN] \x1b[0mdone\n"))
+		Expect(output.String()).To(Equal(badgeInfo + contextField("task") + statusField("RUN") + "done\n"))
 	})
 
 	It("should redact configured secrets from messages", func(_ SpecContext) {
@@ -56,7 +82,7 @@ var _ = Describe("Handler", func() {
 
 		handle(handler, record(slog.LevelInfo, "using secret-token"))
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] \x1b[0musing [REDACTED]\n"))
+		Expect(output.String()).To(Equal(badgeInfo + "using [REDACTED]\n"))
 	})
 
 	It("should redact the secrets from the fields", func(_ SpecContext) {
@@ -68,7 +94,7 @@ var _ = Describe("Handler", func() {
 
 		Expect(with.Handle(context.Background(), record(slog.LevelInfo, "done"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] [[REDACTED]] \x1b[0mdone\n"))
+		Expect(output.String()).To(Equal(badgeInfo + contextField("[REDACTED]") + "done\n"))
 	})
 
 	It("should redact more than one secret in a single record", func(_ SpecContext) {
@@ -78,7 +104,7 @@ var _ = Describe("Handler", func() {
 
 		handle(handler, record(slog.LevelInfo, "using first-secret and second-secret"))
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] \x1b[0musing [REDACTED] and [REDACTED]\n"))
+		Expect(output.String()).To(Equal(badgeInfo + "using [REDACTED] and [REDACTED]\n"))
 	})
 
 	It("should redact a secret that overlaps a longer one as a whole", func(_ SpecContext) {
@@ -88,7 +114,7 @@ var _ = Describe("Handler", func() {
 
 		handle(handler, record(slog.LevelInfo, "using token-of-the-application"))
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] \x1b[0musing [REDACTED]\n"))
+		Expect(output.String()).To(Equal(badgeInfo + "using [REDACTED]\n"))
 	})
 
 	DescribeTable(
@@ -100,7 +126,7 @@ var _ = Describe("Handler", func() {
 
 			handle(handler, record(slog.LevelInfo, "using "+encode("secret token/value?")))
 
-			Expect(output.String()).To(Equal("\x1b[36m[I] \x1b[0musing [REDACTED]\n"))
+			Expect(output.String()).To(Equal(badgeInfo + "using [REDACTED]\n"))
 		},
 		Entry("url", url.QueryEscape),
 		Entry("base64", func(value string) string {
@@ -124,7 +150,7 @@ var _ = Describe("Handler", func() {
 
 		handle(handler, record(slog.LevelInfo, "an apple"))
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] \x1b[0m[REDACTED] apple\n"))
+		Expect(output.String()).To(Equal(badgeInfo + "[REDACTED] apple\n"))
 	})
 
 	It("should ignore the values that are empty", func(_ SpecContext) {
@@ -134,7 +160,7 @@ var _ = Describe("Handler", func() {
 
 		handle(handler, record(slog.LevelInfo, "an apple a day"))
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] \x1b[0man apple a day\n"))
+		Expect(output.String()).To(Equal(badgeInfo + "an apple a day\n"))
 	})
 
 	It("should redact the secrets that are added after the loggers are derived", func(_ SpecContext) {
@@ -147,7 +173,7 @@ var _ = Describe("Handler", func() {
 
 		derived.Info("using secret-token")
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] [task] \x1b[0musing [REDACTED]\n"))
+		Expect(output.String()).To(Equal(badgeInfo + contextField("task") + "using [REDACTED]\n"))
 	})
 
 	It("should redact the secrets that are reported with the caller", func(_ SpecContext) {
@@ -192,7 +218,7 @@ var _ = Describe("Handler", func() {
 
 		handle(handler, record(slog.LevelInfo, "using secret-token-99"))
 
-		Expect(output.String()).To(HaveSuffix("\x1b[36m[I] \x1b[0musing [REDACTED]\n"))
+		Expect(output.String()).To(HaveSuffix(badgeInfo + "using [REDACTED]\n"))
 	})
 
 	It("should overwrite a field that is set more than once", func(_ SpecContext) {
@@ -205,7 +231,7 @@ var _ = Describe("Handler", func() {
 
 		Expect(with.Handle(context.Background(), record(slog.LevelInfo, "done"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] [DISABLE] \x1b[0mdone\n"))
+		Expect(output.String()).To(Equal(badgeInfo + contextField("DISABLE") + "done\n"))
 	})
 
 	It("should carry the attributes of the loggers that are derived from it", func(_ SpecContext) {
@@ -218,7 +244,7 @@ var _ = Describe("Handler", func() {
 		derived.Info("done")
 		log.Info("root")
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] [task] [RUN] \x1b[0mdone\n\x1b[36m[I] \x1b[0mroot\n"))
+		Expect(output.String()).To(Equal(badgeInfo + contextField("task") + statusField("RUN") + "done\n" + badgeInfo + "root\n"))
 	})
 
 	It("should report the caller of the message and never the logger itself", func(_ SpecContext) {
@@ -232,23 +258,152 @@ var _ = Describe("Handler", func() {
 		Expect(output.String()).ToNot(ContainSubstring("log/slog"))
 	})
 
-	It("should sort the fields that are not ordered alphabetically", func(_ SpecContext) {
+	It("should keep the order of the fields that are added while the loggers are derived", func(_ SpecContext) {
+		handler := logger.NewHandler()
+		handler.SetOutput(output)
+
+		slog.New(handler).
+			With(slog.String("zulu", "z")).
+			With(slog.String("context", "task")).
+			Info("done", slog.String("alpha", "a"))
+
+		Expect(output.String()).To(Equal(badgeInfo + contextField("task") + field("z") + field("a") + "done\n"))
+	})
+
+	It("should render the house fields before every other one however they sort", func(_ SpecContext) {
 		handler := logger.NewHandler()
 		handler.SetOutput(output)
 
 		with := handler.WithAttrs([]slog.Attr{
-			slog.String("zulu", "z"),
+			slog.String("beta", "b"),
+			slog.String("status", "RUN"),
 			slog.String("alpha", "a"),
 			slog.String("context", "task"),
 		})
 
 		Expect(with.Handle(context.Background(), record(slog.LevelInfo, "done"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] [task] [a] [z] \x1b[0mdone\n"))
+		Expect(output.String()).To(Equal(
+			badgeInfo + contextField("task") + statusField("RUN") + field("b") + field("a") + "done\n",
+		))
+	})
+
+	It("should style the badge, the context and the status of a record", func(_ SpecContext) {
+		handler := logger.NewHandler()
+		handler.SetOutput(output)
+
+		with := handler.WithAttrs([]slog.Attr{
+			slog.String("context", "task"),
+			slog.String("status", "RUN"),
+			slog.String("other", "value"),
+		})
+
+		Expect(with.Handle(context.Background(), record(slog.LevelWarn, "done"))).To(Succeed())
+
+		Expect(output.String()).To(Equal(
+			"\x1b[1;33m[W]\x1b[0m " +
+				"\x1b[34m[task]\x1b[0m " +
+				"\x1b[32m[RUN]\x1b[0m " +
+				"\x1b[2m[value]\x1b[0m " +
+				"done\n",
+		))
 	})
 
 	DescribeTable(
-		"should color the message depending on the level",
+		"should dim the levels that are only noise as a whole",
+		func(_ SpecContext, level slog.Level, expected string) {
+			handler := logger.NewHandler()
+			handler.SetOutput(output)
+			handler.SetLevel(logger.LevelTrace)
+
+			with := handler.WithAttrs([]slog.Attr{
+				slog.String("context", "task"),
+				slog.String("status", "RUN"),
+				slog.String("other", "value"),
+			})
+
+			Expect(with.Handle(context.Background(), record(level, "done"))).To(Succeed())
+
+			Expect(output.String()).To(Equal(expected))
+		},
+		Entry(
+			"trace",
+			logger.LevelTrace,
+			"\x1b[1;2;35m[T]\x1b[0m \x1b[2;34m[task]\x1b[0m \x1b[2;32m[RUN]\x1b[0m \x1b[2m[value]\x1b[0m \x1b[2mdone\x1b[0m\n",
+		),
+		Entry(
+			"debug",
+			slog.LevelDebug,
+			"\x1b[1;2;37m[D]\x1b[0m \x1b[2;34m[task]\x1b[0m \x1b[2;32m[RUN]\x1b[0m \x1b[2m[value]\x1b[0m \x1b[2mdone\x1b[0m\n",
+		),
+	)
+
+	It("should redact a secret that is wrapped in the styling of a field", func(_ SpecContext) {
+		handler := logger.NewHandler()
+		handler.SetOutput(output)
+		handler.SetLevel(logger.LevelTrace)
+		handler.AddSecrets("secret-token")
+
+		with := handler.WithAttrs([]slog.Attr{slog.String("status", "secret-token")})
+
+		Expect(with.Handle(context.Background(), record(slog.LevelDebug, "done"))).To(Succeed())
+
+		Expect(output.String()).To(Equal(
+			"\x1b[1;2;37m[D]\x1b[0m \x1b[2;32m[[REDACTED]]\x1b[0m \x1b[2mdone\x1b[0m\n",
+		))
+	})
+
+	It("should write out the records without any escape sequences when colors are turned off", func(_ SpecContext) {
+		GinkgoT().Setenv("NO_COLOR", "1")
+
+		handler := logger.NewHandler()
+		handler.SetOutput(output)
+		handler.SetLevel(logger.LevelTrace)
+
+		with := handler.WithAttrs([]slog.Attr{
+			slog.String("context", "task"),
+			slog.String("status", "RUN"),
+			slog.String("other", "value"),
+		})
+
+		Expect(with.Handle(context.Background(), record(slog.LevelDebug, "done"))).To(Succeed())
+		Expect(with.Handle(context.Background(), record(slog.LevelError, "failed"))).To(Succeed())
+
+		Expect(output.String()).To(Equal("[D] [task] [RUN] [value] done\n[E] [task] [RUN] [value] failed\n"))
+		Expect(output.String()).ToNot(ContainSubstring("\x1b"))
+	})
+
+	It("should render the colors although the output is not a terminal", func(_ SpecContext) {
+		GinkgoT().Setenv("NO_COLOR", "1")
+		GinkgoT().Setenv("CLICOLOR_FORCE", "1")
+
+		handler := logger.NewHandler()
+		handler.SetOutput(output)
+
+		handle(handler, record(slog.LevelInfo, "done"))
+
+		Expect(output.String()).To(Equal(badgeInfo + "done\n"))
+	})
+
+	It("should keep the profile of the writer that takes over", func(_ SpecContext) {
+		GinkgoT().Setenv("NO_COLOR", "1")
+
+		handler := logger.NewHandler()
+		handler.SetOutput(output)
+
+		handle(handler, record(slog.LevelInfo, "done"))
+
+		other := &bytes.Buffer{}
+		handler.SetOutput(other)
+
+		handle(handler, record(slog.LevelInfo, "done"))
+
+		Expect(other.String()).To(Equal(output.String()))
+		Expect(other.String()).To(Equal("[I] done\n"))
+	})
+
+	DescribeTable(
+		"should color the badge depending on the level",
 		func(_ SpecContext, level slog.Level, expected string) {
 			handler := logger.NewHandler()
 			handler.SetOutput(output)
@@ -257,11 +412,11 @@ var _ = Describe("Handler", func() {
 
 			Expect(output.String()).To(Equal(expected))
 		},
-		Entry("trace", logger.LevelTrace, "\x1b[35m[T] \x1b[0mdone\n"),
-		Entry("debug", slog.LevelDebug, "\x1b[37m[D] \x1b[0mdone\n"),
-		Entry("info", slog.LevelInfo, "\x1b[36m[I] \x1b[0mdone\n"),
-		Entry("warn", slog.LevelWarn, "\x1b[33m[W] \x1b[0mdone\n"),
-		Entry("error", slog.LevelError, "\x1b[31m[E] \x1b[0mdone\n"),
+		Entry("trace", logger.LevelTrace, badgeTrace+"\x1b[2mdone\x1b[0m\n"),
+		Entry("debug", slog.LevelDebug, badgeDebug+"\x1b[2mdone\x1b[0m\n"),
+		Entry("info", slog.LevelInfo, badgeInfo+"done\n"),
+		Entry("warn", slog.LevelWarn, badgeWarn+"done\n"),
+		Entry("error", slog.LevelError, badgeError+"done\n"),
 	)
 
 	It("should gate the records with the level that is set", func(_ SpecContext) {
@@ -286,7 +441,7 @@ var _ = Describe("Handler", func() {
 		Expect(with.Enabled(context.Background(), logger.LevelTrace)).To(BeTrue())
 		Expect(with.Handle(context.Background(), record(logger.LevelTrace, "done"))).To(Succeed())
 
-		Expect(output.String()).To(Equal("\x1b[35m[T] [task] \x1b[0mdone\n"))
+		Expect(output.String()).To(Equal(badgeTrace + "\x1b[2;34m[task]\x1b[0m " + "\x1b[2mdone\x1b[0m\n"))
 	})
 
 	It("should not report the caller unless it is asked for", func(_ SpecContext) {
@@ -298,7 +453,7 @@ var _ = Describe("Handler", func() {
 
 		handle(handler, slog.NewRecord(time.Unix(0, 0), slog.LevelInfo, "done", pcs[0]))
 
-		Expect(output.String()).To(Equal("\x1b[36m[I] \x1b[0mdone\n"))
+		Expect(output.String()).To(Equal(badgeInfo + "done\n"))
 
 		output.Reset()
 		handler.SetReportCaller(true)
