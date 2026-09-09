@@ -3,7 +3,7 @@ module github.com/cenk1cenk2/plumber/v7
 go 1.27.0
 
 require (
-	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/charmbracelet/lipgloss/v2 v2.0.6
 	github.com/creasty/defaults v1.8.0
 	github.com/go-playground/validator/v10 v10.30.4
 	github.com/go-task/slim-sprig/v3 v3.0.0
