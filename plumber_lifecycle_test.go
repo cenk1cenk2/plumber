@@ -204,7 +204,7 @@ var _ = Describe("plumber lifecycle", func() {
 			Eventually(fixture.ExitCodes).Should(Equal([]int{1}))
 		}, SpecTimeout(time.Second*10))
 
-		It("should exit with a failure code when a command of a task can not start", func(_ SpecContext) {
+		It("should propagate the error of a command of a task that can not start", func(_ SpecContext) {
 			fixture := plumbertests.NewPlumber()
 			runner := plumbertests.NewTestingCommandRunner()
 			runner.Add(plumbertests.TestingCommandResponse{
@@ -228,8 +228,53 @@ var _ = Describe("plumber lifecycle", func() {
 						Job()
 				})
 
-			Expect(fixture.Plumber.RunJobs(plumber.CombineTaskLists(tl))).To(Succeed())
+			Expect(fixture.Plumber.RunJobs(plumber.CombineTaskLists(tl))).
+				To(MatchError(ContainSubstring(`exec: "kustomize": executable file not found in $PATH`)))
+			Expect(fixture.ExitCodes()).To(BeEmpty())
+		}, SpecTimeout(time.Second*10))
+
+		It("should exit with a failure code when the action of the application fails", func(_ SpecContext) {
+			plumbertests.WithArgs("failing-test", "run")
+			fixture := plumbertests.NewPlumber(func(_ *plumber.Plumber) *cli.Command {
+				return &cli.Command{
+					Name: "failing-test",
+					Commands: []*cli.Command{
+						{
+							Name: "run",
+							Action: func(_ context.Context, _ *cli.Command) error {
+								return errors.New(`exec: "kustomize": executable file not found in $PATH`)
+							},
+						},
+					},
+				}
+			})
+
+			fixture.Plumber.Run()
+
 			Expect(fixture.ExitCodes()).To(Equal([]int{1}))
+		}, SpecTimeout(time.Second*10))
+
+		It("should resume the flow when a failing task is guarded to resume", func(_ SpecContext) {
+			fixture := plumbertests.NewPlumber()
+
+			resumed := false
+
+			task := fixture.NewTaskList("guarded").CreateTask("failing").
+				Set(func(_ context.Context, _ *plumber.Task) error {
+					return errors.New("task failed")
+				})
+
+			Expect(fixture.Plumber.RunJobs(plumber.JobSequence(
+				plumber.GuardResume(task.Job()),
+				plumber.CreateJob(func() error {
+					resumed = true
+
+					return nil
+				}),
+			))).To(Succeed())
+
+			Expect(resumed).To(BeTrue())
+			Expect(fixture.ExitCodes()).To(BeEmpty())
 		}, SpecTimeout(time.Second*10))
 
 		It("should yield nil from RunJobs when the terminator shuts the application down", func(_ SpecContext) {
