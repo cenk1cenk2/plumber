@@ -129,6 +129,11 @@ func (l LogLevel) slog() slog.Level {
 	return slog.LevelInfo
 }
 
+// GetLogLevel returns the slog.Level equivalent of the LogLevel for use with log/slog call sites.
+func (l LogLevel) GetLogLevel() slog.Level {
+	return l.slog()
+}
+
 // Maps the level of the handler back to the level of the application.
 func logLevelFromSlog(level slog.Level) LogLevel {
 	switch {
