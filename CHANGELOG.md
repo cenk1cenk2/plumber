@@ -1,3 +1,10 @@
+## [7.2.2](https://gitlab.kilic.dev/libraries/plumber/compare/v7.2.1...v7.2.2) (2026-09-09)
+
+
+### Bug Fixes
+
+* exit with signal-specific codes on interrupt (K-1287) ([afda1b4](https://gitlab.kilic.dev/libraries/plumber/commit/afda1b4116c6345f8edf7b5a99e95f025e8e312b))
+
 ## [7.2.1](https://gitlab.kilic.dev/libraries/plumber/compare/v7.2.0...v7.2.1) (2026-09-09)
 
 
