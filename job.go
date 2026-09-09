@@ -205,13 +205,23 @@ func JobDelay(job Job, delay time.Duration) Job {
 	}
 }
 
-// JobBackground starts the job in its own goroutine and returns immediately. The job still runs in
-// the context of the flow around it, therefore it is cancelled together with it, but its error can
-// not be returned anywhere anymore and is only logged when a logger is given.
+/*
+JobBackground starts the job in its own goroutine and returns immediately. Its error can not be
+returned anywhere anymore and is only logged when a logger is given.
+
+The job is bound to the outermost flow of the tree of flows it is started in and not to the flow
+around it, since a background job is meant to keep running while the flows that come after it are
+still running and would be stopped right away whenever the step that starts it is a flow of its
+own. The job is therefore only cancelled once the whole tree of flows is over or the application
+is shutting down. A job that is started outside of any flow keeps running in the context it is
+handed.
+*/
 func JobBackground(job Job, log ...*slog.Logger) Job {
 	return func(ctx context.Context) error {
+		root := flowTreeRoot(ctx)
+
 		go func() {
-			if err := job(ctx); err != nil {
+			if err := job(root); err != nil {
 				if l := resolveLogger(log); l != nil {
 					l.Error(fmt.Sprintf("Background job has failed: %s", err))
 				}
