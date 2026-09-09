@@ -315,24 +315,15 @@ func (p *Plumber) AppendSecrets(secrets ...string) *Plumber {
 	return p
 }
 
-// Logs an error with its custom instance of logger.
-func (p *Plumber) SendError(log *slog.Logger, err error) *Plumber {
-	if err == nil {
-		return p
-	}
-
-	if log == nil {
-		log = p.Log
-	}
-
-	log.Error(err.Error())
-
-	return p
-}
-
 // Logs a fatal error with its custom instance of logger and exits the application with code 1.
 func (p *Plumber) SendFatal(log *slog.Logger, err error) *Plumber {
-	p.SendError(log, err)
+	if err != nil {
+		if log == nil {
+			log = p.Log
+		}
+
+		log.Error(err.Error())
+	}
 
 	p.exit(fmt.Sprintf("Fatal error has been received: %v", err), 1)
 
@@ -728,7 +719,10 @@ func (p *Plumber) exit(reason string, code int) {
 		p.drainTerminator(hooks)
 
 		if p.onTerminateFn != nil {
-			p.SendError(nil, p.onTerminateFn())
+			if err := p.onTerminateFn(); err != nil {
+				p.Log.Error(err.Error())
+			}
+
 			p.onTerminateFn = nil
 		}
 

@@ -176,24 +176,18 @@ func (t *Task) Run(ctx context.Context) error {
 
 	if t.shouldRunBeforeFn != nil {
 		if err := t.shouldRunBeforeFn(ctx, t); err != nil {
-			t.Log.Error(err.Error())
-
 			return t.handleErrors(err)
 		}
 	}
 
 	if t.fn != nil {
 		if err := t.fn(ctx, t); err != nil {
-			t.Log.Error(err.Error())
-
 			return t.handleErrors(err)
 		}
 	}
 
 	if t.shouldRunAfterFn != nil {
 		if err := t.shouldRunAfterFn(ctx, t); err != nil {
-			t.Log.Error(err.Error())
-
 			return t.handleErrors(err)
 		}
 	}
@@ -248,13 +242,6 @@ func (t *Task) Job() Job {
 	)
 }
 
-// Send the error message to plumber while running inside a routine.
-func (t *Task) SendError(err error) *Task {
-	t.Plumber.SendError(t.Log, err)
-
-	return t
-}
-
 // Send the fatal error message to plumber while running inside a routine.
 func (t *Task) SendFatal(err error) *Task {
 	t.Plumber.SendFatal(t.Log, err)
@@ -295,9 +282,18 @@ func (t *Task) handleStopCases() bool {
 	return t.status.stopCases.result
 }
 
-// Handles the errors from the current task.
+/*
+Handles the errors from the current task.
+
+The error is only reported and handed back to the flow that runs the task, therefore whoever runs
+the flow decides what happens with it instead of the task itself ending the application.
+*/
 func (t *Task) handleErrors(err error) error {
-	t.SendFatal(err)
+	if err == nil {
+		return nil
+	}
+
+	t.Log.Error(err.Error())
 
 	return err
 }
@@ -310,7 +306,9 @@ func (t *Task) handleTerminator(ctx context.Context) {
 
 	t.Log.Log(ctx, logger.LevelTrace, "Forwarding terminator to the task.")
 
-	t.SendError(t.onTerminatorFn(ctx, t))
+	if err := t.onTerminatorFn(ctx, t); err != nil {
+		t.Log.Error(err.Error())
+	}
 
 	t.Log.Log(ctx, logger.LevelTrace, "Registered as terminated.")
 }

@@ -887,7 +887,9 @@ func (c *Command) handleTerminator(ctx context.Context) {
 		fmt.Sprintf("Forwarding terminator to the command: %s", c.GetFormattedCommand()),
 	)
 
-	c.T.SendError(c.onTerminatorFn(ctx, c))
+	if err := c.onTerminatorFn(ctx, c); err != nil {
+		c.Log.Error(err.Error())
+	}
 
 	c.Log.Log(
 		ctx,
