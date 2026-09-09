@@ -1,3 +1,15 @@
+# [7.1.0](https://gitlab.kilic.dev/libraries/plumber/compare/v7.0.0...v7.1.0) (2026-09-09)
+
+
+### Bug Fixes
+
+* implement text marshaling for LogLevel (K-1283) ([5da58d5](https://gitlab.kilic.dev/libraries/plumber/commit/5da58d5fbba7081aa9f1f771633906d3fbed7bd5))
+
+
+### Features
+
+* **logger:** migrate to lipgloss v2 ([5f3030a](https://gitlab.kilic.dev/libraries/plumber/commit/5f3030a7476151c01aa0bb7f3dc5776a3b1e5e0d))
+
 # [7.0.0](https://gitlab.kilic.dev/libraries/plumber/compare/v6.5.3...v7.0.0) (2026-09-09)
 
 
