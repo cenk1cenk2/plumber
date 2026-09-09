@@ -31,7 +31,6 @@ type Plumber struct {
 	context context.Context
 	cancel  context.CancelCauseFunc
 
-	secrets       []string
 	onTerminateFn PlumberOnTerminateFn
 	exitFn        PlumberExitFn
 	exitOnce      *sync.Once
@@ -141,7 +140,7 @@ func NewPlumber(fn PlumberNewFn) *Plumber {
 	p.Environment = AppEnvironment{}
 
 	// presetup logger to not have it nil in edge cases
-	p.Log = slog.New(logger.NewHandler(&p.secrets))
+	p.Log = slog.New(logger.NewHandler())
 	p.SetLoggerLevel(LogLevelInfo)
 
 	p.registerInterruptHandler()
@@ -309,7 +308,9 @@ func (p *Plumber) handler() *logger.Handler {
 
 // Adds sensitive information so that the logger will not log out the given secrets.
 func (p *Plumber) AppendSecrets(secrets ...string) *Plumber {
-	p.secrets = append(p.secrets, secrets...)
+	if handler := p.handler(); handler != nil {
+		handler.AddSecrets(secrets...)
+	}
 
 	return p
 }

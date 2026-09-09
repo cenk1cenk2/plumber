@@ -40,22 +40,16 @@ type handlerState struct {
 	// guards the output, which is also where the records are serialized against
 	lock         sync.Mutex
 	out          io.Writer
-	secrets      *[]string
+	redactor     redactor
 	level        slog.LevelVar
 	reportCaller atomic.Bool
 }
 
-/*
-NewHandler creates a new handler that writes to the standard output with the info level.
-
-The secrets are the ones that are redacted from the messages, which is shared with the application
-so that the ones that are appended later are redacted as well.
-*/
-func NewHandler(secrets *[]string) *Handler {
+// NewHandler creates a new handler that writes to the standard output with the info level.
+func NewHandler() *Handler {
 	h := &Handler{
 		state: &handlerState{
-			out:     os.Stdout,
-			secrets: secrets,
+			out: os.Stdout,
 		},
 	}
 
@@ -89,6 +83,16 @@ func (h *Handler) Level() slog.Level {
 // Sets whether the caller of a record should be reported.
 func (h *Handler) SetReportCaller(report bool) {
 	h.state.reportCaller.Store(report)
+}
+
+/*
+Registers sensitive values that are masked out of every record that is written out afterwards.
+
+Next to the value itself the common encodings of it are masked as well, so that a value that leaks
+through an url or a base64 payload is still caught.
+*/
+func (h *Handler) AddSecrets(values ...string) {
+	h.state.redactor.add(values...)
 }
 
 func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
@@ -142,18 +146,12 @@ func (h *Handler) Handle(_ context.Context, record slog.Record) error {
 
 	b.WriteString("\x1b[0m")
 
-	message := record.Message
-
-	if h.state.secrets != nil {
-		for _, secret := range *h.state.secrets {
-			message = strings.ReplaceAll(message, secret, "[REDACTED]")
-		}
-	}
-
-	b.WriteString(strings.TrimRightFunc(message, unicode.IsSpace))
+	b.WriteString(strings.TrimRightFunc(record.Message, unicode.IsSpace))
 	b.WriteByte('\n')
 
-	_, err := h.state.out.Write(b.Bytes())
+	// the whole record is masked in a single pass instead of only the message, so that a secret
+	// that shows up in a field or in the caller is caught as well
+	_, err := io.WriteString(h.state.out, h.state.redactor.redact(b.String()))
 
 	return err
 }
