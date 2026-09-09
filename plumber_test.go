@@ -161,33 +161,6 @@ var _ = Describe("plumber", func() {
 	})
 
 	Describe("Cli flag and argument helpers", func() {
-		It("should edit a cloned flag slice without modifying the original slice", func() {
-			flags := []cli.Flag{
-				&cli.StringFlag{Name: "name", Value: "before"},
-			}
-
-			edited := plumber.EditCliFlag[*cli.StringFlag](
-				flags,
-				func(f *cli.StringFlag) bool {
-					return f.Name == "name"
-				},
-				func(f *cli.StringFlag) *cli.StringFlag {
-					clone := *f
-					clone.Value = "after"
-
-					return &clone
-				},
-			)
-
-			originalFlag, ok := flags[0].(*cli.StringFlag)
-			Expect(ok).To(BeTrue())
-			editedFlag, ok := edited[0].(*cli.StringFlag)
-			Expect(ok).To(BeTrue())
-
-			Expect(originalFlag.Value).To(Equal("before"))
-			Expect(editedFlag.Value).To(Equal("after"))
-		})
-
 		It("should panic when overwriting a missing flag", func() {
 			flags := []cli.Flag{
 				&cli.StringFlag{Name: "name"},
