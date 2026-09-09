@@ -685,9 +685,13 @@ Runs the given job as a flow of its own.
 
 Every flow gets a context of its own that is derived from the flow it belongs to and that is
 cancelled again as soon as the job returns, therefore a flow that is over can only cancel itself
-and never the flow that comes after it or the flow that runs next to it, while the jobs it has
-left running in the background are stopped together with it. Cancelling a parent, through the
-terminator, a fatal error or a failing job, still cancels every flow that is derived from it.
+and never the flow that comes after it or the flow that runs next to it. Cancelling a parent,
+through the terminator, a fatal error or a failing job, still cancels every flow that is derived
+from it.
+
+The outermost flow of a tree of flows is marked as the root of the tree, so a job that is started
+in the background can bind itself to the flow that only ends when the whole tree is over instead
+of the flow of the single step that starts it.
 */
 func (p *Plumber) runJobs(parent context.Context, job Job) error {
 	if job == nil {
@@ -697,7 +701,7 @@ func (p *Plumber) runJobs(parent context.Context, job Job) error {
 	ctx, cancel := context.WithCancelCause(parent)
 	defer cancel(nil)
 
-	err := job(ctx)
+	err := job(setTreeRoot(ctx))
 
 	// Shutting down the application cancels every flow that is running at the moment, which is
 	// not a failure of the flow itself but the application ending on purpose, therefore such an
@@ -707,6 +711,33 @@ func (p *Plumber) runJobs(parent context.Context, job Job) error {
 	}
 
 	return err
+}
+
+// The key that the outermost flow of a tree of flows is carried under.
+type flowTreeRootContextKey struct{}
+
+// Marks the flow as the root of the tree of flows that is derived from it, unless it already
+// belongs to a tree of flows, in which case the root of that tree stays the root.
+func setTreeRoot(ctx context.Context) context.Context {
+	if ctx.Value(flowTreeRootContextKey{}) != nil {
+		return ctx
+	}
+
+	return context.WithValue(ctx, flowTreeRootContextKey{}, ctx)
+}
+
+/*
+Returns the outermost flow of the tree of flows the given flow belongs to.
+
+A job that runs outside of any flow of the application, which is the case whenever a job is called
+with a context of its own, has no tree around it and is handed back the context it is running with.
+*/
+func getTreeRoot(ctx context.Context) context.Context {
+	if root, ok := ctx.Value(flowTreeRootContextKey{}).(context.Context); ok {
+		return root
+	}
+
+	return ctx
 }
 
 // Cancels the root context of the application with the given reason, so the cancellation reaches

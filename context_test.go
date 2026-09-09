@@ -399,3 +399,129 @@ var _ = Describe("daemon flows", func() {
 		Expect(fixture.ExitCodes()).To(Equal([]int{1}))
 	}, SpecTimeout(time.Second*10))
 })
+
+type backgroundCommandCase struct {
+	fixture *plumbertests.PlumberFixture
+	task    *plumber.Task
+	started chan struct{}
+	killed  chan error
+	release chan struct{}
+	done    chan error
+}
+
+func newBackgroundCommandCase() *backgroundCommandCase {
+	c := &backgroundCommandCase{
+		started: make(chan struct{}),
+		killed:  make(chan error, 1),
+		release: make(chan struct{}),
+		done:    make(chan error, 1),
+	}
+
+	runner := &contextRunner{
+		fn: func(ctx context.Context, _ plumber.CommandInvocation) (plumber.CommandResult, error) {
+			close(c.started)
+
+			<-ctx.Done()
+
+			c.killed <- context.Cause(ctx)
+
+			return plumbertests.TestingCommandSuccess(), nil
+		},
+	}
+
+	c.fixture = plumbertests.NewPlumber()
+	c.fixture.Plumber.SetRuntime(plumber.Runtime{CommandRunner: runner})
+	c.task = c.fixture.NewTaskList("background").CreateTask("daemon")
+
+	return c
+}
+
+// Starts the given job as the outermost flow of a tree of flows that only ends after the test
+// releases it, so the background command keeps running while the tree is still alive.
+func (c *backgroundCommandCase) run(job plumber.Job) {
+	go func() {
+		defer GinkgoRecover()
+
+		c.done <- c.fixture.Plumber.RunJobs(plumber.JobSequence(
+			job,
+			func(_ context.Context) error {
+				<-c.release
+
+				return nil
+			},
+		))
+	}()
+}
+
+func (c *backgroundCommandCase) command() plumber.Job {
+	return plumber.JobBackground(
+		c.task.CreateCommand("daemon").Job(),
+		c.fixture.Plumber.Log,
+	)
+}
+
+var _ = Describe("background flows", func() {
+	It("should keep a background command running after the flow that starts it is over", func(_ SpecContext) {
+		c := newBackgroundCommandCase()
+
+		c.run(func(ctx context.Context) error {
+			return c.fixture.Plumber.RunJobsWith(ctx, c.command())
+		})
+
+		Eventually(c.started).Should(BeClosed())
+		Consistently(c.killed, 50*time.Millisecond).ShouldNot(Receive())
+
+		close(c.release)
+
+		Eventually(c.done).Should(Receive(BeNil()))
+	}, SpecTimeout(time.Second*10))
+
+	It("should reap a background command once the tree of flows it belongs to is over", func(_ SpecContext) {
+		c := newBackgroundCommandCase()
+
+		c.run(func(ctx context.Context) error {
+			return c.fixture.Plumber.RunJobsWith(ctx, c.command())
+		})
+
+		Eventually(c.started).Should(BeClosed())
+
+		close(c.release)
+
+		Eventually(c.done).Should(Receive(BeNil()))
+		Eventually(c.killed).Should(Receive(MatchError(context.Canceled)))
+	}, SpecTimeout(time.Second*10))
+
+	It("should reap a background command once the application is shut down", func(_ SpecContext) {
+		c := newBackgroundCommandCase()
+
+		c.run(func(ctx context.Context) error {
+			return c.fixture.Plumber.RunJobsWith(ctx, c.command())
+		})
+
+		Eventually(c.started).Should(BeClosed())
+
+		c.fixture.Plumber.SendFatal(nil, errors.New("fatal error"))
+
+		Eventually(c.killed).Should(Receive(MatchError(plumber.ErrShutdown)))
+		Expect(c.fixture.ExitCodes()).To(Equal([]int{1}))
+
+		close(c.release)
+	}, SpecTimeout(time.Second*10))
+
+	It("should keep a background command running after the parallel flow that starts it is joined", func(_ SpecContext) {
+		c := newBackgroundCommandCase()
+
+		c.run(plumber.JobParallel(
+			c.command(),
+			plumber.CreateEmptyJob(),
+		))
+
+		Eventually(c.started).Should(BeClosed())
+		Consistently(c.killed, 50*time.Millisecond).ShouldNot(Receive())
+
+		close(c.release)
+
+		Eventually(c.done).Should(Receive(BeNil()))
+		Eventually(c.killed).Should(Receive(MatchError(context.Canceled)))
+	}, SpecTimeout(time.Second*10))
+})
