@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/url"
 	"runtime"
@@ -14,33 +13,35 @@ import (
 
 	"github.com/cenk1cenk2/plumber/v7/logger"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 /*
-The renderer that the styles of this file are composed with, forced onto the same profile the
-handler forces its own renderer to, so that the rendered bytes are deterministic regardless of the
-terminal the suite runs in.
+Renders a style onto the same profile the handler forces its own output onto, so that the rendered
+bytes are deterministic regardless of the terminal the suite runs in.
 
 The styles below express the theme the handler is expected to render, declared independently of the
 handler's own style table, so that a regression in the source styling fails a spec here instead of
 both sides drifting together.
 */
-var stylesRenderer = func() *lipgloss.Renderer {
-	renderer := lipgloss.NewRenderer(io.Discard)
-	renderer.SetColorProfile(termenv.ANSI)
+func render(style lipgloss.Style, value string) string {
+	out := &bytes.Buffer{}
+	writer := colorprofile.Writer{Forward: out, Profile: colorprofile.ANSI}
 
-	return renderer
-}()
+	// the buffer behind the writer cannot fail a write
+	_, _ = writer.WriteString(style.Render(value))
+
+	return out.String()
+}
 
 // The style that every element of a record of the given level is expected to inherit from, dimmed
 // as a whole for the levels that are only noise.
 func styleBase(level slog.Level) lipgloss.Style {
-	return stylesRenderer.NewStyle().TabWidth(lipgloss.NoTabConversion).Faint(level <= slog.LevelDebug)
+	return lipgloss.NewStyle().TabWidth(lipgloss.NoTabConversion).Faint(level <= slog.LevelDebug)
 }
 
 // The style of the badge that is expected to name the level of a record.
@@ -89,7 +90,7 @@ func record(level slog.Level, message string) slog.Record {
 // The badge of a level as it is expected to be rendered, composed from the style declared above
 // instead of a hand-written escape sequence.
 func badge(level slog.Level, initial string) string {
-	return styleBadge(level).Render("["+initial+"]") + " "
+	return render(styleBadge(level), "["+initial+"]") + " "
 }
 
 var (
@@ -103,20 +104,20 @@ var (
 // The fields as they are expected to be rendered for a record at the info level, which is not
 // dimmed as a whole.
 func contextField(value string) string {
-	return styleField(slog.LevelInfo, "context").Render("["+value+"]") + " "
+	return render(styleField(slog.LevelInfo, "context"), "["+value+"]") + " "
 }
 
 func statusField(value string) string {
-	return styleField(slog.LevelInfo, "status").Render("["+value+"]") + " "
+	return render(styleField(slog.LevelInfo, "status"), "["+value+"]") + " "
 }
 
 func field(value string) string {
-	return styleField(slog.LevelInfo, "other").Render("["+value+"]") + " "
+	return render(styleField(slog.LevelInfo, "other"), "["+value+"]") + " "
 }
 
 // The message as it is expected to be rendered for a record at the given level.
 func message(level slog.Level, value string) string {
-	return styleBase(level).Render(value)
+	return render(styleBase(level), value)
 }
 
 var _ = Describe("Handler", func() {
@@ -368,9 +369,9 @@ var _ = Describe("Handler", func() {
 
 		Expect(output.String()).To(Equal(
 			badge(slog.LevelWarn, "W") +
-				styleField(slog.LevelWarn, "context").Render("[task]") + " " +
-				styleField(slog.LevelWarn, "status").Render("[RUN]") + " " +
-				styleField(slog.LevelWarn, "other").Render("[value]") + " " +
+				render(styleField(slog.LevelWarn, "context"), "[task]") + " " +
+				render(styleField(slog.LevelWarn, "status"), "[RUN]") + " " +
+				render(styleField(slog.LevelWarn, "other"), "[value]") + " " +
 				"done\n",
 		))
 	})
@@ -392,9 +393,9 @@ var _ = Describe("Handler", func() {
 
 			Expect(output.String()).To(Equal(
 				expectedBadge +
-					styleField(level, "context").Render("[task]") + " " +
-					styleField(level, "status").Render("[RUN]") + " " +
-					styleField(level, "other").Render("[value]") + " " +
+					render(styleField(level, "context"), "[task]") + " " +
+					render(styleField(level, "status"), "[RUN]") + " " +
+					render(styleField(level, "other"), "[value]") + " " +
 					message(level, "done") + "\n",
 			))
 		},
@@ -413,7 +414,7 @@ var _ = Describe("Handler", func() {
 		Expect(with.Handle(context.Background(), record(slog.LevelDebug, "done"))).To(Succeed())
 
 		Expect(output.String()).To(Equal(
-			badgeDebug + styleField(slog.LevelDebug, "status").Render("[[REDACTED]]") + " " + message(slog.LevelDebug, "done") + "\n",
+			badgeDebug + render(styleField(slog.LevelDebug, "status"), "[[REDACTED]]") + " " + message(slog.LevelDebug, "done") + "\n",
 		))
 	})
 
@@ -506,7 +507,7 @@ var _ = Describe("Handler", func() {
 		Expect(with.Handle(context.Background(), record(logger.LevelTrace, "done"))).To(Succeed())
 
 		Expect(output.String()).To(Equal(
-			badgeTrace + styleField(logger.LevelTrace, "context").Render("[task]") + " " + message(logger.LevelTrace, "done") + "\n",
+			badgeTrace + render(styleField(logger.LevelTrace, "context"), "[task]") + " " + message(logger.LevelTrace, "done") + "\n",
 		))
 	})
 
@@ -547,34 +548,34 @@ var _ = Describe("Handler", func() {
 
 			Expect(output.String()).To(Equal(expected))
 		},
-		Entry("the trace badge", []slog.Attr(nil), record(logger.LevelTrace, "done"), "\x1b[1;2;35m[T]\x1b[0m \x1b[2mdone\x1b[0m\n"),
-		Entry("the debug badge", []slog.Attr(nil), record(slog.LevelDebug, "done"), "\x1b[1;2;37m[D]\x1b[0m \x1b[2mdone\x1b[0m\n"),
-		Entry("the info badge", []slog.Attr(nil), record(slog.LevelInfo, "done"), "\x1b[1;36m[I]\x1b[0m done\n"),
-		Entry("the warn badge", []slog.Attr(nil), record(slog.LevelWarn, "done"), "\x1b[1;33m[W]\x1b[0m done\n"),
-		Entry("the error badge", []slog.Attr(nil), record(slog.LevelError, "done"), "\x1b[1;31m[E]\x1b[0m done\n"),
+		Entry("the trace badge", []slog.Attr(nil), record(logger.LevelTrace, "done"), "\x1b[1;2;35m[T]\x1b[m \x1b[2mdone\x1b[m\n"),
+		Entry("the debug badge", []slog.Attr(nil), record(slog.LevelDebug, "done"), "\x1b[1;2;37m[D]\x1b[m \x1b[2mdone\x1b[m\n"),
+		Entry("the info badge", []slog.Attr(nil), record(slog.LevelInfo, "done"), "\x1b[1;36m[I]\x1b[m done\n"),
+		Entry("the warn badge", []slog.Attr(nil), record(slog.LevelWarn, "done"), "\x1b[1;33m[W]\x1b[m done\n"),
+		Entry("the error badge", []slog.Attr(nil), record(slog.LevelError, "done"), "\x1b[1;31m[E]\x1b[m done\n"),
 		Entry(
 			"a context field",
 			[]slog.Attr{slog.String("context", "task")},
 			record(slog.LevelInfo, "done"),
-			"\x1b[1;36m[I]\x1b[0m \x1b[34m[task]\x1b[0m done\n",
+			"\x1b[1;36m[I]\x1b[m \x1b[34m[task]\x1b[m done\n",
 		),
 		Entry(
 			"a status field",
 			[]slog.Attr{slog.String("status", "RUN")},
 			record(slog.LevelInfo, "done"),
-			"\x1b[1;36m[I]\x1b[0m \x1b[32m[RUN]\x1b[0m done\n",
+			"\x1b[1;36m[I]\x1b[m \x1b[32m[RUN]\x1b[m done\n",
 		),
 		Entry(
 			"a consumer field",
 			[]slog.Attr{slog.String("other", "value")},
 			record(slog.LevelInfo, "done"),
-			"\x1b[1;36m[I]\x1b[0m \x1b[2m[value]\x1b[0m done\n",
+			"\x1b[1;36m[I]\x1b[m \x1b[2m[value]\x1b[m done\n",
 		),
 		Entry(
 			"a whole-line-faint trace record with a field",
 			[]slog.Attr{slog.String("context", "task")},
 			record(logger.LevelTrace, "done"),
-			"\x1b[1;2;35m[T]\x1b[0m \x1b[2;34m[task]\x1b[0m \x1b[2mdone\x1b[0m\n",
+			"\x1b[1;2;35m[T]\x1b[m \x1b[2;34m[task]\x1b[m \x1b[2mdone\x1b[m\n",
 		),
 	)
 
