@@ -36,6 +36,8 @@ type Plumber struct {
 	exitOnce      *sync.Once
 	options       PlumberOptions
 	runtime       Runtime
+	// signal is the signal that initiated the termination, if the termination came through one.
+	signal os.Signal
 }
 
 // ErrShutdown is the cause the root context of the application is cancelled with whenever plumber
@@ -96,7 +98,7 @@ type DocumentationOptions struct {
 }
 
 type (
-	PlumberOnTerminateFn func() error
+	PlumberOnTerminateFn func(sig os.Signal) error
 	PlumberNewFn         func(p *Plumber) *cli.Command
 	PlumberFn            func(p *Plumber) error
 	PlumberPredicate     func(p *Plumber) bool
@@ -342,6 +344,21 @@ func (p *Plumber) SendExit(code int) *Plumber {
 	return p
 }
 
+/*
+Returns the exit code that belongs to the given signal.
+
+The number of the signal is offset by 128 as the shell reports it, so a stop that is requested
+through SIGTERM or SIGINT is told apart from a failure of the application itself. A signal that
+does not carry a number falls back to the generic failure code.
+*/
+func SignalExitCode(sig os.Signal) int {
+	if s, ok := sig.(syscall.Signal); ok && s > 0 {
+		return 128 + int(s)
+	}
+
+	return 1
+}
+
 // Sends a terminate request to the application via interruption signal.
 func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 	if p.Terminator.Enabled {
@@ -366,6 +383,8 @@ func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 			fmt.Sprintf("Sending should terminate through terminator: %s", sig),
 		)
 	}
+
+	p.signal = sig
 
 	p.Terminate(code)
 }
@@ -719,7 +738,7 @@ func (p *Plumber) exit(reason string, code int) {
 		p.drainTerminator(hooks)
 
 		if p.onTerminateFn != nil {
-			if err := p.onTerminateFn(); err != nil {
+			if err := p.onTerminateFn(p.signal); err != nil {
 				p.Log.Error(err.Error())
 			}
 
@@ -887,7 +906,7 @@ func (p *Plumber) registerInterruptHandler() {
 			fmt.Sprintf("Terminating the application with signal: %s", sig),
 		)
 
-		p.SendTerminate(sig, 127)
+		p.SendTerminate(sig, SignalExitCode(sig))
 	}()
 
 	p.Log.With(

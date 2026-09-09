@@ -15,6 +15,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type unnumberedSignal struct{}
+
+func (unnumberedSignal) Signal() {}
+
+func (unnumberedSignal) String() string {
+	return "unnumbered"
+}
+
 var _ = Describe("plumber lifecycle", func() {
 	BeforeEach(func() {
 		plumbertests.WithoutEnvironment("CI", "CLI_ARGS", "DEBUG", "ENV_FILE")
@@ -321,9 +329,29 @@ var _ = Describe("plumber lifecycle", func() {
 			fixture := plumbertests.NewPlumber()
 			fixture.Plumber.EnableTerminator()
 
-			fixture.Plumber.SendTerminate(syscall.SIGINT, 127)
+			fixture.Plumber.SendTerminate(syscall.SIGINT, plumber.SignalExitCode(syscall.SIGINT))
 
-			Expect(fixture.ExitCodes()).To(Equal([]int{127}))
+			Expect(fixture.ExitCodes()).To(Equal([]int{130}))
+		}, SpecTimeout(time.Second*10))
+
+		DescribeTable("should map a signal to the exit code that the shell reports for it",
+			func(_ SpecContext, sig syscall.Signal, code int) {
+				fixture := plumbertests.NewPlumber()
+				fixture.Plumber.EnableTerminator()
+
+				Expect(plumber.SignalExitCode(sig)).To(Equal(code))
+
+				fixture.Plumber.SendTerminate(sig, plumber.SignalExitCode(sig))
+
+				Expect(fixture.ExitCodes()).To(Equal([]int{code}))
+			},
+			Entry("SIGINT", syscall.SIGINT, 130),
+			Entry("SIGTERM", syscall.SIGTERM, 143),
+			Entry("SIGQUIT", syscall.SIGQUIT, 131),
+		)
+
+		It("should fall back to the generic failure code for a signal without a number", func(_ SpecContext) {
+			Expect(plumber.SignalExitCode(unnumberedSignal{})).To(Equal(1))
 		}, SpecTimeout(time.Second*10))
 
 		It("should exit immediately when nothing is registered to the terminator", func(_ SpecContext) {
@@ -343,10 +371,10 @@ var _ = Describe("plumber lifecycle", func() {
 			fixture := plumbertests.NewPlumber()
 			fixture.Plumber.EnableTerminator()
 
-			fixture.Plumber.SendTerminate(syscall.SIGTERM, 127)
-			fixture.Plumber.SendTerminate(syscall.SIGINT, 1)
+			fixture.Plumber.SendTerminate(syscall.SIGTERM, plumber.SignalExitCode(syscall.SIGTERM))
+			fixture.Plumber.SendTerminate(syscall.SIGINT, plumber.SignalExitCode(syscall.SIGINT))
 
-			Expect(fixture.ExitCodes()).To(Equal([]int{127}))
+			Expect(fixture.ExitCodes()).To(Equal([]int{143}))
 		}, SpecTimeout(time.Second*10))
 
 		It("should not run the terminator hook of a task that is already done running", func(_ SpecContext) {
