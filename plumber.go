@@ -36,6 +36,8 @@ type Plumber struct {
 	exitOnce      *sync.Once
 	options       PlumberOptions
 	runtime       Runtime
+	// signal is the signal that initiated the termination, if the termination came through one.
+	signal os.Signal
 }
 
 // ErrShutdown is the cause the root context of the application is cancelled with whenever plumber
@@ -96,7 +98,7 @@ type DocumentationOptions struct {
 }
 
 type (
-	PlumberOnTerminateFn func() error
+	PlumberOnTerminateFn func(sig os.Signal) error
 	PlumberNewFn         func(p *Plumber) *cli.Command
 	PlumberFn            func(p *Plumber) error
 	PlumberPredicate     func(p *Plumber) bool
@@ -108,10 +110,6 @@ const (
 	logStatusPlumberEnvironment string = "env"
 	logStatusPlumberSetup       string = "setup"
 )
-
-// The offset that the shell adds to the number of a signal to report the exit code of a process
-// that is stopped by it.
-const exitCodeSignalOffset int = 128
 
 // Creates a new Plumber instance and initiates it.
 func NewPlumber(fn PlumberNewFn) *Plumber {
@@ -355,7 +353,7 @@ does not carry a number falls back to the generic failure code.
 */
 func SignalExitCode(sig os.Signal) int {
 	if s, ok := sig.(syscall.Signal); ok && s > 0 {
-		return exitCodeSignalOffset + int(s)
+		return 128 + int(s)
 	}
 
 	return 1
@@ -385,6 +383,8 @@ func (p *Plumber) SendTerminate(sig os.Signal, code int) {
 			fmt.Sprintf("Sending should terminate through terminator: %s", sig),
 		)
 	}
+
+	p.signal = sig
 
 	p.Terminate(code)
 }
@@ -685,9 +685,13 @@ Runs the given job as a flow of its own.
 
 Every flow gets a context of its own that is derived from the flow it belongs to and that is
 cancelled again as soon as the job returns, therefore a flow that is over can only cancel itself
-and never the flow that comes after it or the flow that runs next to it, while the jobs it has
-left running in the background are stopped together with it. Cancelling a parent, through the
-terminator, a fatal error or a failing job, still cancels every flow that is derived from it.
+and never the flow that comes after it or the flow that runs next to it. Cancelling a parent,
+through the terminator, a fatal error or a failing job, still cancels every flow that is derived
+from it.
+
+The outermost flow of a tree of flows is marked as the root of the tree, so a job that is started
+in the background can bind itself to the flow that only ends when the whole tree is over instead
+of the flow of the single step that starts it.
 */
 func (p *Plumber) runJobs(parent context.Context, job Job) error {
 	if job == nil {
@@ -697,7 +701,7 @@ func (p *Plumber) runJobs(parent context.Context, job Job) error {
 	ctx, cancel := context.WithCancelCause(parent)
 	defer cancel(nil)
 
-	err := job(ctx)
+	err := job(markFlowTreeRoot(ctx))
 
 	// Shutting down the application cancels every flow that is running at the moment, which is
 	// not a failure of the flow itself but the application ending on purpose, therefore such an
@@ -707,6 +711,33 @@ func (p *Plumber) runJobs(parent context.Context, job Job) error {
 	}
 
 	return err
+}
+
+// The key that the outermost flow of a tree of flows is carried under.
+type flowTreeRootContextKey struct{}
+
+// Marks the flow as the root of the tree of flows that is derived from it, unless it already
+// belongs to a tree of flows, in which case the root of that tree stays the root.
+func markFlowTreeRoot(ctx context.Context) context.Context {
+	if ctx.Value(flowTreeRootContextKey{}) != nil {
+		return ctx
+	}
+
+	return context.WithValue(ctx, flowTreeRootContextKey{}, ctx)
+}
+
+/*
+Returns the outermost flow of the tree of flows the given flow belongs to.
+
+A job that runs outside of any flow of the application, which is the case whenever a job is called
+with a context of its own, has no tree around it and is handed back the context it is running with.
+*/
+func flowTreeRoot(ctx context.Context) context.Context {
+	if root, ok := ctx.Value(flowTreeRootContextKey{}).(context.Context); ok {
+		return root
+	}
+
+	return ctx
 }
 
 // Cancels the root context of the application with the given reason, so the cancellation reaches
@@ -738,7 +769,7 @@ func (p *Plumber) exit(reason string, code int) {
 		p.drainTerminator(hooks)
 
 		if p.onTerminateFn != nil {
-			if err := p.onTerminateFn(); err != nil {
+			if err := p.onTerminateFn(p.signal); err != nil {
 				p.Log.Error(err.Error())
 			}
 
