@@ -5,22 +5,45 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"reflect"
 	"regexp"
+	"slices"
+	"sort"
 	"strings"
+	"text/template"
+	"unicode"
 
 	"github.com/cenk1cenk2/plumber/v7/logger"
 	"github.com/urfave/cli/v3"
 )
 
-type parsedFlags = map[string][]*templateFlag
+/*
+Style of the generated documentation.
 
-type templateCommand struct {
-	Name        string
-	Aliases     []string
-	Flags       parsedFlags
-	Usage       string
-	Description string
-	Level       int
+The full style is a document of its own that starts with the headline of the application, while the
+flags style only carries the sections that describe the flags and the commands, which makes it
+embeddable in to a document that is maintained by hand.
+*/
+type MarkdownStyle string
+
+const (
+	MarkdownStyleFull  MarkdownStyle = "full"
+	MarkdownStyleFlags MarkdownStyle = "flags"
+)
+
+var markdownStyles = []MarkdownStyle{MarkdownStyleFull, MarkdownStyleFlags}
+
+type parsedFlags = []*templateFlagCategory
+
+type templateFlagCategory struct {
+	Name  string
+	Flags []*templateFlag
+	// legend lines that are rendered underneath the table of the category
+	Notes []string
+	// whether the very same category has already been rendered before in the same document
+	Collapsed bool
+	// fingerprint of the category that is used to detect the repetitions of it
+	fingerprint string
 }
 
 type templateFlag struct {
@@ -33,19 +56,64 @@ type templateFlag struct {
 	Multiple    bool
 	TakesValue  bool
 	Format      string
+	// marker of the mutually exclusive group of the flag, empty whenever the flag stands on its own
+	Group string
+}
+
+type templateArgument struct {
+	Name     string
+	Usage    string
+	Type     string
+	Values   string
+	Required bool
+}
+
+type templateCommand struct {
+	Name      string
+	Aliases   []string
+	Category  string
+	Flags     parsedFlags
+	Arguments []*templateArgument
+	// legend lines that are rendered underneath the table of the arguments
+	ArgumentNotes []string
+	Usage         string
+	UsageText     string
+	Description   string
+	Anchor        string
+	// depth of the heading of the command, which already accounts for the categories
+	Level int
+	// depth of the command in the table of contents
+	Indent int
+}
+
+type templateCommandCategory struct {
+	Name     string
+	Commands []*templateCommand
 }
 
 type markdownTemplateInput struct {
-	App         *cli.Command
-	GlobalFlags parsedFlags
-	Commands    []*templateCommand
-	Behead      int
+	App               *cli.Command
+	UsageText         string
+	GlobalFlags       parsedFlags
+	Commands          []*templateCommand
+	CommandCategories []*templateCommandCategory
+	// whether the table of contents of the commands is worth generating
+	Toc bool
+	// whether the headline of the application is a part of the document
+	Headline bool
+	// hashes that every heading of the document is prefixed with
+	Prefix string
 }
 
 //go:embed templates
 var templates embed.FS
 
 const docsCommand string = "docs"
+
+const (
+	markdownNoteRequired string = `\* required`
+	markdownTemplateFile string = "templates/markdown.go.tmpl"
+)
 
 /*
 Creates the command that generates the documentation of the application.
@@ -68,13 +136,15 @@ func DocsCommand(p *Plumber) *cli.Command {
 						Name:  "output",
 						Usage: "File that the documentation is written to.",
 					},
+
+					markdownStyleFlag(MarkdownStyleFull),
 				},
 				Action: func(_ context.Context, command *cli.Command) error {
 					if output := command.String("output"); output != "" {
 						p.options.documentation.MarkdownOutputFile = output
 					}
 
-					return p.generateMarkdownDocumentation()
+					return p.generateMarkdownDocumentation(MarkdownStyle(command.String("style")))
 				},
 			},
 
@@ -86,25 +156,48 @@ func DocsCommand(p *Plumber) *cli.Command {
 						Name:  "output",
 						Usage: "File that the documentation is embedded into.",
 					},
+
+					markdownStyleFlag(MarkdownStyleFlags),
 				},
 				Action: func(_ context.Context, command *cli.Command) error {
 					if output := command.String("output"); output != "" {
 						p.options.documentation.EmbeddedMarkdownOutputFile = output
 					}
 
-					return p.embedMarkdownDocumentation()
+					return p.embedMarkdownDocumentation(MarkdownStyle(command.String("style")))
 				},
 			},
 		},
 	}
 }
 
-func (p *Plumber) generateMarkdownDocumentation() error {
+// Creates the flag that selects the style of the generated documentation.
+func markdownStyleFlag(value MarkdownStyle) cli.Flag {
+	styles := make([]string, 0, len(markdownStyles))
+	for _, style := range markdownStyles {
+		styles = append(styles, fmt.Sprintf("%q", style))
+	}
+
+	return &cli.StringFlag{
+		Name:  "style",
+		Usage: fmt.Sprintf("Style of the generated documentation. enum(%s)", strings.Join(styles, ", ")),
+		Value: string(value),
+		Validator: func(s string) error {
+			if slices.Contains(markdownStyles, MarkdownStyle(s)) {
+				return nil
+			}
+
+			return fmt.Errorf("Documentation style should be one of %s: %s", strings.Join(styles, ", "), s)
+		},
+	}
+}
+
+func (p *Plumber) generateMarkdownDocumentation(style MarkdownStyle) error {
 	if p.options.documentation.MarkdownOutputFile == "" {
 		p.options.documentation.MarkdownOutputFile = "README.md"
 	}
 
-	data, err := p.toMarkdown()
+	data, err := p.toMarkdown(style)
 
 	if err != nil {
 		return err
@@ -121,7 +214,7 @@ func (p *Plumber) generateMarkdownDocumentation() error {
 	return nil
 }
 
-func (p *Plumber) embedMarkdownDocumentation() error {
+func (p *Plumber) embedMarkdownDocumentation(style MarkdownStyle) error {
 	if p.options.documentation.EmbeddedMarkdownOutputFile == "" {
 		p.options.documentation.EmbeddedMarkdownOutputFile = "README.md"
 	}
@@ -132,7 +225,7 @@ func (p *Plumber) embedMarkdownDocumentation() error {
 
 	p.Log.Debug(fmt.Sprintf("Using expression: %s", expr))
 
-	data, err := p.toEmbeddedMarkdown()
+	data, err := p.toMarkdown(style)
 
 	if err != nil {
 		return err
@@ -165,46 +258,103 @@ func (p *Plumber) embedMarkdownDocumentation() error {
 	return nil
 }
 
-func (p *Plumber) generateMarkdownTemplateCtx() *markdownTemplateInput {
+func (p *Plumber) generateMarkdownTemplateCtx(style MarkdownStyle) *markdownTemplateInput {
+	commands := p.generateDocCommands(p.Cli.Commands, "", 0)
+	categories := groupDocCommands(commands)
+
 	input := &markdownTemplateInput{
-		App:         p.Cli,
-		Commands:    p.generateDocCommands(p.Cli.Commands, 0),
-		GlobalFlags: p.generateDocFlags(p.Cli.VisibleFlags()),
-		Behead:      p.options.documentation.MarkdownBehead,
+		App:               p.Cli,
+		GlobalFlags:       p.generateDocFlags(p.Cli),
+		Commands:          commands,
+		CommandCategories: categories,
+		Toc:               len(commands) > 2,
+		Headline:          style == MarkdownStyleFull,
+		Prefix:            strings.Repeat("#", p.options.documentation.MarkdownBehead),
 	}
+
+	input.UsageText = docUsageText(
+		p.Cli,
+		p.Cli.Name,
+		func() string {
+			if len(commands) > 0 {
+				return " [GLOBAL FLAGS] [COMMAND]"
+			}
+
+			return ""
+		}()+" [FLAGS]",
+	)
+
+	// a category claims a heading of its own, therefore the commands that live under one move a level
+	// down while the uncategorized ones stay siblings of the categories
+	for _, command := range commands {
+		if command.Category != "" {
+			command.Level++
+		}
+	}
+
+	p.collapseRepeatedFlagCategories(input)
 
 	return input
 }
 
-func (p *Plumber) toMarkdown() (string, error) {
-	tmpl, err := templates.ReadFile("templates/markdown.go.tmpl")
+func (p *Plumber) toMarkdown(style MarkdownStyle) (string, error) {
+	tmpl, err := templates.ReadFile(markdownTemplateFile)
 
 	if err != nil {
 		return "", err
 	}
 
-	input := p.generateMarkdownTemplateCtx()
+	input := p.generateMarkdownTemplateCtx(style)
 
-	p.Log.Log(context.Background(), logger.LevelTrace, fmt.Sprintf("Executing the template: %+v", input))
+	p.Log.Log(context.Background(), logger.LevelTrace, fmt.Sprintf("Executing the template as %q: %+v", style, input))
 
-	return InlineTemplate(string(tmpl), input)
-}
-
-func (p *Plumber) toEmbeddedMarkdown() (string, error) {
-	tmpl, err := templates.ReadFile("templates/markdown-flags.go.tmpl")
+	data, err := InlineTemplate(string(tmpl), input, markdownTemplateFuncMap())
 
 	if err != nil {
 		return "", err
 	}
 
-	input := p.generateMarkdownTemplateCtx()
-
-	p.Log.Log(context.Background(), logger.LevelTrace, fmt.Sprintf("Executing the embedded template: %+v", input))
-
-	return InlineTemplate(string(tmpl), input)
+	return strings.TrimSpace(data) + "\n", nil
 }
 
-func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*templateCommand {
+/*
+Marks every flag category that has already been rendered identically before in the same document.
+
+The repetitions are collapsed behind a disclosure element since a category that is shared between
+the commands, like the setup of a pipe, would otherwise repeat the same table over and over again.
+*/
+func (p *Plumber) collapseRepeatedFlagCategories(input *markdownTemplateInput) {
+	seen := map[string]bool{}
+
+	mark := func(flags parsedFlags) {
+		for _, category := range flags {
+			// the uncategorized flags have no label to collapse them behind
+			if category.Name == "" {
+				continue
+			}
+
+			if seen[category.fingerprint] {
+				category.Collapsed = true
+
+				p.Log.Debug(fmt.Sprintf("Collapsed the repeated flag category: %s", category.Name))
+
+				continue
+			}
+
+			seen[category.fingerprint] = true
+		}
+	}
+
+	mark(input.GlobalFlags)
+
+	for _, category := range input.CommandCategories {
+		for _, command := range category.Commands {
+			mark(command.Flags)
+		}
+	}
+}
+
+func (p *Plumber) generateDocCommands(commands []*cli.Command, category string, level int) []*templateCommand {
 	var processed []*templateCommand
 
 	for _, command := range commands {
@@ -212,14 +362,35 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*tem
 			continue
 		}
 
+		current := category
+		if command.Category != "" {
+			current = command.Category
+		}
+
 		parsed := &templateCommand{
 			Name:        command.FullName(),
 			Aliases:     command.Aliases,
+			Category:    current,
 			Description: command.Description,
 			Usage:       command.Usage,
-			Flags:       p.generateDocFlags(command.VisibleFlags()),
+			Flags:       p.generateDocFlags(command),
 			Level:       level,
+			Indent:      level,
 		}
+
+		parsed.Arguments, parsed.ArgumentNotes = p.generateDocArguments(command.Arguments)
+		parsed.Anchor = markdownAnchor(docHeadingText(parsed))
+		parsed.UsageText = docUsageText(
+			command,
+			parsed.Name,
+			func() string {
+				if len(parsed.Flags) > 0 {
+					return " [FLAGS]"
+				}
+
+				return ""
+			}(),
+		)
 
 		if !p.options.documentation.IncludeDefaultCommands && (command.Name == "help" || command.Name == "version") {
 			break
@@ -232,7 +403,7 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*tem
 		if len(command.Commands) > 0 {
 			processed = append(
 				processed,
-				p.generateDocCommands(command.Commands, level+1)...,
+				p.generateDocCommands(command.Commands, current, level+1)...,
 			)
 		}
 	}
@@ -240,13 +411,102 @@ func (p *Plumber) generateDocCommands(commands []*cli.Command, level int) []*tem
 	return processed
 }
 
-func (p *Plumber) generateDocFlags(
-	flags []cli.Flag,
-) parsedFlags {
+// Groups the commands under their categories, where the uncategorized ones always come first.
+func groupDocCommands(commands []*templateCommand) []*templateCommandCategory {
+	var categories []*templateCommandCategory
+
+	index := map[string]*templateCommandCategory{}
+
+	for _, command := range commands {
+		category, ok := index[command.Category]
+
+		if !ok {
+			category = &templateCommandCategory{Name: command.Category}
+			index[command.Category] = category
+			categories = append(categories, category)
+		}
+
+		category.Commands = append(category.Commands, command)
+	}
+
+	sort.SliceStable(categories, func(i, j int) bool {
+		if categories[i].Name == "" || categories[j].Name == "" {
+			return categories[i].Name == "" && categories[j].Name != ""
+		}
+
+		return categories[i].Name < categories[j].Name
+	})
+
+	return categories
+}
+
+func (p *Plumber) generateDocArguments(arguments []cli.Argument) ([]*templateArgument, []string) {
+	var processed []*templateArgument
+
+	required := false
+
+	for _, argument := range arguments {
+		value := reflect.Indirect(reflect.ValueOf(argument))
+
+		if value.Kind() != reflect.Struct {
+			p.Log.Error(fmt.Sprintf("Is not a valid argument: %s", argument.Usage()))
+
+			continue
+		}
+
+		parsed := &templateArgument{
+			Name:   reflectStringField(value, "Name"),
+			Usage:  strings.TrimSpace(argument.Usage()),
+			Type:   reflectTypeName(value, "Value"),
+			Values: "1",
+		}
+
+		// only the plural arguments carry the amount of occurrences that they accept
+		if least, ok := reflectIntField(value, "Min"); ok {
+			most, _ := reflectIntField(value, "Max")
+
+			if most == 0 {
+				most = 1
+			}
+
+			parsed.Required = least > 0
+			parsed.Type += "[]"
+
+			switch {
+			case most < 0:
+				parsed.Values = fmt.Sprintf("%d..*", least)
+			case least == most:
+				parsed.Values = fmt.Sprintf("%d", least)
+			default:
+				parsed.Values = fmt.Sprintf("%d..%d", least, most)
+			}
+		}
+
+		if parsed.Required {
+			required = true
+		}
+
+		p.Log.Debug(fmt.Sprintf("Processed argument: %+v", parsed))
+
+		processed = append(processed, parsed)
+	}
+
+	var notes []string
+
+	if required {
+		notes = append(notes, markdownNoteRequired)
+	}
+
+	return processed, notes
+}
+
+func (p *Plumber) generateDocFlags(command *cli.Command) parsedFlags {
 	all := []*templateFlag{}
 	processed := parsedFlags{}
 
-	for _, f := range flags {
+	groups := mutuallyExclusiveFlagGroups(command)
+
+	for _, f := range command.VisibleFlags() {
 		current, ok := f.(cli.DocGenerationFlag)
 
 		if !ok {
@@ -286,12 +546,15 @@ func (p *Plumber) generateDocFlags(
 
 		description = re.ReplaceAllString(description, "")
 
-		text := current.GetValue()
+		// the text that the flag declares always wins over the value that it defaults to
+		text := current.GetDefaultText()
+
+		if text == "" {
+			text = current.GetValue()
+		}
 
 		if b, ok := current.(*cli.BoolFlag); text == "" && ok {
 			text = fmt.Sprintf("%+v", b.Value)
-		} else if text == "" {
-			text = current.GetDefaultText()
 		}
 
 		parsed := &templateFlag{
@@ -307,6 +570,7 @@ func (p *Plumber) generateDocFlags(
 			//nolint: errcheck
 			Multiple:   current.(cli.DocGenerationMultiValueFlag).IsMultiValueFlag(),
 			TakesValue: current.TakesValue(),
+			Group:      groups[f],
 		}
 
 		if len(parsed.Name) == 0 {
@@ -323,19 +587,259 @@ func (p *Plumber) generateDocFlags(
 		)
 	}
 
+	index := map[string]*templateFlagCategory{}
+
 	for _, flag := range all {
-		category := "EMPTY"
+		category, ok := index[flag.Category]
 
-		if flag.Category != "" {
-			category = flag.Category
+		if !ok {
+			category = &templateFlagCategory{Name: flag.Category}
+			index[flag.Category] = category
+			processed = append(processed, category)
 		}
 
-		if _, ok := processed[category]; !ok {
-			processed[category] = []*templateFlag{}
+		category.Flags = append(category.Flags, flag)
+	}
+
+	sort.SliceStable(processed, func(i, j int) bool {
+		if processed[i].Name == "" || processed[j].Name == "" {
+			return processed[i].Name == "" && processed[j].Name != ""
 		}
 
-		processed[category] = append(processed[category], flag)
+		return processed[i].Name < processed[j].Name
+	})
+
+	for _, category := range processed {
+		category.Flags = sortMutuallyExclusiveFlags(category.Flags)
+		category.Notes = flagCategoryNotes(command, category)
+		category.fingerprint = flagCategoryFingerprint(category)
 	}
 
 	return processed
+}
+
+/*
+Maps every flag that belongs to a mutually exclusive group of the command to the marker of its group.
+
+The markers are the ones that annotate the rows of the table and the legend underneath it, therefore
+they are numbered in the order that the groups are declared in.
+*/
+func mutuallyExclusiveFlagGroups(command *cli.Command) map[cli.Flag]string {
+	groups := map[cli.Flag]string{}
+
+	for i, group := range command.MutuallyExclusiveFlags {
+		for _, flags := range group.Flags {
+			for _, flag := range flags {
+				groups[flag] = fmt.Sprintf("(%d)", i+1)
+			}
+		}
+	}
+
+	return groups
+}
+
+// Pulls the members of a mutually exclusive group together so that they are rendered as adjacent rows.
+func sortMutuallyExclusiveFlags(flags []*templateFlag) []*templateFlag {
+	sorted := make([]*templateFlag, 0, len(flags))
+	taken := map[*templateFlag]bool{}
+
+	for _, flag := range flags {
+		if taken[flag] {
+			continue
+		}
+
+		taken[flag] = true
+		sorted = append(sorted, flag)
+
+		if flag.Group == "" {
+			continue
+		}
+
+		for _, other := range flags {
+			if taken[other] || other.Group != flag.Group {
+				continue
+			}
+
+			taken[other] = true
+			sorted = append(sorted, other)
+		}
+	}
+
+	return sorted
+}
+
+// Creates the legend lines that are rendered underneath the table of a flag category.
+func flagCategoryNotes(command *cli.Command, category *templateFlagCategory) []string {
+	var notes []string
+
+	if slices.ContainsFunc(category.Flags, func(flag *templateFlag) bool { return flag.Required }) {
+		notes = append(notes, markdownNoteRequired)
+	}
+
+	for i, group := range command.MutuallyExclusiveFlags {
+		marker := fmt.Sprintf("(%d)", i+1)
+
+		if !slices.ContainsFunc(category.Flags, func(flag *templateFlag) bool { return flag.Group == marker }) {
+			continue
+		}
+
+		note := fmt.Sprintf("%s mutually exclusive", marker)
+
+		if group.Required {
+			note += ", one of them is required"
+		}
+
+		notes = append(notes, note)
+	}
+
+	return notes
+}
+
+// Creates the fingerprint that identifies a flag category that renders identically to another one.
+func flagCategoryFingerprint(category *templateFlagCategory) string {
+	var fingerprint strings.Builder
+
+	fingerprint.WriteString(category.Name)
+
+	for _, flag := range category.Flags {
+		fmt.Fprintf(
+			&fingerprint,
+			"\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%t\x00%t",
+			strings.Join(flag.Name, ","),
+			flag.Description,
+			flag.Type,
+			flag.Format,
+			flag.Default,
+			flag.Group,
+			flag.Required,
+			flag.Multiple,
+		)
+	}
+
+	for _, note := range category.Notes {
+		fingerprint.WriteString("\x00" + note)
+	}
+
+	return fingerprint.String()
+}
+
+/*
+Creates the usage line of a command.
+
+The text that the command declares always wins, otherwise the line is constructed from the name of
+the command, the flags that it accepts and the arguments that it consumes.
+*/
+func docUsageText(command *cli.Command, name string, flags string) string {
+	if command.UsageText != "" {
+		return strings.TrimSpace(command.UsageText)
+	}
+
+	usage := name + flags
+
+	if command.ArgsUsage != "" {
+		return usage + " " + strings.TrimSpace(command.ArgsUsage)
+	}
+
+	for _, argument := range command.Arguments {
+		usage += " " + strings.TrimSpace(argument.Usage())
+	}
+
+	return usage
+}
+
+// Creates the text of the heading of a command, which is what the anchor of it is derived from.
+func docHeadingText(command *templateCommand) string {
+	heading := fmt.Sprintf("`%s`", command.Name)
+
+	for _, alias := range command.Aliases {
+		heading += fmt.Sprintf(", `%s`", alias)
+	}
+
+	return heading
+}
+
+func reflectStringField(value reflect.Value, name string) string {
+	field := value.FieldByName(name)
+
+	if !field.IsValid() || field.Kind() != reflect.String {
+		return ""
+	}
+
+	return field.String()
+}
+
+func reflectIntField(value reflect.Value, name string) (int, bool) {
+	field := value.FieldByName(name)
+
+	if !field.IsValid() || field.Kind() != reflect.Int {
+		return 0, false
+	}
+
+	return int(field.Int()), true
+}
+
+func reflectTypeName(value reflect.Value, name string) string {
+	field := value.FieldByName(name)
+
+	if !field.IsValid() {
+		return ""
+	}
+
+	return field.Type().String()
+}
+
+func markdownTemplateFuncMap() template.FuncMap {
+	return template.FuncMap{
+		"mdcell": markdownCell,
+		"mdcode": markdownCode,
+	}
+}
+
+// Renders a value as the plain content of a table cell.
+func markdownCell(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.ReplaceAll(value, "|", `\|`)
+
+	return strings.ReplaceAll(value, "\n", "<br/>")
+}
+
+// Renders a value as a code span inside a table cell, where an empty value stays an empty cell.
+func markdownCode(value string) string {
+	value = strings.TrimSpace(value)
+
+	if value == "" {
+		return ""
+	}
+
+	value = strings.ReplaceAll(value, "\n", " ")
+	value = strings.ReplaceAll(value, "|", `\|`)
+
+	// a code span has to be fenced with more backticks than the value itself carries
+	fence := "`"
+	for strings.Contains(value, fence) {
+		fence += "`"
+	}
+
+	pad := ""
+	if strings.HasPrefix(value, "`") || strings.HasSuffix(value, "`") {
+		pad = " "
+	}
+
+	return fence + pad + value + pad + fence
+}
+
+// Creates the anchor of a heading the way that GitLab slugs it.
+func markdownAnchor(heading string) string {
+	var anchor strings.Builder
+
+	for _, r := range strings.ToLower(heading) {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '_':
+			anchor.WriteRune(r)
+		case unicode.IsSpace(r):
+			anchor.WriteRune('-')
+		}
+	}
+
+	return anchor.String()
 }
