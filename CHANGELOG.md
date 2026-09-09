@@ -1,3 +1,10 @@
+## [7.2.3](https://gitlab.kilic.dev/libraries/plumber/compare/v7.2.2...v7.2.3) (2026-09-09)
+
+
+### Bug Fixes
+
+* bind background jobs to the flow tree root (K-1289) ([3255700](https://gitlab.kilic.dev/libraries/plumber/commit/32557006beb262b9081c12b5e2c61a84c968588a))
+
 ## [7.2.2](https://gitlab.kilic.dev/libraries/plumber/compare/v7.2.1...v7.2.2) (2026-09-09)
 
 
