@@ -2,6 +2,7 @@ package plumber_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"log/slog"
 
 	"github.com/cenk1cenk2/plumber/v7"
@@ -57,6 +58,44 @@ var _ = Describe("logger", func() {
 			_, err := plumber.ParseLogLevel("verbose")
 
 			Expect(err).To(MatchError(ContainSubstring("verbose")))
+		})
+	})
+
+	Describe("text marshaling", func() {
+		DescribeTable(
+			"should round trip through its text representation",
+			func(_ SpecContext, level plumber.LogLevel) {
+				text, err := level.MarshalText()
+				Expect(err).ToNot(HaveOccurred())
+
+				var parsed plumber.LogLevel
+				Expect(parsed.UnmarshalText(text)).To(Succeed())
+				Expect(parsed).To(Equal(level))
+			},
+			Entry("panic", plumber.LogLevelPanic),
+			Entry("fatal", plumber.LogLevelFatal),
+			Entry("error", plumber.LogLevelError),
+			Entry("warn", plumber.LogLevelWarn),
+			Entry("info", plumber.LogLevelInfo),
+			Entry("debug", plumber.LogLevelDebug),
+			Entry("trace", plumber.LogLevelTrace),
+		)
+
+		It("should fail to unmarshal a name that does not exist", func(_ SpecContext) {
+			var level plumber.LogLevel
+
+			Expect(level.UnmarshalText([]byte("verbose"))).To(MatchError(ContainSubstring("verbose")))
+		})
+
+		It("should decode a level that is nested in a struct from json", func(_ SpecContext) {
+			type config struct {
+				Level plumber.LogLevel `json:"level"`
+			}
+
+			var decoded config
+			Expect(json.Unmarshal([]byte(`{"level":"debug"}`), &decoded)).To(Succeed())
+
+			Expect(decoded.Level).To(Equal(plumber.LogLevelDebug))
 		})
 	})
 
