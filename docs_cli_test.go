@@ -347,7 +347,64 @@ var _ = Describe("documentation and Cli runtime", func() {
 		Expect(loaded).To(Equal("loaded"))
 		Expect(fixture.Plumber.Environment.Debug).To(BeTrue())
 	})
+
+	It("should generate the documentation of an application that has required flags", func(_ SpecContext) {
+		output := filepath.Join(plumbertests.TempDir(), "README.md")
+
+		fixture := plumbertests.NewPlumber(requiredFlagCommand)
+		log, _ := plumbertests.NewCaptureLogger()
+		fixture.Plumber.Log = log
+		fixture.Plumber.SetDocumentationOptions(plumber.DocumentationOptions{MarkdownOutputFile: output})
+
+		plumbertests.WithArgs("required-test", "docs", "markdown")
+
+		fixture.Plumber.Run()
+
+		Expect(fixture.ExitCodes()).To(BeEmpty())
+
+		data, err := os.ReadFile(output)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(data)).To(ContainSubstring("--token"))
+		Expect(string(data)).To(ContainSubstring(`\* required`))
+	})
+
+	It("should still enforce the required flags of the application outside of the documentation", func(_ SpecContext) {
+		fixture := plumbertests.NewPlumber(requiredFlagCommand)
+		log, _ := plumbertests.NewCaptureLogger()
+		fixture.Plumber.Log = log
+
+		plumbertests.WithArgs("required-test", "run")
+
+		fixture.Plumber.Run()
+
+		Expect(fixture.ExitCodes()).ToNot(BeEmpty())
+	})
 })
+
+// Creates an application that carries a required flag on its root command.
+func requiredFlagCommand(app *plumber.Plumber) *cli.Command {
+	return &cli.Command{
+		Name:        "required-test",
+		Description: "Application that can not run without its flags.",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "token",
+				Usage:    "Token of the application.",
+				Required: true,
+			},
+		},
+		Commands: []*cli.Command{
+			plumber.DocsCommand(app),
+			{
+				Name:        "run",
+				Description: "Runs the application.",
+				Action: func(_ context.Context, _ *cli.Command) error {
+					return nil
+				},
+			},
+		},
+	}
+}
 
 // Runs the documentation of the fixture application through the given subcommand and style.
 func renderDocumentationFixture(subcommand string, style ...string) string {
