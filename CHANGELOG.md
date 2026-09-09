@@ -1,3 +1,10 @@
+## [7.2.1](https://gitlab.kilic.dev/libraries/plumber/compare/v7.2.0...v7.2.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* run docs command without root required flags (K-1288) ([7c1e30e](https://gitlab.kilic.dev/libraries/plumber/commit/7c1e30e0dd6e996d632f5e2911896a54a912e850))
+
 # [7.2.0](https://gitlab.kilic.dev/libraries/plumber/compare/v7.1.0...v7.2.0) (2026-09-09)
 
 
