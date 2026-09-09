@@ -109,6 +109,10 @@ const (
 	logStatusPlumberSetup       string = "setup"
 )
 
+// The offset that the shell adds to the number of a signal to report the exit code of a process
+// that is stopped by it.
+const exitCodeSignalOffset int = 128
+
 // Creates a new Plumber instance and initiates it.
 func NewPlumber(fn PlumberNewFn) *Plumber {
 	p := &Plumber{}
@@ -340,6 +344,21 @@ func (p *Plumber) SendExit(code int) *Plumber {
 	p.exit(fmt.Sprintf("Will exit with code: %d", code), code)
 
 	return p
+}
+
+/*
+Returns the exit code that belongs to the given signal.
+
+The number of the signal is offset by 128 as the shell reports it, so a stop that is requested
+through SIGTERM or SIGINT is told apart from a failure of the application itself. A signal that
+does not carry a number falls back to the generic failure code.
+*/
+func SignalExitCode(sig os.Signal) int {
+	if s, ok := sig.(syscall.Signal); ok && s > 0 {
+		return exitCodeSignalOffset + int(s)
+	}
+
+	return 1
 }
 
 // Sends a terminate request to the application via interruption signal.
@@ -885,7 +904,7 @@ func (p *Plumber) registerInterruptHandler() {
 			fmt.Sprintf("Terminating the application with signal: %s", sig),
 		)
 
-		p.SendTerminate(sig, 127)
+		p.SendTerminate(sig, SignalExitCode(sig))
 	}()
 
 	p.Log.With(
