@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/charmbracelet/colorprofile v0.4.3
-	github.com/creasty/defaults v1.8.0
+	github.com/creasty/defaults v1.9.0
 	github.com/go-playground/validator/v10 v10.30.4
 	github.com/go-task/slim-sprig/v3 v3.0.0
 	github.com/joho/godotenv v1.5.1
