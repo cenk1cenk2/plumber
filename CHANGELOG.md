@@ -1,3 +1,9 @@
+## [7.2.4](https://gitlab.kilic.dev/libraries/plumber/compare/v7.2.3...v7.2.4) (2026-09-12)
+
+### Bug Fixes
+
+* **deps:** update module github.com/creasty/defaults to v1.9.0 ([4b815b6](https://gitlab.kilic.dev/libraries/plumber/commit/4b815b6cce0741444a6ba4603f9e4185a7170fb7))
+
 ## [7.2.3](https://gitlab.kilic.dev/libraries/plumber/compare/v7.2.2...v7.2.3) (2026-09-09)
 
 
