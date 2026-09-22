@@ -1,0 +1,31 @@
+amends "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Builtins.pkl"
+
+hooks {
+  // Fix and format the staged Go files only, never fail the commit on a lint
+  // finding: linting belongs to pre-push.
+  ["pre-commit"] {
+    fix = true
+    stash = "git"
+    steps {
+      ["golangci-lint-fmt"] = (Builtins.golangci_lint_fmt)
+    }
+  }
+  // Whole-repo gates, mirroring the `lint` and `test` tasks of the shared
+  // Taskfile (libraries/taskfiles). `go vet` is covered by golangci-lint's
+  // standard linter set, so it is not a separate step.
+  ["pre-push"] {
+    steps {
+      ["golangci-lint"] = (Builtins.golangci_lint)
+      ["go-test"] {
+        glob = List("**/*.go", "go.mod", "go.sum")
+        check = """
+          go tool ginkgo \
+          --cover --coverpkg=./... --coverprofile=coverage.out \
+          -vv --silence-skips --fail-fast -r \
+          ./...
+          """
+      }
+    }
+  }
+}
