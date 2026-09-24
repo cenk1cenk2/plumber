@@ -1,3 +1,9 @@
+## [7.2.7](https://gitlab.kilic.dev/libraries/plumber/compare/v7.2.6...v7.2.7) (2026-09-24)
+
+### Bug Fixes
+
+* **deps:** update go all minor dependency updates ([ebba2a7](https://gitlab.kilic.dev/libraries/plumber/commit/ebba2a716135972652ff5219a6340e63eea31420))
+
 ## [7.2.6](https://gitlab.kilic.dev/libraries/plumber/compare/v7.2.5...v7.2.6) (2026-09-20)
 
 ### Bug Fixes
