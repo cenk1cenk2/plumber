@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -95,35 +94,18 @@ func (r *commandRunner) Run(ctx context.Context, invocation CommandInvocation, r
 	}
 	command.WaitDelay = 10 * time.Second
 
-	stdout, err := command.StdoutPipe()
-	if err != nil {
-		return CommandResult{}, fmt.Errorf("Failed creating command stdout pipe: %w", err)
-	}
-
-	stderr, err := command.StderrPipe()
-	if err != nil {
-		return CommandResult{}, fmt.Errorf("Failed creating command stderr pipe: %w", err)
-	}
+	// The writers are handed to os/exec instead of reading from StdoutPipe/StderrPipe, because
+	// Wait closes those pipes as soon as the process exits and any output not yet read by then is
+	// silently lost. With plain writers os/exec copies the output itself and Wait only returns once
+	// the copying has finished, bounded by WaitDelay.
+	command.Stdout = runtime.Stdout
+	command.Stderr = runtime.Stderr
 
 	if err := command.Start(); err != nil {
 		return CommandResult{}, err
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		_, _ = io.Copy(runtime.Stdout, stdout)
-	}()
-
-	go func() {
-		defer wg.Done()
-		_, _ = io.Copy(runtime.Stderr, stderr)
-	}()
-
-	err = command.Wait()
-	wg.Wait()
+	err := command.Wait()
 
 	result := CommandResult{
 		Started:      true,
