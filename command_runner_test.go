@@ -1,10 +1,13 @@
 package plumber_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -470,6 +473,52 @@ var _ = Describe("command runners", func() {
 			command := fixture.NewTaskList("list").CreateTask("task").CreateCommand("mock")
 
 			Expect(func() { command.CaptureOutput(nil) }).To(Panic())
+		})
+	})
+
+	Context("process runner", func() {
+		run := func(ctx context.Context, script string) (string, string) {
+			var stdout, stderr bytes.Buffer
+			result, err := plumber.NewCommandRunner().Run(ctx, plumber.CommandInvocation{
+				Name: "sh",
+				Args: []string{"-c", script},
+			}, plumber.CommandRuntime{Stdout: &stdout, Stderr: &stderr})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Success).To(BeTrue())
+
+			return stdout.String(), stderr.String()
+		}
+
+		// A fast-exiting command on a single scheduler thread kept busy by spinning goroutines lets
+		// Wait observe the exit before any reader of the output got scheduled, which is exactly the
+		// window in which output used to be dropped while the command still reported success.
+		It("should deliver all output of fast-exiting commands under scheduling pressure", func(ctx SpecContext) {
+			DeferCleanup(goruntime.GOMAXPROCS, goruntime.GOMAXPROCS(1))
+
+			var done atomic.Bool
+			DeferCleanup(done.Store, true)
+
+			for range 4 {
+				go func() {
+					for !done.Load() {
+					}
+				}()
+			}
+
+			for i := range 100 {
+				stdout, stderr := run(ctx, fmt.Sprintf("echo out-%d; echo err-%d >&2", i, i))
+
+				Expect(stdout).To(Equal(fmt.Sprintf("out-%d\n", i)))
+				Expect(stderr).To(Equal(fmt.Sprintf("err-%d\n", i)))
+			}
+		})
+
+		It("should deliver output larger than the pipe buffer in full before returning", func(ctx SpecContext) {
+			stdout, stderr := run(ctx, "head -c 4194304 /dev/zero; head -c 1048576 /dev/zero >&2")
+
+			Expect(stdout).To(HaveLen(4194304))
+			Expect(stderr).To(HaveLen(1048576))
 		})
 	})
 })
