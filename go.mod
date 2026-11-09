@@ -3,7 +3,7 @@ module github.com/cenk1cenk2/plumber/v7
 go 1.27.0
 
 require (
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.0
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/creasty/defaults v1.11.0
 	github.com/go-playground/validator/v10 v10.30.6
